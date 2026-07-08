@@ -1,0 +1,1 @@
+export const INVESTMENTS_MODULE_VERSION = '0.0.0';

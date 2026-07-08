@@ -1,0 +1,44 @@
+{
+  "name": "web",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@repo/database": "workspace:*",
+    "@repo/design-system": "workspace:*",
+    "@repo/events": "workspace:*",
+    "@repo/identity": "workspace:*",
+    "@repo/module-ai": "workspace:*",
+    "@repo/module-budget": "workspace:*",
+    "@repo/module-finance": "workspace:*",
+    "@repo/module-goals": "workspace:*",
+    "@repo/module-reports": "workspace:*",
+    "@repo/security": "workspace:*",
+    "@repo/shared": "workspace:*",
+    "@repo/storage-web": "workspace:*",
+    "@repo/sync": "workspace:*",
+    "@repo/ui": "workspace:*",
+    "@repo/validation": "workspace:*",
+    "dexie": "^4.0.8",
+    "lucide-react": "^1.23.0",
+    "next": "^15.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.2",
+    "@types/node": "^20.14.9",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.5.2",
+    "postcss": "^8.5.16",
+    "tailwindcss": "^4.3.2",
+    "typescript": "^5.5.2"
+  }
+}
