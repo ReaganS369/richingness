@@ -31,9 +31,6 @@ import {
   Wifi,
   Info,
   X,
-  Zap,
-  Shield,
-  Sparkles,
   CheckCircle2,
   BarChart3,
   Activity,
@@ -47,6 +44,7 @@ import {
   recommendRecovery
 } from '@repo/module-budget';
 import { Account, aggregateMonthlyCashFlow } from '@repo/module-finance';
+import { AuthScreen } from '../components/AuthScreen';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 const NAV_LINKS = [
@@ -257,15 +255,17 @@ function SecondaryBtn({ children, className = '', ...p }: React.ButtonHTMLAttrib
 export default function Home() {
   const {
     session, activeTab, syncStatus, accounts, goals, ledger, categories,
-    login, logout, setActiveTab, setSyncStatus,
+    initAuth, logout, setActiveTab, setSyncStatus,
     addAccount, addTransaction, updateAllocation, addGoal,
     triggerRecovery, getBalances, getNetWorth, getBudgetTree,
     getGoalsProgress, getSpendingSummary, getBudgetHealth, triggerSyncPass
   } = useAppStore();
 
+  useEffect(() => {
+    initAuth();
+  }, [initAuth]);
+
   // ── Local state ──────────────────────────────────────────────────────────
-  const [emailInput, setEmailInput]   = useState('');
-  const [nameInput, setNameInput]     = useState('');
   const [showAddTxModal,    setShowAddTxModal]    = useState(false);
   const [showAddAcctModal,  setShowAddAcctModal]  = useState(false);
   const [showAddGoalModal,  setShowAddGoalModal]  = useState(false);
@@ -312,79 +312,7 @@ export default function Home() {
 
   // ── Login Screen ─────────────────────────────────────────────────────────
   if (!session) {
-    return (
-      <div className="min-h-screen bg-mesh flex items-center justify-center p-4 relative overflow-hidden">
-        {/* Background orbs */}
-        <div className="absolute top-1/4 left-1/3 w-96 h-96 rounded-full bg-primary/8 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-1/4 right-1/3 w-64 h-64 rounded-full bg-success/6 blur-3xl pointer-events-none" />
-
-        <div className="relative w-full max-w-sm animate-fade-up">
-          {/* Logo */}
-          <div className="flex flex-col items-center mb-10">
-            <div className="relative mb-4">
-              <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center shadow-glow-lg animate-glow-pulse">
-                <span className="font-display font-black text-2xl text-white">R</span>
-              </div>
-              <div className="absolute -inset-1.5 rounded-2xl border border-primary/30 animate-pulse-ring pointer-events-none" />
-            </div>
-            <h1 className="font-display font-black text-3xl text-gradient-primary tracking-tight">Richingness</h1>
-            <p className="text-textSecondary text-sm mt-1.5">Financial Operating System</p>
-          </div>
-
-          {/* Card */}
-          <div className="glass-heavy rounded-2xl border border-border shadow-2xl p-8">
-            <h2 className="font-display font-bold text-xl text-textPrimary mb-1">Welcome back</h2>
-            <p className="text-textSecondary text-sm mb-7">Sign in to your workspace</p>
-
-            <form
-              onSubmit={(e) => { e.preventDefault(); if (emailInput) login(emailInput, nameInput || 'Developer'); }}
-              className="space-y-4"
-            >
-              <Field label="Email Address">
-                <input
-                  type="email" required value={emailInput}
-                  onChange={(e) => setEmailInput(e.target.value)}
-                  placeholder="you@richingness.com"
-                  className={inputCls}
-                />
-              </Field>
-              <Field label="Display Name">
-                <input
-                  type="text" value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
-                  placeholder="Your Name"
-                  className={inputCls}
-                />
-              </Field>
-              <button
-                type="submit"
-                className="w-full bg-primary hover:bg-primaryLight text-white font-semibold py-3 rounded-xl transition-all shadow-glow hover:shadow-glow-lg text-sm mt-2 flex items-center justify-center gap-2"
-              >
-                <Zap className="w-4 h-4" />
-                Access Workspace
-              </button>
-            </form>
-
-            {/* Trust signals */}
-            <div className="flex items-center gap-4 mt-6 pt-5 border-t border-border/50">
-              {[
-                { icon: Shield, label: 'End-to-end encrypted' },
-                { icon: Sparkles, label: 'Offline-first' },
-              ].map(({ icon: Icon, label }) => (
-                <div key={label} className="flex items-center gap-1.5 text-2xs text-textMuted">
-                  <Icon className="w-3 h-3" />
-                  <span>{label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <p className="text-center text-2xs text-textMuted mt-6">
-            Richingness Platform · v2.0 · Phase 2.5
-          </p>
-        </div>
-      </div>
-    );
+    return <AuthScreen />;
   }
 
   const now = new Date();

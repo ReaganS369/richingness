@@ -1,4 +1,4 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { ISyncAdapter, SyncPullResponse } from './interfaces.js';
 import { PendingOperation } from './outbox.js';
 import { 
@@ -14,16 +14,34 @@ import {
 export class SupabaseSyncAdapter implements ISyncAdapter {
   private supabase: SupabaseClient | null = null;
 
-  constructor(supabaseUrl?: string, supabaseAnonKey?: string) {
-    const url = supabaseUrl || (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_SUPABASE_URL : undefined);
-    const key = supabaseAnonKey || (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY : undefined);
-
-    if (url && key) {
-      this.supabase = createClient(url, key, {
-        auth: { persistSession: false }
-      });
+  constructor(supabaseClient?: SupabaseClient) {
+    if (supabaseClient) {
+      this.supabase = supabaseClient;
     } else {
       console.warn('Supabase connection parameters missing. Sync adapter running in local demo mode.');
+    }
+  }
+
+  public async verifySchema(): Promise<{ valid: boolean, missingTables: string[] }> {
+    if (!this.supabase) {
+      return { valid: false, missingTables: [] }; // In offline demo mode, just ignore
+    }
+
+    try {
+      const { data, error } = await this.supabase.rpc('verify_schema');
+      if (error) {
+        console.error('Failed to run schema verification. Is the migration deployed?', error.message);
+        return { valid: false, missingTables: ['migration_not_applied'] };
+      }
+
+      const res = data as { valid: boolean, missing_tables: string[] };
+      return {
+        valid: res.valid,
+        missingTables: res.missing_tables || []
+      };
+    } catch (err: any) {
+      console.error('Error executing verify_schema:', err);
+      return { valid: false, missingTables: ['unknown_error'] };
     }
   }
 
@@ -159,7 +177,10 @@ export class SupabaseSyncAdapter implements ISyncAdapter {
           name: payload.name,
           rollover_mode: payload.rolloverMode,
           budget_amount: payload.budgetAmount?.toString(), // bigint to string representation
-          priority: payload.priority
+          priority: payload.priority,
+          is_income: payload.isIncome,
+          is_hidden: payload.isHidden,
+          sort_order: payload.sortOrder
         };
       case 'ledger':
         return {

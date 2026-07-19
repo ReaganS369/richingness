@@ -28,7 +28,8 @@ export function aggregateMonthlyCashFlow(
     }
 
     const data = map.get(monthYear)!;
-    const amountInBase = BigInt(Math.floor(Number(op.amount) * op.exchangeRate));
+    const rateMultiplier = BigInt(Math.round(op.exchangeRate * 1000000));
+    const amountInBase = (op.amount * rateMultiplier) / 1000000n;
 
     if (op.type === 'INCOME') {
       data.income += amountInBase;

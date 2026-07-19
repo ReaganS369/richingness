@@ -43,8 +43,10 @@ export type TabId = 'dashboard' | 'accounts' | 'budget' | 'transactions' | 'goal
 export type SyncStatusType = 'offline' | 'connecting' | 'pulling' | 'pushing' | 'synced' | 'failed' | 'conflict' | 'syncing' | 'pending';
 
 interface UserSession {
+  id: string;
   email: string;
   name: string;
+  avatar_url?: string;
 }
 
 interface AppState {
@@ -64,9 +66,11 @@ interface AppState {
   initializeStore: (userId: string) => Promise<void>;
   triggerSyncPass: () => Promise<void>;
 
+  // Auth Initialization
+  initAuth: () => void;
+
   // Actions
-  login: (email: string, name: string) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   setActiveTab: (tab: TabId) => void;
   setSyncStatus: (status: SyncStatusType) => void;
   
@@ -133,6 +137,18 @@ const initialGoals: SavingGoal[] = [
   { id: 'goal-macbook', name: 'M4 MacBook Pro', targetAmount: 20000000n, currentAmount: 5000000n, monthlyContribution: 1500000n, targetDate: new Date('2026-12-31') }
 ];
 
+import { AuthService } from '@repo/identity';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_SUPABASE_URL : undefined;
+const supabaseAnonKey = typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY : undefined;
+
+export const supabase = (supabaseUrl && supabaseAnonKey) 
+  ? createClient(supabaseUrl, supabaseAnonKey) 
+  : undefined;
+
+export const authService = new AuthService(supabase);
+
 let globalRepository: IRepository | null = null;
 let activeSyncEngine: SyncEngine | null = null;
 let activeSyncWorker: BackgroundSyncWorker | null = null;
@@ -154,7 +170,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const scopedRepo = repo.forUser(userId);
 
     // 2. Initialize sync components
-    const supabaseAdapter = new SupabaseSyncAdapter();
+    const supabaseAdapter = new SupabaseSyncAdapter(supabase);
     const syncEng = new SyncEngine(scopedRepo, supabaseAdapter, 'web-client-device');
     const worker = new BackgroundSyncWorker(syncEng, 15000);
 
@@ -199,7 +215,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
 
     // 5. Start background sync service
-    worker.start();
+    const schemaCheck = await supabaseAdapter.verifySchema();
+    if (schemaCheck.valid) {
+      worker.start();
+    } else {
+      console.warn('Sync engine disabled: Schema missing or invalid. Missing tables:', schemaCheck.missingTables);
+      set({ syncStatus: 'offline' });
+    }
   },
 
   triggerSyncPass: async () => {
@@ -208,12 +230,34 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  login: (email, name) => {
-    set({ session: { email, name } });
-    get().initializeStore(email);
+  initAuth: () => {
+    // Check initial session
+    authService.getSession().then((session) => {
+      if (session) {
+        authService.getCurrentUser().then(user => {
+          if (user) {
+            set({ session: { id: user.id, email: user.email, name: user.displayName || 'User', avatar_url: user.avatarUrl } });
+            get().initializeStore(user.email); // using email for db scope as before
+          }
+        });
+      }
+    });
+
+    // Listen for auth state changes
+    authService.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        const user = await authService.getCurrentUser();
+        if (user) {
+          set({ session: { id: user.id, email: user.email, name: user.displayName || 'User', avatar_url: user.avatarUrl } });
+          get().initializeStore(user.email);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        get().logout();
+      }
+    });
   },
 
-  logout: () => {
+  logout: async () => {
     if (activeSyncWorker) {
       activeSyncWorker.stop();
     }
@@ -221,6 +265,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     activeSyncEngine = null;
     activeSyncWorker = null;
     set({ session: null, syncStatus: 'offline', accounts: [], categories: [], ledger: [], goals: [] });
+    await authService.signOut();
   },
 
   setActiveTab: (activeTab) => set({ activeTab }),

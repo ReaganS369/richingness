@@ -28,7 +28,8 @@ export function calculateNetWorth(
 
     const rate = exchangeRates[acct.currency] || 1;
     // Cleared balance represents the actual confirmed cash balance
-    const balanceInBase = BigInt(Math.floor(Number(bal.clearedBalance) * rate));
+    const rateMultiplier = BigInt(Math.round(rate * 1000000));
+    const balanceInBase = (bal.clearedBalance * rateMultiplier) / 1000000n;
 
     if (assetTypes.includes(acct.type)) {
       totalAssets += balanceInBase;

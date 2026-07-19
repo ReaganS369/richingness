@@ -34,7 +34,8 @@ export function convertCurrency(
     throw new Error(`No exchange rate found from ${fromCurrency} to ${toCurrency} on or before ${date.toDateString()}`);
   }
 
-  const converted = BigInt(Math.floor(Number(amount) * matchedRate.rate));
+  const rateMultiplier = BigInt(Math.round(matchedRate.rate * 1000000));
+  const converted = (amount * rateMultiplier) / 1000000n;
 
   return {
     amount: converted,

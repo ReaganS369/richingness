@@ -50,7 +50,8 @@ export function allocateIncome(income: bigint, rules: AllocationRule[]): Allocat
   for (const rule of percentageRules) {
     if (remainingIncome <= 0n) break;
     // Calculate percentage based on total initial income
-    const calculatedAmount = BigInt(Math.max(0, Math.floor(Number(income) * rule.value)));
+    const percentageInt = BigInt(Math.round(rule.value * 1000000));
+    const calculatedAmount = (income * percentageInt) / 1000000n;
     const allocated = calculatedAmount > remainingIncome ? remainingIncome : calculatedAmount;
     allocations.set(rule.categoryId, (allocations.get(rule.categoryId) || 0n) + allocated);
     remainingIncome -= allocated;

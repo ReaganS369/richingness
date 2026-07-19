@@ -31,6 +31,7 @@ export interface SyncPullResponse {
 export interface ISyncAdapter {
   pushOperations(operations: PendingOperation[]): Promise<string[]>; // Returns successfully pushed operation IDs
   pullChanges(lastSyncedAt: Date | null): Promise<SyncPullResponse>;
+  verifySchema(): Promise<{ valid: boolean, missingTables: string[] }>;
 }
 
 export interface ISyncEngine {
