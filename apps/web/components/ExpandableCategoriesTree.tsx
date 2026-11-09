@@ -434,7 +434,7 @@ export function ExpandableCategoriesTree({
   const categories = useAppStore(state => state.categories);
 
   // Production preset: Figma Life Budget (with full 5-level deep hierarchy)
-  const [activePresetId, setActivePresetId] = useState<'figma-life-budget' | 'user-demo-200' | 'five-level-test'>('figma-life-budget');
+  const activePresetId: 'figma-life-budget' | 'user-demo-200' | 'five-level-test' = 'figma-life-budget';
   const activeProfile = REFINED_PROFILE;
 
   // Custom pool override

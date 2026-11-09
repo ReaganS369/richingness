@@ -249,7 +249,6 @@ export default function Home() {
         setActiveTab(tabParam as TabId);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Local state ──────────────────────────────────────────────────────────
@@ -295,8 +294,8 @@ export default function Home() {
   const budgetHealth   = getBudgetHealth();
 
   const totalBalanceRupees = Number(netWorth) / 100;
-  const totalIncomeRupees = Number(spendingSummary.totalIncome) / 100;
-  const totalExpenseRupees = Number(spendingSummary.totalExpense) / 100;
+  const totalIncomeRupees = Number(ledger.filter(op => op.type === 'INCOME').reduce((sum, op) => sum + op.amount, 0n)) / 100;
+  const totalExpenseRupees = Number(spendingSummary.totalSpent) / 100;
 
   const now = new Date();
   const monthLabel = now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });

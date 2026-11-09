@@ -228,7 +228,6 @@ export function ProfileSection() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // ── Profiles System ("This, That, and Those") ────────────────────────────
-  const isSessionGuest = !session || session.isGuest;
   const [profiles, setProfiles] = useState<UserProfileItem[]>(DEFAULT_PROFILES);
   const [activeProfileId, setActiveProfileId] = useState<string>('prof-guest');
 
@@ -295,7 +294,7 @@ export function ProfileSection() {
 
   const accountsList: SettingAccountItem[] = accounts.map(a => {
     const bal = balances.get(a.id);
-    const amountRupees = bal ? Number(bal.currentBalance / 100n) : 0;
+    const amountRupees = bal ? Number((bal.clearedBalance + bal.pendingBalance) / 100n) : 0;
     return {
       id: a.id,
       name: a.name,

@@ -199,7 +199,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Clean up any legacy starter demo seed records if present
     const isLegacyDemo = accounts.some(a => a.id === 'acct-hdfc' && a.name.includes('HDFC Salary'));
     if (isLegacyDemo) {
-      const rawRepo = scopedRepo as any;
+      const rawRepo = scopedRepo as unknown as {
+        saveAccount: (record: unknown) => Promise<void>;
+        saveCategory: (record: unknown) => Promise<void>;
+        saveTransaction: (record: unknown) => Promise<void>;
+        saveGoal: (record: unknown) => Promise<void>;
+      };
       for (const a of accounts) await rawRepo.saveAccount({ ...a, deletedAt: new Date() });
       for (const c of categories) await rawRepo.saveCategory({ ...c, deletedAt: new Date() });
       for (const l of ledger) await rawRepo.saveTransaction({ ...l, deletedAt: new Date() });

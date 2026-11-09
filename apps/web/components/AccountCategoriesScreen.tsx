@@ -147,7 +147,6 @@ export function AccountCategoriesScreen({
 
   // Currency Tab State
   const [currencyFilter, setCurrencyFilter] = useState<'all' | 'fiat' | 'crypto'>('all');
-  const [defaultCurrency, setDefaultCurrency] = useState('INR');
   const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>(['INR', 'USD', 'EUR', 'GBP', 'BTC', 'ETH']);
 
   const showToast = (msg: string) => {
@@ -978,7 +977,7 @@ export function AccountCategoriesScreen({
                 <label className="text-xs text-[#7D8F72] font-semibold">Account Type</label>
                 <select
                   value={newAccountType}
-                  onChange={(e) => setNewAccountType(e.target.value as any)}
+                  onChange={(e) => setNewAccountType(e.target.value as 'checking' | 'savings' | 'credit' | 'cash')}
                   className="w-full bg-[#1A2214] border border-[#2B3822] focus:border-[#4A622F] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none mt-1 cursor-pointer"
                 >
                   <option value="savings">Savings Account</option>
