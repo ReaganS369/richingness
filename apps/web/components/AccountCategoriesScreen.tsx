@@ -348,16 +348,11 @@ export function AccountCategoriesScreen({
     }
   }, []);
 
-  const accountOptions = accounts.length > 0 ? accounts : [
-    { id: 'acct-hdfc', name: 'HDFC Bank Savings', type: 'savings' },
-    { id: 'acct-paytm', name: 'Paytm Wallet', type: 'checking' },
-    { id: 'acct-axis', name: 'Axis Credit Card', type: 'credit' },
-    { id: 'acct-piggy', name: 'Piggy Bank', type: 'cash' },
-  ];
+  const accountOptions = accounts;
   const activeAccountObj = accountOptions.find(a => a.id === selectedAccountId) || accountOptions[0];
 
   return (
-    <div className="w-full max-w-[360px] mx-auto text-white select-none animate-fade-in pb-8">
+    <div className="w-full max-w-md mx-auto text-white select-none animate-fade-in pb-8">
 
       {/* ── Toast Notification ── */}
       {toastMessage && (

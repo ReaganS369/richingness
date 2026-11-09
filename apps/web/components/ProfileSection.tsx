@@ -185,7 +185,7 @@ function Modal({
       onClick={onClose}
     >
       <div
-        className="bg-[#1C1A16] border border-[#2F2C25] rounded-2xl w-full max-w-[360px] sm:max-w-md text-white shadow-2xl animate-scale-in flex flex-col max-h-[80vh] overflow-hidden"
+        className="bg-[#1C1A16] border border-[#2F2C25] rounded-2xl w-full max-w-sm sm:max-w-md text-white shadow-2xl animate-scale-in flex flex-col max-h-[85vh] overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -215,7 +215,6 @@ export function ProfileSection() {
   const triggerSyncPass = useAppStore(state => state.triggerSyncPass);
   const updateProfile = useAppStore(state => state.updateProfile);
   const resetDatabaseToDefaults = useAppStore(state => state.resetDatabaseToDefaults);
-  const loginAsDemo = useAppStore(state => state.loginAsDemo);
   const logout = useAppStore(state => state.logout);
   const addGoal = useAppStore(state => state.addGoal);
   const exportAllData = useAppStore(state => state.exportAllData);
@@ -412,15 +411,6 @@ export function ProfileSection() {
     }
   };
 
-  const handleDemoSignIn = async () => {
-    await loginAsDemo('Arjun Kumar', 'arjun@gmail.com');
-    setActiveProfileId('prof-arjun-personal');
-    setEditName('Arjun Kumar');
-    setEditEmail('arjun@gmail.com');
-    setShowAuthModal(false);
-    showToast('Signed in as Arjun Kumar!');
-  };
-
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
     if (editName.trim()) {
@@ -523,7 +513,7 @@ export function ProfileSection() {
   }
 
   return (
-    <div className="w-full max-w-sm sm:max-w-md mx-auto space-y-4 text-white pb-6 select-none animate-fade-up">
+    <div className="w-full max-w-md mx-auto space-y-4 text-white pb-6 select-none animate-fade-up">
 
       {/* ── Toast Notification ── */}
       {feedbackMsg && (
@@ -1070,20 +1060,6 @@ export function ProfileSection() {
       {/* ── 4. Auth Modal ── */}
       {showAuthModal && (
         <Modal title={authMode === 'signin' ? 'Sign In' : 'Create Account'} onClose={() => setShowAuthModal(false)}>
-          {/* Quick Demo Login Option */}
-          <div className="p-3 bg-[#485F2C]/30 border border-[#587437] rounded-xl flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-white">Figma Profile Preview</p>
-              <p className="text-2xs text-white/70">Sign in instantly as Arjun Kumar</p>
-            </div>
-            <button
-              onClick={handleDemoSignIn}
-              className="px-3 py-1.5 bg-[#485F2C] hover:bg-[#587437] text-white text-xs font-bold rounded-lg transition-all cursor-pointer shadow"
-            >
-              Try Demo
-            </button>
-          </div>
-
           {/* Mode Switch Tabs */}
           <div className="flex bg-[#12110E] p-1 rounded-xl border border-[#282622]">
             <button
@@ -1121,7 +1097,7 @@ export function ProfileSection() {
                   required
                   value={authName}
                   onChange={e => setAuthName(e.target.value)}
-                  placeholder="Arjun Kumar"
+                  placeholder="Your Name"
                   className="w-full bg-[#12110E] border border-[#282622] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#485F2C]"
                 />
               </div>
@@ -1133,7 +1109,7 @@ export function ProfileSection() {
                 required
                 value={authEmail}
                 onChange={e => setAuthEmail(e.target.value)}
-                placeholder="arjun@gmail.com"
+                placeholder="name@example.com"
                 className="w-full bg-[#12110E] border border-[#282622] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#485F2C]"
               />
             </div>

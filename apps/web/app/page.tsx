@@ -486,9 +486,9 @@ export default function Home() {
           <div
             className={`w-full mx-auto animate-fade-up ${
               activeTab === 'dashboard'
-                ? 'max-w-md p-3.5 sm:p-4 pb-24 space-y-3'
+                ? 'max-w-md p-3.5 sm:p-4 pb-28 space-y-3'
                 : activeTab === 'settings'
-                ? 'w-full max-w-[357px] mx-auto px-3 sm:px-0 pb-24'
+                ? 'w-full max-w-md mx-auto p-3.5 sm:p-4 pb-28'
                 : 'max-w-5xl p-4 sm:p-6 md:p-8 pb-24 space-y-5'
             }`}
           >
@@ -498,7 +498,7 @@ export default function Home() {
               <div className="space-y-3 flex-1 flex flex-col">
 
                 {/* ── Total Balance 2.0 Card (Figma Width 357px, Height 134px, Radius 12px, Color #4A622F) ── */}
-                <div className="w-full max-w-[357px] mx-auto bg-[#4A622F] rounded-[12px] p-4 text-white shadow-xl min-h-[134px] flex flex-col justify-between shrink-0">
+                <div className="w-full bg-[#4A622F] rounded-[14px] p-4 text-white shadow-xl min-h-[134px] flex flex-col justify-between shrink-0">
                   <div>
                     <p className="text-white/85 text-xs font-medium">Total Balance</p>
                     <h1 className="text-2xl sm:text-3xl font-extrabold text-white mt-0.5 tracking-tight num-display">
@@ -524,7 +524,7 @@ export default function Home() {
                 </div>
 
                 {/* ── Search & Filter Bar (Figma Search Height 40px, Radius 12px, Filter 38x38 Radius 12px, Color #211F1B) ── */}
-                <div className="w-full max-w-[357px] mx-auto flex items-center gap-2 shrink-0">
+                <div className="w-full flex items-center gap-2 shrink-0">
                   <div className="flex-1 bg-[#211F1B] rounded-[12px] h-[40px] px-3.5 flex items-center gap-2.5 border border-[#2D2A24]/60">
                     <Search className="w-4 h-4 text-[#8E8A82] shrink-0" />
                     <input
@@ -595,12 +595,12 @@ export default function Home() {
                 </div>
 
                 {/* ── Section Title: Categories ── */}
-                <div className="w-full max-w-[357px] mx-auto pt-1 pb-0 shrink-0">
+                <div className="w-full pt-1 pb-0 shrink-0">
                   <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">Categories</h2>
                 </div>
 
                 {/* ── Expandable Categories Hierarchical Tree (Exact Image 5 Design) ── */}
-                <div className="w-full max-w-[357px] mx-auto pb-4">
+                <div className="w-full pb-4">
                   <ExpandableCategoriesTree
                     searchQuery={categorySearch}
                     filter={categoryFilter}

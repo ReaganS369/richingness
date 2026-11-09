@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
 @import "tailwindcss";
 
 /* ── Tailwind v4 Theme Tokens ────────────────────────────────────────────── */
@@ -201,6 +199,7 @@ html, body {
   z-index: 50 !important;
   background-color: #0A0A0A !important;
   border-top: 1px solid #1C1C1C !important;
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0.75rem)) !important;
 }
 
 /* ── Scrollbars ──────────────────────────────────────────────────────────── */

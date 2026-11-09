@@ -69,7 +69,6 @@ interface AppState {
 
   // Auth Initialization
   initAuth: () => void;
-  loginAsDemo: (name?: string, email?: string) => Promise<void>;
   updateProfile: (name: string, email?: string) => Promise<void>;
   resetDatabaseToDefaults: () => Promise<void>;
   exportAllData: () => Promise<string>;
@@ -243,32 +242,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().initializeStore(getUserKey(currentUser));
   },
 
-  loginAsDemo: async (name = 'Arjun Kumar', email = 'arjun@gmail.com') => {
-    const demoSession: UserSession = {
-      id: 'usr-arjun-569',
-      email,
-      name,
-      avatar_url: '',
-      isGuest: false
-    };
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('richingness_demo_session', JSON.stringify(demoSession));
-    }
-    set({ session: demoSession });
-    await get().initializeStore(getUserKey(demoSession));
-  },
-
   updateProfile: async (name: string, email?: string) => {
     const current = get().session;
     const updated: UserSession = {
-      id: current?.id && current.id !== 'guest' ? current.id : 'usr-arjun-569',
+      id: current?.id && current.id !== 'guest' ? current.id : 'usr-active-user',
       name,
-      email: email || current?.email || 'arjun@gmail.com',
+      email: email || current?.email || '',
       avatar_url: current?.avatar_url || '',
       isGuest: false
     };
     if (typeof window !== 'undefined') {
-      localStorage.setItem('richingness_demo_session', JSON.stringify(updated));
+      localStorage.setItem('richingness_session', JSON.stringify(updated));
     }
     set({ session: updated });
   },
