@@ -20,7 +20,7 @@ describe('Richingness Stress and Logic Test', () => {
       const category: BudgetCategory = {
         id: `[QA]-cat-${i}`,
         name: `QA Category ${i}`,
-        parentId: i > 0 ? `[QA]-cat-${i - 1}` : undefined,
+        parentId: i > 0 ? `[QA]-cat-${i - 1}` : null,
         budgetAmount: 500n,
         rolloverMode: 'none',
         priority: i,

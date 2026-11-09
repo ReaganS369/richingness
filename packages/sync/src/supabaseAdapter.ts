@@ -24,23 +24,66 @@ export class SupabaseSyncAdapter implements ISyncAdapter {
 
   public async verifySchema(): Promise<{ valid: boolean, missingTables: string[] }> {
     if (!this.supabase) {
-      return { valid: false, missingTables: [] }; // In offline demo mode, just ignore
+      return { valid: false, missingTables: [] };
     }
 
     try {
-      const { data, error } = await this.supabase.rpc('verify_schema');
-      if (error) {
-        console.error('Failed to run schema verification. Is the migration deployed?', error.message);
-        return { valid: false, missingTables: ['migration_not_applied'] };
+      const { data: authData, error: authError } = await this.supabase.auth.getSession();
+      if (authError || !authData.session) {
+        console.warn('Sync engine: User not authenticated');
+        return { valid: false, missingTables: ['not_authenticated'] };
       }
 
-      const res = data as { valid: boolean, missing_tables: string[] };
-      return {
-        valid: res.valid,
-        missingTables: res.missing_tables || []
-      };
+      const expectedTables = [
+        'accounts',
+        'budget_categories',
+        'ledger_operations',
+        'saving_goals',
+        'devices',
+        'user_preferences',
+        'audit_logs'
+      ];
+      
+      const missingTables: string[] = [];
+
+      for (const table of expectedTables) {
+        const { error } = await this.supabase
+          .schema('richingness')
+          .from(table)
+          .select('id')
+          .limit(1);
+          
+        if (error) {
+          const msg = error.message?.toLowerCase() || '';
+          const code = error.code || '';
+          
+          if (msg.includes('schema') && msg.includes('must be one of')) {
+             console.error(`Schema 'richingness' is not exposed in Supabase API settings. You must add 'richingness' to the exposed schemas list in the Supabase dashboard.`);
+             return { valid: false, missingTables: ['schema_not_exposed'] };
+          } else if (msg.includes('relation') || msg.includes('does not exist') || code === '42P01' || code === 'PGRST106') {
+             missingTables.push(table);
+          } else if (msg.includes('permission denied') || msg.includes('row level security') || code === '42501') {
+             console.error(`RLS or permission issue on table ${table}:`, error.message);
+             return { valid: false, missingTables: ['rls_error_or_permission_denied'] };
+          } else {
+             console.error(`Unexpected Supabase error verifying table ${table}:`, error);
+             return { valid: false, missingTables: ['unexpected_error'] };
+          }
+        }
+      }
+
+      if (missingTables.length > 0) {
+        console.warn('Richingness schema check failed. Missing tables:', missingTables);
+        return { valid: false, missingTables };
+      }
+
+      return { valid: true, missingTables: [] };
     } catch (err: any) {
-      console.error('Error executing verify_schema:', err);
+      console.error('Error executing verifySchema:', err);
+      // Determine if it was a connection failure (e.g. fetch failed)
+      if (err.message && (err.message.includes('fetch') || err.message.includes('network'))) {
+        return { valid: false, missingTables: ['connection_failure'] };
+      }
       return { valid: false, missingTables: ['unknown_error'] };
     }
   }
@@ -60,6 +103,7 @@ export class SupabaseSyncAdapter implements ISyncAdapter {
         const mappedPayload = this.toRemotePayload(op.table, op.payload);
 
         const { error } = await this.supabase
+          .schema('richingness')
           .from(remoteTable)
           .upsert(mappedPayload);
 
@@ -123,7 +167,7 @@ export class SupabaseSyncAdapter implements ISyncAdapter {
   ): Promise<T[]> {
     if (!this.supabase) return [];
 
-    let query = this.supabase.from(tableName).select('*');
+    let query = this.supabase.schema('richingness').from(tableName).select('*');
     if (lastSyncedAt) {
       query = query.gt('updated_at', lastSyncedAt.toISOString());
     }

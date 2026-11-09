@@ -113,22 +113,94 @@
   *, *::before, *::after { box-sizing: border-box; }
 
   html {
+    height: 100%;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
 
   body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
     font-family: "Inter", sans-serif;
-    background-color: #070710;
+    background-color: #161512;
     color: #F0F0FC;
-    overflow-x: hidden;
+    overflow: hidden;
+  }
+
+  nextjs-portal {
+    display: none !important;
   }
 
   ::selection {
     background: rgba(124, 92, 252, 0.3);
     color: #F0F0FC;
   }
+}
+
+/* ── Mobile-First Shell & Snapped Bottom Nav ─────────────────────────────── */
+html, body {
+  height: 100% !important;
+  max-height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  background-color: #161512 !important;
+}
+
+.app-root-shell {
+  display: flex !important;
+  height: 100% !important;
+  height: 100dvh !important;
+  max-height: 100% !important;
+  max-height: 100dvh !important;
+  width: 100% !important;
+  overflow: hidden !important;
+  background-color: #161512 !important;
+}
+
+.app-workspace-shell {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  width: 100% !important;
+  overflow: hidden !important;
+  position: relative !important;
+}
+
+.app-main-scroll {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  height: auto !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain !important;
+}
+
+.app-main-no-scroll {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  overflow-y: hidden !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: none !important;
+  touch-action: pan-x pinch-zoom !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.app-bottom-nav {
+  flex-shrink: 0 !important;
+  width: 100% !important;
+  z-index: 50 !important;
+  background-color: #0A0A0A !important;
+  border-top: 1px solid #1C1C1C !important;
 }
 
 /* ── Scrollbars ──────────────────────────────────────────────────────────── */
@@ -268,3 +340,88 @@ select option {
   background-color: #0E0E1A;
   color: #F0F0FC;
 }
+
+/* ── Ultra-Smooth Lightweight Tree Accordion Transitions ── */
+.tree-branch-grid {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 220ms cubic-bezier(0.25, 1, 0.5, 1),
+              opacity 180ms cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: grid-template-rows, opacity;
+}
+
+.tree-branch-grid.is-expanded {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.tree-branch-content {
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── Custom Figma 2.0 Allocation Slider & Number Inputs ── */
+.figma-allocation-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: #252D1E;
+  border-radius: 9999px;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.figma-allocation-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #DCE8C8;
+  border: 2px solid #3E5325;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(220, 232, 200, 0.2);
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.figma-allocation-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  background: #EDF5DE;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 8px rgba(168, 224, 99, 0.4);
+}
+
+.figma-allocation-slider::-webkit-slider-thumb:active {
+  transform: scale(1.25);
+  background: #FFFFFF;
+}
+
+.figma-allocation-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #DCE8C8;
+  border: 2px solid #3E5325;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.figma-allocation-slider::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  background: #EDF5DE;
+}
+
+/* Hide spin buttons on number inputs */
+.no-spin::-webkit-inner-spin-button,
+.no-spin::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.no-spin {
+  -moz-appearance: textfield;
+}
+
+

@@ -42,11 +42,12 @@ import { IRepository } from '@repo/database';
 export type TabId = 'dashboard' | 'accounts' | 'budget' | 'transactions' | 'goals' | 'reports' | 'settings';
 export type SyncStatusType = 'offline' | 'connecting' | 'pulling' | 'pushing' | 'synced' | 'failed' | 'conflict' | 'syncing' | 'pending';
 
-interface UserSession {
+export interface UserSession {
   id: string;
   email: string;
   name: string;
   avatar_url?: string;
+  isGuest?: boolean;
 }
 
 interface AppState {
@@ -68,6 +69,11 @@ interface AppState {
 
   // Auth Initialization
   initAuth: () => void;
+  loginAsDemo: (name?: string, email?: string) => Promise<void>;
+  updateProfile: (name: string, email?: string) => Promise<void>;
+  resetDatabaseToDefaults: () => Promise<void>;
+  exportAllData: () => Promise<string>;
+  importAllData: (jsonData: string) => Promise<{ success: boolean; count: number; error?: string }>;
 
   // Actions
   logout: () => Promise<void>;
@@ -111,31 +117,6 @@ interface AppState {
 }
 
 // Initial Seed Data (Standard values loaded if IndexedDB is uninitialized)
-const initialAccounts: Account[] = [
-  { id: 'acc-hdfc', name: 'HDFC Bank Checking', type: 'checking', currency: 'INR' },
-  { id: 'acc-icici', name: 'ICICI Credit Card', type: 'credit', currency: 'INR' },
-  { id: 'acc-cash', name: 'Physical Cash Wallet', type: 'cash', currency: 'INR' }
-];
-
-const initialCategories: BudgetCategory[] = [
-  { id: 'cat-needs', parentId: null, name: 'Needs', rolloverMode: 'carry', budgetAmount: 80000n, priority: 5, isIncome: false, isHidden: false, sortOrder: 1 },
-  { id: 'cat-food', parentId: 'cat-needs', name: 'Groceries & Dining', rolloverMode: 'carry', budgetAmount: 20000n, priority: 4, isIncome: false, isHidden: false, sortOrder: 1 },
-  { id: 'cat-rent', parentId: 'cat-needs', name: 'House Rent', rolloverMode: 'recover', budgetAmount: 40000n, priority: 5, isIncome: false, isHidden: false, sortOrder: 2 },
-  
-  { id: 'cat-wants', parentId: null, name: 'Wants', rolloverMode: 'none', budgetAmount: 30000n, priority: 3, isIncome: false, isHidden: false, sortOrder: 2 },
-  { id: 'cat-entertainment', parentId: 'cat-wants', name: 'Streaming & Games', rolloverMode: 'none', budgetAmount: 10000n, priority: 2, isIncome: false, isHidden: false, sortOrder: 1 },
-  { id: 'cat-clothing', parentId: 'cat-wants', name: 'Apparel & Shopping', rolloverMode: 'none', budgetAmount: 15000n, priority: 3, isIncome: false, isHidden: false, sortOrder: 2 }
-];
-
-const initialLedger: LedgerOperation[] = [
-  { id: 'op-init-checking', accountId: 'acc-hdfc', type: 'INCOME', amount: 15000000n, currency: 'INR', exchangeRate: 1.0, date: new Date() }, 
-  { id: 'op-init-rent', accountId: 'acc-hdfc', type: 'EXPENSE', amount: 4000000n, currency: 'INR', exchangeRate: 1.0, date: new Date(), referenceId: 'cat-rent' }, 
-  { id: 'op-init-food', accountId: 'acc-hdfc', type: 'EXPENSE', amount: 850000n, currency: 'INR', exchangeRate: 1.0, date: new Date(), referenceId: 'cat-food' }
-];
-
-const initialGoals: SavingGoal[] = [
-  { id: 'goal-macbook', name: 'M4 MacBook Pro', targetAmount: 20000000n, currentAmount: 5000000n, monthlyContribution: 1500000n, targetDate: new Date('2026-12-31') }
-];
 
 import { AuthService } from '@repo/identity';
 import { createClient } from '@supabase/supabase-js';
@@ -149,12 +130,25 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
 
 export const authService = new AuthService(supabase);
 
+export const DEFAULT_GUEST_SESSION: UserSession = {
+  id: 'guest',
+  email: '',
+  name: '',
+  avatar_url: '',
+  isGuest: true
+};
+
+export const getUserKey = (session: UserSession | null): string => {
+  if (!session || session.isGuest || !session.email) return 'richingness_guest_user';
+  return session.email;
+};
+
 let globalRepository: IRepository | null = null;
 let activeSyncEngine: SyncEngine | null = null;
 let activeSyncWorker: BackgroundSyncWorker | null = null;
 
 export const useAppStore = create<AppState>((set, get) => ({
-  session: null,
+  session: DEFAULT_GUEST_SESSION,
   syncStatus: 'offline',
   activeTab: 'dashboard',
   accounts: [],
@@ -197,29 +191,36 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
 
     // 4. Load initial database records
-    const accounts = await scopedRepo.getAccounts();
-    const categories = await scopedRepo.getCategories();
-    const ledger = await scopedRepo.getLedger();
-    const goals = await scopedRepo.getGoals();
+    let accounts = await scopedRepo.getAccounts();
+    let categories = await scopedRepo.getCategories();
+    let ledger = await scopedRepo.getLedger();
+    let goals = await scopedRepo.getGoals();
 
-    if (accounts.length === 0 && categories.length === 0) {
-      // Seed default initial values inside an atomic transaction
-      await scopedRepo.runInTransaction(async (txn) => {
-        for (const a of initialAccounts) await txn.saveAccount(a);
-        for (const c of initialCategories) await txn.saveCategory(c);
-        for (const l of initialLedger) await txn.saveTransaction(l);
-        for (const g of initialGoals) await txn.saveGoal(g);
-      });
-    } else {
-      set({ accounts, categories, ledger, goals });
+    // Clean up any legacy starter demo seed records if present
+    const isLegacyDemo = accounts.some(a => a.id === 'acct-hdfc' && a.name.includes('HDFC Salary'));
+    if (isLegacyDemo) {
+      const rawRepo = scopedRepo as any;
+      for (const a of accounts) await rawRepo.saveAccount({ ...a, deletedAt: new Date() });
+      for (const c of categories) await rawRepo.saveCategory({ ...c, deletedAt: new Date() });
+      for (const l of ledger) await rawRepo.saveTransaction({ ...l, deletedAt: new Date() });
+      for (const g of goals) await rawRepo.saveGoal({ ...g, deletedAt: new Date() });
+      accounts = [];
+      categories = [];
+      ledger = [];
+      goals = [];
     }
 
-    // 5. Start background sync service
-    const schemaCheck = await supabaseAdapter.verifySchema();
-    if (schemaCheck.valid) {
-      worker.start();
+    set({ accounts, categories, ledger, goals });
+
+    // 5. Start background sync service only if authenticated
+    if (supabase && userId !== 'richingness_guest_user') {
+      const schemaCheck = await supabaseAdapter.verifySchema();
+      if (schemaCheck.valid) {
+        worker.start();
+      } else {
+        set({ syncStatus: 'offline' });
+      }
     } else {
-      console.warn('Sync engine disabled: Schema missing or invalid. Missing tables:', schemaCheck.missingTables);
       set({ syncStatus: 'offline' });
     }
   },
@@ -231,41 +232,197 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   initAuth: () => {
-    // Check initial session
-    authService.getSession().then((session) => {
-      if (session) {
-        authService.getCurrentUser().then(user => {
-          if (user) {
-            set({ session: { id: user.id, email: user.email, name: user.displayName || 'User', avatar_url: user.avatarUrl } });
-            get().initializeStore(user.email); // using email for db scope as before
-          }
-        });
-      }
-    });
+    // Force Guest mode for mobile-first testing
+    const currentUser = DEFAULT_GUEST_SESSION;
+    set({ session: currentUser });
+    get().initializeStore(getUserKey(currentUser));
+  },
 
-    // Listen for auth state changes
-    authService.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        const user = await authService.getCurrentUser();
-        if (user) {
-          set({ session: { id: user.id, email: user.email, name: user.displayName || 'User', avatar_url: user.avatarUrl } });
-          get().initializeStore(user.email);
-        }
-      } else if (event === 'SIGNED_OUT') {
-        get().logout();
+  loginAsDemo: async (name = 'Arjun Kumar', email = 'arjun@gmail.com') => {
+    const demoSession: UserSession = {
+      id: 'usr-arjun-569',
+      email,
+      name,
+      avatar_url: '',
+      isGuest: false
+    };
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('richingness_demo_session', JSON.stringify(demoSession));
+    }
+    set({ session: demoSession });
+    await get().initializeStore(getUserKey(demoSession));
+  },
+
+  updateProfile: async (name: string, email?: string) => {
+    const current = get().session;
+    const updated: UserSession = {
+      id: current?.id && current.id !== 'guest' ? current.id : 'usr-arjun-569',
+      name,
+      email: email || current?.email || 'arjun@gmail.com',
+      avatar_url: current?.avatar_url || '',
+      isGuest: false
+    };
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('richingness_demo_session', JSON.stringify(updated));
+    }
+    set({ session: updated });
+  },
+
+  resetDatabaseToDefaults: async () => {
+    const session = get().session;
+    if (!globalRepository) return;
+    const userKey = getUserKey(session);
+    const scopedRepo = globalRepository.forUser(userKey);
+    
+    // Clear existing via soft-delete
+    const rawRepo = scopedRepo as unknown as {
+      saveAccount: (record: unknown) => Promise<void>;
+      saveCategory: (record: unknown) => Promise<void>;
+      saveTransaction: (record: unknown) => Promise<void>;
+      saveGoal: (record: unknown) => Promise<void>;
+    };
+    const curAccounts = await scopedRepo.getAccounts();
+    for (const a of curAccounts) await rawRepo.saveAccount({ ...a, deletedAt: new Date() });
+    const curCats = await scopedRepo.getCategories();
+    for (const c of curCats) await rawRepo.saveCategory({ ...c, deletedAt: new Date() });
+    const curTxs = await scopedRepo.getLedger();
+    for (const t of curTxs) await rawRepo.saveTransaction({ ...t, deletedAt: new Date() });
+    const curGoals = await scopedRepo.getGoals();
+    for (const g of curGoals) await rawRepo.saveGoal({ ...g, deletedAt: new Date() });
+
+    // Re-initialize with pristine seed
+    await get().initializeStore(userKey);
+  },
+
+  exportAllData: async () => {
+    const session = get().session;
+    if (!globalRepository) return '{}';
+    const userKey = getUserKey(session);
+    const scopedRepo = globalRepository.forUser(userKey);
+
+    const accounts = await scopedRepo.getAccounts();
+    const categories = await scopedRepo.getCategories();
+    const ledger = await scopedRepo.getLedger();
+    const goals = await scopedRepo.getGoals();
+
+    const payload = {
+      app: 'Richingness',
+      version: '1.0.0',
+      exportedAt: new Date().toISOString(),
+      userKey,
+      data: {
+        accounts,
+        categories,
+        ledger,
+        goals
       }
-    });
+    };
+
+    return JSON.stringify(payload, (_key, value) => {
+      if (typeof value === 'bigint') {
+        return value.toString();
+      }
+      return value;
+    }, 2);
+  },
+
+  importAllData: async (jsonStr: string) => {
+    try {
+      const parsed = JSON.parse(jsonStr);
+      const data = parsed.data || parsed;
+      const session = get().session;
+      if (!globalRepository) return { success: false, count: 0, error: 'Repository not ready' };
+      const userKey = getUserKey(session);
+      const scopedRepo = globalRepository.forUser(userKey);
+
+      let count = 0;
+
+      if (Array.isArray(data.accounts)) {
+        for (const a of data.accounts) {
+          if (a.id && a.name) {
+            await scopedRepo.saveAccount({
+              id: a.id,
+              name: a.name,
+              type: a.type || 'checking',
+              currency: a.currency || 'INR'
+            });
+            count++;
+          }
+        }
+      }
+
+      if (Array.isArray(data.categories)) {
+        for (const c of data.categories) {
+          if (c.id && c.name) {
+            await scopedRepo.saveCategory({
+              id: c.id,
+              name: c.name,
+              parentId: c.parentId || null,
+              rolloverMode: c.rolloverMode || 'none',
+              budgetAmount: BigInt(c.budgetAmount || 0),
+              priority: c.priority || 1,
+              isIncome: !!c.isIncome,
+              isHidden: !!c.isHidden,
+              sortOrder: c.sortOrder || 1
+            });
+            count++;
+          }
+        }
+      }
+
+      if (Array.isArray(data.ledger)) {
+        for (const l of data.ledger) {
+          if (l.id && l.accountId) {
+            await scopedRepo.saveTransaction({
+              id: l.id,
+              accountId: l.accountId,
+              type: l.type,
+              amount: BigInt(l.amount || 0),
+              currency: l.currency || 'INR',
+              exchangeRate: Number(l.exchangeRate || 1.0),
+              date: new Date(l.date || Date.now()),
+              referenceId: l.referenceId || null
+            });
+            count++;
+          }
+        }
+      }
+
+      if (Array.isArray(data.goals)) {
+        for (const g of data.goals) {
+          if (g.id && g.name) {
+            await scopedRepo.saveGoal({
+              id: g.id,
+              name: g.name,
+              targetAmount: BigInt(g.targetAmount || 0),
+              currentAmount: BigInt(g.currentAmount || 0),
+              monthlyContribution: BigInt(g.monthlyContribution || 0),
+              targetDate: g.targetDate ? new Date(g.targetDate) : undefined,
+              linkedCategoryId: g.linkedCategoryId || undefined
+            });
+            count++;
+          }
+        }
+      }
+
+      // Re-load the store tables
+      await get().initializeStore(userKey);
+      return { success: true, count };
+    } catch (err: unknown) {
+      return { success: false, count: 0, error: err instanceof Error ? err.message : 'Invalid backup format' };
+    }
   },
 
   logout: async () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('richingness_demo_session');
+    }
     if (activeSyncWorker) {
       activeSyncWorker.stop();
     }
-    globalRepository = null;
-    activeSyncEngine = null;
-    activeSyncWorker = null;
-    set({ session: null, syncStatus: 'offline', accounts: [], categories: [], ledger: [], goals: [] });
-    await authService.signOut();
+    await authService.signOut().catch(() => {});
+    set({ session: DEFAULT_GUEST_SESSION, syncStatus: 'offline' });
+    await get().initializeStore('richingness_guest_user');
   },
 
   setActiveTab: (activeTab) => set({ activeTab }),
@@ -274,7 +431,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   addAccount: async (name, type, currency) => {
     const session = get().session;
     if (!globalRepository || !session) return;
-    const scopedRepo = globalRepository.forUser(session.email);
+    const scopedRepo = globalRepository.forUser(getUserKey(session));
 
     const newAcct: Account = {
       id: `acc-${Date.now()}`,
@@ -293,7 +450,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   addTransaction: async (accountId, type, amount, currency, categoryOrTargetId, _merchantName = 'Merchant', toAccountId = null, _purpose) => {
     const session = get().session;
     if (!globalRepository || !session) return;
-    const scopedRepo = globalRepository.forUser(session.email);
+    const scopedRepo = globalRepository.forUser(getUserKey(session));
     const id = `op-${Date.now()}`;
     const date = new Date();
 
@@ -354,7 +511,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   updateAllocation: async (categoryId, amount) => {
     const session = get().session;
     if (!globalRepository || !session) return;
-    const scopedRepo = globalRepository.forUser(session.email);
+    const scopedRepo = globalRepository.forUser(getUserKey(session));
 
     const cat = get().categories.find(c => c.id === categoryId);
     if (!cat) return;
@@ -370,7 +527,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   triggerRecovery: async (targetCategoryId, deficitAmount) => {
     const session = get().session;
     if (!globalRepository || !session) return;
-    const scopedRepo = globalRepository.forUser(session.email);
+    const scopedRepo = globalRepository.forUser(getUserKey(session));
 
     const tree = get().getBudgetTree();
     const sources: RecoverySource[] = [];
@@ -435,7 +592,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   addGoal: async (name, targetAmount, monthlyContribution, targetDate, linkedCategoryId) => {
     const session = get().session;
     if (!globalRepository || !session) return;
-    const scopedRepo = globalRepository.forUser(session.email);
+    const scopedRepo = globalRepository.forUser(getUserKey(session));
 
     const newGoal: SavingGoal = {
       id: `goal-${Date.now()}`,

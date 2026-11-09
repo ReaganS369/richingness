@@ -2,11 +2,12 @@
 
 import React, { useState } from 'react';
 import { Shield, Sparkles, Zap, Mail, ArrowLeft, Loader2 } from 'lucide-react';
-import { authService } from '../app/store';
+import { authService, useAppStore } from '../app/store';
 
 type AuthMode = 'signin' | 'signup' | 'forgot_password' | 'check_email';
 
 export function AuthScreen() {
+  const loginAsDemo = useAppStore(state => state.loginAsDemo);
   const [mode, setMode] = useState<AuthMode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -201,6 +202,20 @@ export function AuthScreen() {
                       />
                     </svg>
                     Google
+                  </button>
+
+                  <div className="relative my-4">
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border" /></div>
+                    <div className="relative flex justify-center text-xs uppercase"><span className="bg-surfaceRaised px-2 text-textMuted font-semibold tracking-wider">Instant Access</span></div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => loginAsDemo()}
+                    className="w-full bg-[#48602E] hover:bg-[#567237] text-white font-semibold py-3 rounded-xl transition-all text-sm flex items-center justify-center gap-2 shadow-md cursor-pointer border border-[#64853E]/40"
+                  >
+                    <Sparkles className="w-4 h-4 text-[#A8D37E]" />
+                    <span>Enter as Reagan S (Live Preview)</span>
                   </button>
                 </>
               )}
