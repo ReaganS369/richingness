@@ -7,8 +7,7 @@ import {
   CheckCircle2,
   ChevronsUpDown,
   Edit2,
-  Layers,
-  Wallet
+  Layers
 } from 'lucide-react';
 import { useAppStore } from '../app/store';
 
@@ -436,7 +435,6 @@ export function ExpandableCategoriesTree({
   onNavigateToAllocations?: (tab: 'global' | 'per-account' | 'currencies') => void;
 }) {
   const categories = useAppStore(state => state.categories);
-  const accounts = useAppStore(state => state.accounts);
 
   // Production preset: Figma Life Budget (with full 5-level deep hierarchy)
   const activePresetId: 'figma-life-budget' | 'user-demo-200' | 'five-level-test' = 'figma-life-budget';
@@ -458,46 +456,39 @@ export function ExpandableCategoriesTree({
   };
 
   if (categories.length === 0) {
-    const hasAccounts = accounts.length > 0;
     return (
       <div
         role="button"
         tabIndex={0}
         onClick={() => {
           if (onNavigateToAllocations) {
-            onNavigateToAllocations(hasAccounts ? 'global' : 'per-account');
+            onNavigateToAllocations('global');
           }
         }}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             if (onNavigateToAllocations) {
-              onNavigateToAllocations(hasAccounts ? 'global' : 'per-account');
+              onNavigateToAllocations('global');
             }
           }
         }}
         className="w-full bg-[#1B1A17] hover:bg-[#201E1A] border border-[#2A2824] hover:border-[#48602E] active:scale-[0.99] rounded-[14px] p-7 text-center space-y-3.5 shadow-xl transition-all cursor-pointer group select-none"
       >
         <div className="w-14 h-14 rounded-full bg-[#23211C] group-hover:bg-[#48602E]/25 border border-[#33302A] group-hover:border-[#6B8A44] flex items-center justify-center mx-auto text-[#8E8A82] group-hover:text-white transition-all shadow-inner">
-          {hasAccounts ? (
-            <Layers className="w-7 h-7 text-[#7A7872] group-hover:text-[#A5E265] transition-colors" />
-          ) : (
-            <Wallet className="w-7 h-7 text-[#7A7872] group-hover:text-[#A5E265] transition-colors" />
-          )}
+          <Layers className="w-7 h-7 text-[#7A7872] group-hover:text-[#A5E265] transition-colors" />
         </div>
         <div>
           <h3 className="text-base sm:text-lg font-bold text-white group-hover:text-[#A5E265] transition-colors">
-            {hasAccounts ? "You don't have any categories yet" : "Set up your first account"}
+            You don't have any categories yet
           </h3>
           <p className="text-xs sm:text-sm text-[#8E8A82] group-hover:text-white/80 mt-1 max-w-xs mx-auto leading-relaxed transition-colors">
-            {hasAccounts
-              ? "Tap here to create and customize your budget categories."
-              : "Connect your primary account or wallet first to get started."}
+            Tap anywhere to set up and customize your budget categories.
           </p>
         </div>
 
         <div className="pt-1 flex items-center justify-center gap-1.5 text-xs font-semibold text-[#8EBA55] group-hover:text-[#A5E265] group-hover:translate-x-0.5 transition-all">
-          <span>{hasAccounts ? "Create a category now" : "Add an account now"}</span>
+          <span>Create a category now</span>
           <ChevronRight className="w-4 h-4" />
         </div>
       </div>

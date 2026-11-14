@@ -13,7 +13,8 @@ import {
   Globe,
   Check,
   X,
-  Wallet
+  Wallet,
+  Edit2
 } from 'lucide-react';
 import { useAppStore } from '../app/store';
 
@@ -110,10 +111,18 @@ export function AccountCategoriesScreen({
   onBack,
   initialTab = 'global'
 }: AccountCategoriesScreenProps) {
-  const { accounts, addAccount } = useAppStore();
+  const { accounts, addAccount, updateAccountName } = useAppStore();
 
   // Active top navigation tab (Global | Per Account | Currencies)
-  const [activeTab, setActiveTab] = useState<'global' | 'per-account' | 'currencies'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'global' | 'per-account' | 'currencies'>(() => {
+    // If only one account exists, Per Account tab is disabled, default to 'global'
+    if (initialTab === 'per-account' && accounts.length <= 1) return 'global';
+    return initialTab;
+  });
+
+  // Rename account state
+  const [isRenamingAccount, setIsRenamingAccount] = useState(false);
+  const [renamedTitle, setRenamedTitle] = useState('');
 
   // Allocation mode: 'auto' (total always 100% with auto-balancing) or 'manual' (freely editable with total warning)
   const [allocationMode, setAllocationMode] = useState<'auto' | 'manual'>('auto');
@@ -395,14 +404,24 @@ export function AccountCategoriesScreen({
           Global
         </button>
         <button
-          onClick={() => setActiveTab('per-account')}
-          className={`flex-1 py-2 px-3 rounded-[10px] text-xs font-semibold transition-all cursor-pointer text-center ${
-            activeTab === 'per-account'
-              ? 'bg-[#4A622F] text-white shadow-sm'
-              : 'text-[#829577] hover:text-white hover:bg-white/[0.04]'
+          onClick={() => {
+            if (accounts.length > 1) {
+              setActiveTab('per-account');
+            } else {
+              showToast('Per-account allocation requires at least 2 accounts.');
+            }
+          }}
+          disabled={accounts.length <= 1}
+          className={`flex-1 py-2 px-3 rounded-[10px] text-xs font-semibold transition-all text-center ${
+            accounts.length <= 1
+              ? 'text-[#505F48] opacity-50 cursor-not-allowed'
+              : activeTab === 'per-account'
+              ? 'bg-[#4A622F] text-white shadow-sm cursor-pointer'
+              : 'text-[#829577] hover:text-white hover:bg-white/[0.04] cursor-pointer'
           }`}
+          title={accounts.length <= 1 ? "Add another account to customize per-account allocations" : "Per Account Allocations"}
         >
-          Per Account
+          Per Account {accounts.length <= 1 && '(2+ Accts)'}
         </button>
         <button
           onClick={() => setActiveTab('currencies')}
@@ -466,16 +485,70 @@ export function AccountCategoriesScreen({
             /* Per Account Dropdown & Add Account Button */
             <div className="space-y-2">
               <div className="relative">
-                <button
-                  onClick={() => setIsAccountDropdownOpen(!isAccountDropdownOpen)}
-                  className="w-full bg-[#1A2315] border border-[#2C3B23] rounded-[12px] px-3.5 py-2.5 flex items-center justify-between text-xs font-semibold text-white cursor-pointer hover:border-[#4A622F] transition-all"
-                >
-                  <div className="flex items-center gap-2">
-                    <Wallet className="w-3.5 h-3.5 text-[#8EBA55]" />
-                    <span>{activeAccountObj.name}</span>
+                {isRenamingAccount ? (
+                  <div className="flex items-center gap-2 bg-[#1A2315] border border-[#4A622F] rounded-[12px] px-3 py-2">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={renamedTitle}
+                      onChange={e => setRenamedTitle(e.target.value)}
+                      onKeyDown={async (e) => {
+                        if (e.key === 'Enter' && renamedTitle.trim()) {
+                          await updateAccountName(activeAccountObj.id, renamedTitle.trim());
+                          setIsRenamingAccount(false);
+                          showToast(`Account renamed to "${renamedTitle.trim()}"`);
+                        }
+                        if (e.key === 'Escape') setIsRenamingAccount(false);
+                      }}
+                      className="flex-1 bg-transparent text-xs font-semibold text-white outline-none"
+                    />
+                    <button
+                      onClick={async () => {
+                        if (renamedTitle.trim()) {
+                          await updateAccountName(activeAccountObj.id, renamedTitle.trim());
+                          setIsRenamingAccount(false);
+                          showToast(`Account renamed to "${renamedTitle.trim()}"`);
+                        }
+                      }}
+                      className="text-[#8EBA55] hover:text-white p-1 cursor-pointer"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setIsRenamingAccount(false)}
+                      className="text-[#8E8A82] hover:text-white p-1 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                  <ChevronDown className={`w-3.5 h-3.5 text-[#7D8F72] transition-transform ${isAccountDropdownOpen ? 'rotate-180' : ''}`} />
-                </button>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => accountOptions.length > 1 && setIsAccountDropdownOpen(!isAccountDropdownOpen)}
+                      className={`flex-1 bg-[#1A2315] border border-[#2C3B23] rounded-[12px] px-3.5 py-2.5 flex items-center justify-between text-xs font-semibold text-white transition-all ${
+                        accountOptions.length > 1 ? 'cursor-pointer hover:border-[#4A622F]' : 'cursor-default'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Wallet className="w-3.5 h-3.5 text-[#8EBA55]" />
+                        <span>{activeAccountObj.name}</span>
+                      </div>
+                      {accountOptions.length > 1 && (
+                        <ChevronDown className={`w-3.5 h-3.5 text-[#7D8F72] transition-transform ${isAccountDropdownOpen ? 'rotate-180' : ''}`} />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setRenamedTitle(activeAccountObj.name);
+                        setIsRenamingAccount(true);
+                      }}
+                      className="w-9 h-9 rounded-[12px] bg-[#1A2315] border border-[#2C3B23] hover:border-[#4A622F] flex items-center justify-center text-[#8EBA55] hover:text-white transition-all cursor-pointer shrink-0"
+                      title="Rename account"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
 
                 {isAccountDropdownOpen && (
                   <div className="absolute top-12 left-0 right-0 z-30 bg-[#1A2315] border border-[#334428] rounded-[12px] shadow-2xl py-1 animate-fade-in overflow-hidden">

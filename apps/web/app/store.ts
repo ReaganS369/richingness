@@ -84,6 +84,7 @@ interface AppState {
   
   // Accounts Actions
   addAccount: (name: string, type: Account['type'], currency: string) => Promise<void>;
+  updateAccountName: (accountId: string, newName: string) => Promise<void>;
   // Transactions Actions
   addTransaction: (
     accountId: string,
@@ -179,10 +180,22 @@ export const useAppStore = create<AppState>((set, get) => ({
     repo.subscribe(
       ['accounts', 'categories', 'ledger', 'goals'],
       async () => {
-        const accounts = await scopedRepo.getAccounts();
+        let accounts = await scopedRepo.getAccounts();
         const categories = await scopedRepo.getCategories();
         const ledger = await scopedRepo.getLedger();
         const goals = await scopedRepo.getGoals();
+
+        // Ensure there is always a clean default primary account
+        if (accounts.length === 0) {
+          const defaultAccount: Account = {
+            id: 'acc-primary',
+            name: 'Primary Account',
+            type: 'savings',
+            currency: 'INR'
+          };
+          await scopedRepo.saveAccount(defaultAccount);
+          accounts = [defaultAccount];
+        }
 
         set({ accounts, categories, ledger, goals });
       }
@@ -216,6 +229,18 @@ export const useAppStore = create<AppState>((set, get) => ({
       categories = [];
       ledger = [];
       goals = [];
+    }
+
+    // Ensure there is always a clean default primary account
+    if (accounts.length === 0) {
+      const defaultAccount: Account = {
+        id: 'acc-primary',
+        name: 'Primary Account',
+        type: 'savings',
+        currency: 'INR'
+      };
+      await scopedRepo.saveAccount(defaultAccount);
+      accounts = [defaultAccount];
     }
 
     set({ accounts, categories, ledger, goals });
@@ -442,6 +467,22 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     if (activeSyncEngine) {
       await activeSyncEngine.enqueueOperation('accounts', 'insert', newAcct as unknown as Record<string, unknown>);
+    }
+  },
+
+  updateAccountName: async (accountId: string, newName: string) => {
+    const session = get().session;
+    if (!globalRepository || !session) return;
+    const scopedRepo = globalRepository.forUser(getUserKey(session));
+
+    const acct = get().accounts.find(a => a.id === accountId);
+    if (!acct) return;
+
+    const updated: Account = { ...acct, name: newName.trim() };
+    await scopedRepo.saveAccount(updated);
+
+    if (activeSyncEngine) {
+      await activeSyncEngine.enqueueOperation('accounts', 'update', updated as unknown as Record<string, unknown>);
     }
   },
 
