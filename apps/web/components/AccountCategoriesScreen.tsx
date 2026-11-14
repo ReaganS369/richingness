@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import {
   ChevronLeft,
   ChevronDown,
+  ChevronRight,
   Plus,
   Trash2,
   AlertTriangle,
@@ -15,22 +16,21 @@ import {
   X,
   Wallet,
   Edit2,
-  Lock,
-  Unlock,
-  ArrowUp,
-  ArrowDown,
-  Percent,
   Sliders,
-  CheckCheck
+  Percent,
+  Layers,
+  CornerDownRight
 } from 'lucide-react';
 import { useAppStore } from '../app/store';
 
 // ── Types ───────────────────────────────────────────────────────────────────
-export interface CategoryRuleItem {
+export interface CategoryNodeAllocation {
   id: string;
   name: string;
-  percentage: number;
-  isAutoRemainder?: boolean;
+  percentage: number; // percentage of this level's budget (0-100)
+  level: number;      // 1 = Root, 2 = Subcategory, 3 = Sub-sub, etc.
+  parentId?: string | null;
+  children?: CategoryNodeAllocation[];
 }
 
 export interface FeaturedTemplate {
@@ -41,11 +41,97 @@ export interface FeaturedTemplate {
   categories: { name: string; percentage: number }[];
 }
 
-// ── Default Presets ─────────────────────────────────────────────────────────
-const DEFAULT_RULES: CategoryRuleItem[] = [
-  { id: 'cat-needs', name: 'Needs', percentage: 50 },
-  { id: 'cat-wants', name: 'Wants', percentage: 30 },
-  { id: 'cat-savings', name: 'Savings', percentage: 20, isAutoRemainder: true },
+// ── Default Hierarchical Category Structure ────────────────────────────────
+const DEFAULT_HIERARCHICAL_RULES: CategoryNodeAllocation[] = [
+  {
+    id: 'cat-needs',
+    name: 'Needs',
+    percentage: 50,
+    level: 1,
+    children: [
+      {
+        id: 'cat-rent',
+        name: 'Rent & Housing',
+        percentage: 50,
+        level: 2,
+        parentId: 'cat-needs',
+      },
+      {
+        id: 'cat-food',
+        name: 'Food & Groceries',
+        percentage: 50,
+        level: 2,
+        parentId: 'cat-needs',
+        children: [
+          {
+            id: 'cat-groceries',
+            name: 'Supermarket Groceries',
+            percentage: 60,
+            level: 3,
+            parentId: 'cat-food',
+          },
+          {
+            id: 'cat-dining',
+            name: 'Dining & Takeout',
+            percentage: 40,
+            level: 3,
+            parentId: 'cat-food',
+          }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'cat-wants',
+    name: 'Wants',
+    percentage: 30,
+    level: 1,
+    children: [
+      {
+        id: 'cat-entertainment',
+        name: 'Entertainment & Outings',
+        percentage: 50,
+        level: 2,
+        parentId: 'cat-wants',
+      },
+      {
+        id: 'cat-shopping',
+        name: 'Shopping & Hobbies',
+        percentage: 30,
+        level: 2,
+        parentId: 'cat-wants',
+      },
+      {
+        id: 'cat-subscriptions',
+        name: 'Digital Subscriptions',
+        percentage: 20,
+        level: 2,
+        parentId: 'cat-wants',
+      }
+    ]
+  },
+  {
+    id: 'cat-savings',
+    name: 'Savings',
+    percentage: 20,
+    level: 1,
+    children: [
+      {
+        id: 'cat-emergency',
+        name: 'Emergency Fund',
+        percentage: 60,
+        level: 2,
+        parentId: 'cat-savings',
+      },
+      {
+        id: 'cat-investments',
+        name: 'Index Investments',
+        percentage: 40,
+        level: 2,
+        parentId: 'cat-savings',
+      }
+    ]
+  }
 ];
 
 const FEATURED_TEMPLATES: FeaturedTemplate[] = [
@@ -109,6 +195,17 @@ const FEATURED_TEMPLATES: FeaturedTemplate[] = [
   }
 ];
 
+// Helper: Colors for segmented distribution bar
+const CATEGORY_COLORS = [
+  '#8EBA55', // Olive green
+  '#4A90E2', // Blue
+  '#F5A623', // Amber / Gold
+  '#9B51E0', // Purple
+  '#E056FD', // Pink
+  '#2ECC71', // Emerald
+  '#E67E22', // Orange
+];
+
 interface AccountCategoriesScreenProps {
   onBack?: () => void;
   initialTab?: 'global' | 'per-account' | 'currencies';
@@ -122,7 +219,6 @@ export function AccountCategoriesScreen({
 
   // Active top navigation tab (Global | Per Account | Currencies)
   const [activeTab, setActiveTab] = useState<'global' | 'per-account' | 'currencies'>(() => {
-    // If only one account exists, Per Account tab is disabled, default to 'global'
     if (initialTab === 'per-account' && accounts.length <= 1) return 'global';
     return initialTab;
   });
@@ -131,35 +227,14 @@ export function AccountCategoriesScreen({
   const [isRenamingAccount, setIsRenamingAccount] = useState(false);
   const [renamedTitle, setRenamedTitle] = useState('');
 
-  // Allocation mode: 'auto' (total always 100% with auto-balancing) or 'manual' (freely editable with total warning)
-  const [allocationMode, setAllocationMode] = useState<'auto' | 'manual'>('auto');
-
   // UI Allocation Experience Version Selector:
-  // v1: Safe Pin & Lock System with Smart Remaining Pool & Steppers (Prevents previous items from breaking)
-  // v2: Direct Visual Tap Cards (Fixed quick percentage chips 10%, 20%, 30%, 50% + Custom + Fill Remainder)
-  // v3: Original Slider (Figma baseline with isolated manual override)
+  // v1: Smart Steppers (Tactile ±5% & Direct Type - No 1% clutter, never breaks other categories)
+  // v2: Safe Clamped Slider (Smooth visual slider safely clamped so it never alters previous items)
+  // v3: Quick Chips & Segmented Bar (10%, 20%, 25%, 33%, 50%, Remainder + visual breakdown bar)
   const [uiVersion, setUiVersion] = useState<'v1' | 'v2' | 'v3'>('v1');
-  const [lockedCategoryIds, setLockedCategoryIds] = useState<Record<string, boolean>>({});
 
-  const toggleCategoryLock = (id: string) => {
-    setLockedCategoryIds(prev => ({
-      ...prev,
-      [id]: !prev[id]
-    }));
-  };
-
-  const moveCategoryOrder = (index: number, direction: 'up' | 'down') => {
-    const targetIdx = direction === 'up' ? index - 1 : index + 1;
-    if (targetIdx < 0 || targetIdx >= activeRules.length) return;
-
-    setActiveRules(prev => {
-      const copy = [...prev];
-      const temp = copy[index];
-      copy[index] = copy[targetIdx];
-      copy[targetIdx] = temp;
-      return copy;
-    });
-  };
+  // Hierarchy Navigation Path: [] = Level 1 (Root), ['cat-needs'] = Level 2, ['cat-needs', 'cat-food'] = Level 3
+  const [navigationPath, setNavigationPath] = useState<string[]>([]);
 
   // Selected account for 'per-account' tab
   const [selectedAccountId, setSelectedAccountId] = useState<string>(() => {
@@ -167,16 +242,12 @@ export function AccountCategoriesScreen({
   });
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
 
-  // Global allocation rules
-  const [globalRules, setGlobalRules] = useState<CategoryRuleItem[]>(DEFAULT_RULES);
+  // Global hierarchical tree rules
+  const [globalTree, setGlobalTree] = useState<CategoryNodeAllocation[]>(DEFAULT_HIERARCHICAL_RULES);
 
-  // Per-account allocation rules map (accountId -> CategoryRuleItem[])
-  const [perAccountRules, setPerAccountRules] = useState<Record<string, CategoryRuleItem[]>>({
-    'acct-hdfc': [
-      { id: 'cat-needs', name: 'Needs', percentage: 50 },
-      { id: 'cat-wants', name: 'Wants', percentage: 30 },
-      { id: 'cat-savings', name: 'Savings', percentage: 20, isAutoRemainder: true },
-    ]
+  // Per-account hierarchical tree rules map
+  const [perAccountTrees, setPerAccountTrees] = useState<Record<string, CategoryNodeAllocation[]>>({
+    'acct-hdfc': DEFAULT_HIERARCHICAL_RULES
   });
 
   // UI Modals & Notifications
@@ -197,194 +268,304 @@ export function AccountCategoriesScreen({
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Current active rules based on tab
-  const activeRules = activeTab === 'global'
-    ? globalRules
-    : perAccountRules[selectedAccountId] || DEFAULT_RULES;
+  // Active hierarchical tree based on tab
+  const activeTree = activeTab === 'global'
+    ? globalTree
+    : perAccountTrees[selectedAccountId] || DEFAULT_HIERARCHICAL_RULES;
 
-  const setActiveRules = (updater: (prev: CategoryRuleItem[]) => CategoryRuleItem[]) => {
+  const setActiveTree = (updater: (prev: CategoryNodeAllocation[]) => CategoryNodeAllocation[]) => {
     if (activeTab === 'global') {
-      setGlobalRules(updater);
+      setGlobalTree(updater);
     } else {
-      setPerAccountRules(prev => ({
+      setPerAccountTrees(prev => ({
         ...prev,
-        [selectedAccountId]: updater(prev[selectedAccountId] || DEFAULT_RULES)
+        [selectedAccountId]: updater(prev[selectedAccountId] || DEFAULT_HIERARCHICAL_RULES)
       }));
     }
   };
 
-  // Calculate current total percentage
-  const totalPercentage = activeRules.reduce((sum, r) => sum + r.percentage, 0);
+  // ── Tree Traversal Helpers ─────────────────────────────────────────────────
+  const getNodeAtPath = (tree: CategoryNodeAllocation[], path: string[]): CategoryNodeAllocation | null => {
+    let current: CategoryNodeAllocation | null = null;
+    let list = tree;
+    for (const stepId of path) {
+      const found = list.find(n => n.id === stepId);
+      if (!found) return null;
+      current = found;
+      list = found.children || [];
+    }
+    return current;
+  };
+
+  const getNodesAtCurrentLevel = (tree: CategoryNodeAllocation[], path: string[]): CategoryNodeAllocation[] => {
+    if (path.length === 0) return tree;
+    const parent = getNodeAtPath(tree, path);
+    return parent?.children || [];
+  };
+
+  const activeLevelNodes = getNodesAtCurrentLevel(activeTree, navigationPath);
+  const parentNode = navigationPath.length > 0 ? getNodeAtPath(activeTree, navigationPath) : null;
+  const currentLevelNumber = navigationPath.length + 1;
+
+  // Breadcrumb path info
+  const breadcrumbChain: { id: string; name: string }[] = [];
+  let tempTree = activeTree;
+  for (const stepId of navigationPath) {
+    const found = tempTree.find(n => n.id === stepId);
+    if (found) {
+      breadcrumbChain.push({ id: found.id, name: found.name });
+      tempTree = found.children || [];
+    }
+  }
+
+  // Calculate current total percentage at this level
+  const totalPercentage = activeLevelNodes.reduce((sum, r) => sum + r.percentage, 0);
   const isTotal100 = totalPercentage === 100;
+  const remainingTo100 = 100 - totalPercentage;
 
-  // Auto remainder category id (defaults to category flagged isAutoRemainder or the last category)
-  const getAutoCategoryId = (rules: CategoryRuleItem[]): string => {
-    const explicit = rules.find(r => r.isAutoRemainder);
-    if (explicit) return explicit.id;
-    return rules[rules.length - 1]?.id || '';
-  };
+  // ── Non-Destructive Update of a Category's Percentage ─────────────────────
+  // Editing one category NEVER alters or breaks previous categories!
+  const updatePercentageNonDestructive = (id: string, newPercentage: number) => {
+    const clampedVal = Math.max(0, Math.min(100, Math.round(newPercentage)));
 
-  // ── Auto Adjust Engine ───────────────────────────────────────────────────────
-  const autoBalanceRules = (rules: CategoryRuleItem[], targetAutoId?: string): CategoryRuleItem[] => {
-    if (rules.length === 0) return rules;
-    if (rules.length === 1) {
-      return [{ ...rules[0], percentage: 100, isAutoRemainder: true }];
-    }
-
-    const autoId = targetAutoId || getAutoCategoryId(rules);
-    const nonAutoRules = rules.filter(r => r.id !== autoId);
-    const sumNonAuto = nonAutoRules.reduce((s, r) => s + r.percentage, 0);
-
-    if (sumNonAuto <= 100) {
-      const remainder = 100 - sumNonAuto;
-      return rules.map(r => ({
-        ...r,
-        percentage: r.id === autoId ? remainder : r.percentage,
-        isAutoRemainder: r.id === autoId
-      }));
-    } else {
-      const scale = 95 / sumNonAuto;
-      let scaledSum = 0;
-      const scaled = rules.map((r) => {
-        if (r.id === autoId) return r;
-        const val = Math.max(1, Math.round(r.percentage * scale));
-        scaledSum += val;
-        return { ...r, percentage: val, isAutoRemainder: false };
-      });
-      const remainder = Math.max(0, 100 - scaledSum);
-      return scaled.map(r => ({
-        ...r,
-        percentage: r.id === autoId ? remainder : r.percentage,
-        isAutoRemainder: r.id === autoId
-      }));
-    }
-  };
-
-  // ── Handle Percentage Change (via Slider or Written Input) ─────────────────
-  const handlePercentageChange = (id: string, newRawValue: number) => {
-    const clampedVal = Math.min(100, Math.max(0, Math.round(newRawValue)));
-
-    if (allocationMode === 'auto') {
-      setActiveRules(prev => {
-        const autoId = getAutoCategoryId(prev);
-
-        let effectiveAutoId = autoId;
-        if (id === autoId) {
-          const alternate = prev.find(r => r.id !== id);
-          if (alternate) effectiveAutoId = alternate.id;
-        }
-
-        const updated = prev.map(r => {
-          if (r.id === id) {
-            return { ...r, percentage: clampedVal };
+    const recursiveUpdate = (nodes: CategoryNodeAllocation[], currentDepth = 0): CategoryNodeAllocation[] => {
+      // If we are at the target level where the node lives
+      if (currentDepth === navigationPath.length) {
+        return nodes.map(node => {
+          if (node.id === id) {
+            return { ...node, percentage: clampedVal };
           }
-          return r;
+          return node;
         });
+      }
 
-        return autoBalanceRules(updated, effectiveAutoId);
+      // Otherwise traverse down along navigationPath
+      const targetChildId = navigationPath[currentDepth];
+      return nodes.map(node => {
+        if (node.id === targetChildId && node.children) {
+          return {
+            ...node,
+            children: recursiveUpdate(node.children, currentDepth + 1)
+          };
+        }
+        return node;
       });
-    } else {
-      setActiveRules(prev =>
-        prev.map(r => (r.id === id ? { ...r, percentage: clampedVal } : r))
-      );
-    }
-  };
-
-  const triggerAutoBalance = () => {
-    setActiveRules(prev => autoBalanceRules(prev));
-    showToast('Categories auto-adjusted to exactly 100%!');
-  };
-
-  const toggleAutoRemainder = (id: string) => {
-    setActiveRules(prev => autoBalanceRules(prev, id));
-    showToast(`Set category as auto-adjusting remainder.`);
-  };
-
-  const handleAddCategory = () => {
-    if (!newCategoryName.trim()) return;
-    const newId = `cat-custom-${Date.now()}`;
-    const newCat: CategoryRuleItem = {
-      id: newId,
-      name: newCategoryName.trim(),
-      percentage: 10,
-      isAutoRemainder: false
     };
 
-    if (allocationMode === 'auto') {
-      setActiveRules(prev => autoBalanceRules([...prev, newCat]));
-    } else {
-      setActiveRules(prev => [...prev, newCat]);
-    }
-
-    setNewCategoryName('');
-    setShowAddCategoryModal(false);
-    showToast(`Category "${newCat.name}" added!`);
+    setActiveTree(prev => recursiveUpdate(prev));
   };
 
-  const handleRemoveCategory = (id: string) => {
-    if (activeRules.length <= 1) {
-      showToast('You must have at least one category.');
+  // Safe Clamped Slider update: cannot exceed available unallocated remainder
+  const updatePercentageSafeSlider = (id: string, newPercentage: number) => {
+    const currentItem = activeLevelNodes.find(n => n.id === id);
+    if (!currentItem) return;
+
+    // The maximum this item can reach without breaking other items is: its current value + unallocated budget
+    const maxAllowed = Math.min(100, currentItem.percentage + Math.max(0, remainingTo100));
+    const clampedVal = Math.max(0, Math.min(maxAllowed, Math.round(newPercentage)));
+
+    updatePercentageNonDestructive(id, clampedVal);
+  };
+
+  // Auto-distribute remainder at current level
+  const handleAutoBalanceCurrentLevel = () => {
+    if (activeLevelNodes.length === 0) return;
+
+    if (activeLevelNodes.length === 1) {
+      updatePercentageNonDestructive(activeLevelNodes[0].id, 100);
+      showToast('Set to 100%!');
       return;
     }
-    setActiveRules(prev => {
-      const filtered = prev.filter(r => r.id !== id);
-      if (allocationMode === 'auto') {
-        return autoBalanceRules(filtered);
+
+    // If remaining budget > 0, assign remainder to the last item
+    if (remainingTo100 > 0) {
+      const last = activeLevelNodes[activeLevelNodes.length - 1];
+      updatePercentageNonDestructive(last.id, last.percentage + remainingTo100);
+      showToast(`Assigned remaining ${remainingTo100}% to ${last.name}`);
+      return;
+    }
+
+    // If over-allocated (> 100%), scale down proportionally
+    const scale = 100 / totalPercentage;
+    let newSum = 0;
+    const scaled = activeLevelNodes.map((node, i) => {
+      if (i === activeLevelNodes.length - 1) {
+        return { ...node, percentage: Math.max(0, 100 - newSum) };
       }
-      return filtered;
+      const val = Math.max(1, Math.round(node.percentage * scale));
+      newSum += val;
+      return { ...node, percentage: val };
     });
+
+    const recursiveReplace = (nodes: CategoryNodeAllocation[], currentDepth = 0): CategoryNodeAllocation[] => {
+      if (currentDepth === navigationPath.length) {
+        return scaled;
+      }
+      const targetChildId = navigationPath[currentDepth];
+      return nodes.map(node => {
+        if (node.id === targetChildId && node.children) {
+          return {
+            ...node,
+            children: recursiveReplace(node.children, currentDepth + 1)
+          };
+        }
+        return node;
+      });
+    };
+
+    setActiveTree(prev => recursiveReplace(prev));
+    showToast('Balanced current level to exactly 100%!');
+  };
+
+  // Add category or subcategory at current level
+  const handleAddCategoryAtCurrentLevel = () => {
+    if (!newCategoryName.trim()) return;
+
+    const newId = `cat-${Date.now()}`;
+    const newCat: CategoryNodeAllocation = {
+      id: newId,
+      name: newCategoryName.trim(),
+      percentage: Math.max(5, Math.min(25, remainingTo100 > 0 ? remainingTo100 : 10)),
+      level: currentLevelNumber,
+      parentId: parentNode?.id || null,
+      children: []
+    };
+
+    const recursiveAdd = (nodes: CategoryNodeAllocation[], currentDepth = 0): CategoryNodeAllocation[] => {
+      if (currentDepth === navigationPath.length) {
+        return [...nodes, newCat];
+      }
+      const targetChildId = navigationPath[currentDepth];
+      return nodes.map(node => {
+        if (node.id === targetChildId) {
+          return {
+            ...node,
+            children: recursiveAdd(node.children || [], currentDepth + 1)
+          };
+        }
+        return node;
+      });
+    };
+
+    setActiveTree(prev => recursiveAdd(prev));
+    setNewCategoryName('');
+    setShowAddCategoryModal(false);
+    showToast(`Added "${newCat.name}" to Level ${currentLevelNumber}!`);
+  };
+
+  // Remove category at current level
+  const handleRemoveCategory = (id: string) => {
+    if (activeLevelNodes.length <= 1) {
+      showToast('You must have at least one category at this level.');
+      return;
+    }
+
+    const recursiveRemove = (nodes: CategoryNodeAllocation[], currentDepth = 0): CategoryNodeAllocation[] => {
+      if (currentDepth === navigationPath.length) {
+        return nodes.filter(n => n.id !== id);
+      }
+      const targetChildId = navigationPath[currentDepth];
+      return nodes.map(node => {
+        if (node.id === targetChildId && node.children) {
+          return {
+            ...node,
+            children: recursiveRemove(node.children, currentDepth + 1)
+          };
+        }
+        return node;
+      });
+    };
+
+    setActiveTree(prev => recursiveRemove(prev));
     showToast('Category removed.');
   };
 
-  const applyDefaultAllocation = () => {
-    const standard: CategoryRuleItem[] = [
-      { id: 'cat-needs', name: 'Needs', percentage: 50 },
-      { id: 'cat-wants', name: 'Wants', percentage: 30 },
-      { id: 'cat-savings', name: 'Savings', percentage: 20, isAutoRemainder: true },
-    ];
-    setActiveRules(() => standard);
-    showToast('Applied Default 50/30/20 Allocation!');
+  // Drill down into a category's subcategories
+  const handleDrillDown = (category: CategoryNodeAllocation) => {
+    // If it doesn't have children yet, initialize with default subcategories
+    if (!category.children || category.children.length === 0) {
+      const defaultChildren: CategoryNodeAllocation[] = [
+        {
+          id: `cat-sub-1-${Date.now()}`,
+          name: `${category.name} Primary`,
+          percentage: 60,
+          level: category.level + 1,
+          parentId: category.id
+        },
+        {
+          id: `cat-sub-2-${Date.now()}`,
+          name: `${category.name} Secondary`,
+          percentage: 40,
+          level: category.level + 1,
+          parentId: category.id
+        }
+      ];
+
+      const recursiveInitChildren = (nodes: CategoryNodeAllocation[]): CategoryNodeAllocation[] => {
+        return nodes.map(node => {
+          if (node.id === category.id) {
+            return { ...node, children: defaultChildren };
+          }
+          if (node.children) {
+            return { ...node, children: recursiveInitChildren(node.children) };
+          }
+          return node;
+        });
+      };
+
+      setActiveTree(prev => recursiveInitChildren(prev));
+    }
+
+    setNavigationPath(prev => [...prev, category.id]);
   };
 
+  // Apply default 50/30/20 allocation
+  const applyDefaultAllocation = () => {
+    setActiveTree(() => DEFAULT_HIERARCHICAL_RULES);
+    setNavigationPath([]);
+    showToast('Applied Default 50/30/20 with subcategories!');
+  };
+
+  // Apply template
   const handleApplyTemplate = (tmpl: FeaturedTemplate) => {
-    const mapped: CategoryRuleItem[] = tmpl.categories.map((c, i) => ({
+    const mapped: CategoryNodeAllocation[] = tmpl.categories.map((c, i) => ({
       id: `cat-tmpl-${i}-${Date.now()}`,
       name: c.name,
       percentage: c.percentage,
-      isAutoRemainder: i === tmpl.categories.length - 1
+      level: 1,
+      children: []
     }));
-    setActiveRules(() => mapped);
+    setActiveTree(() => mapped);
+    setNavigationPath([]);
     setShowTemplateModal(false);
     showToast(`Applied "${tmpl.title}" template!`);
   };
 
+  // Save allocations to local storage
   const handleSaveAllocation = () => {
     if (!isTotal100) {
-      if (allocationMode === 'manual') {
-        showToast(`Cannot save: Total is ${totalPercentage}%. Must equal 100%. Click Auto-Fix to balance.`);
-        return;
-      }
+      showToast(`Notice: Current level total is ${totalPercentage}%. Recommended to balance to 100%.`);
     }
     try {
       const payload = {
-        globalRules,
-        perAccountRules,
+        globalTree,
+        perAccountTrees,
         savedAt: new Date().toISOString()
       };
-      localStorage.setItem('richingness_category_allocations', JSON.stringify(payload));
+      localStorage.setItem('richingness_category_allocations_v2', JSON.stringify(payload));
     } catch {
       // Ignored
     }
-    showToast(`Allocation saved for ${activeTab === 'global' ? 'All Accounts' : 'Selected Account'}!`);
+    showToast(`Allocations saved successfully!`);
   };
 
   useEffect(() => {
     try {
-      const cached = localStorage.getItem('richingness_category_allocations');
+      const cached = localStorage.getItem('richingness_category_allocations_v2');
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (parsed.globalRules) setGlobalRules(parsed.globalRules);
-        if (parsed.perAccountRules) setPerAccountRules(parsed.perAccountRules);
+        if (parsed.globalTree) setGlobalTree(parsed.globalTree);
+        if (parsed.perAccountTrees) setPerAccountTrees(parsed.perAccountTrees);
       }
     } catch {
       // Ignored
@@ -410,7 +591,7 @@ export function AccountCategoriesScreen({
         </div>
       )}
 
-      {/* ── Top Header: < back | Account & Categories (Figma Exact Title Bar) ── */}
+      {/* ── Top Header: < back | Account & Categories ── */}
       <div className="flex items-center justify-between py-2 mb-2">
         <button
           onClick={onBack}
@@ -426,7 +607,7 @@ export function AccountCategoriesScreen({
       </div>
 
       {/* ── Top Navigation Tabs (Global | Per Account | 🌐 Currency) ── */}
-      <div className="bg-[#182114] p-1 rounded-[14px] border border-[#27351F] flex items-center gap-1 mb-4 shadow-sm">
+      <div className="bg-[#182114] p-1 rounded-[14px] border border-[#27351F] flex items-center gap-1 mb-3.5 shadow-sm">
         <button
           onClick={() => setActiveTab('global')}
           className={`flex-1 py-2 px-3 rounded-[10px] text-xs font-semibold transition-all cursor-pointer text-center ${
@@ -471,52 +652,13 @@ export function AccountCategoriesScreen({
       </div>
 
       {/* ═════════════════════════════════════════════════════════════════════════ */}
-      {/* TAB 1 & 2: GLOBAL & PER ACCOUNT ALLOCATION RULES                       */}
+      {/* TAB 1 & 2: GLOBAL & PER ACCOUNT HIERARCHICAL ALLOCATION RULES          */}
       {/* ═════════════════════════════════════════════════════════════════════════ */}
       {activeTab !== 'currencies' && (
-        <div className="space-y-4">
+        <div className="space-y-3.5">
 
-          {/* ── Subtitle / Dropdown Bar & Sleek Mode Switch ── */}
-          {activeTab === 'global' ? (
-            <div className="flex items-center justify-between px-0.5">
-              <span className="text-xs text-[#7D8F72] font-medium">All accounts</span>
-
-              {/* Refined Auto / Manual Switch Pill */}
-              <div className="flex items-center gap-0.5 bg-[#172013] p-0.5 rounded-lg border border-[#283620]">
-                <button
-                  onClick={() => {
-                    setAllocationMode('auto');
-                    setActiveRules(prev => autoBalanceRules(prev));
-                    showToast('Auto-adjust mode: Total is always 100%');
-                  }}
-                  className={`px-2 py-1 rounded-[6px] text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                    allocationMode === 'auto'
-                      ? 'bg-[#4A622F] text-white shadow-xs'
-                      : 'text-[#7D8F72] hover:text-white'
-                  }`}
-                  title="Auto-balances remainder category so total is always 100%"
-                >
-                  <Sparkles className="w-2.5 h-2.5" />
-                  <span>Auto 100%</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setAllocationMode('manual');
-                    showToast('Manual mode: Freely set values (warns if sum != 100%)');
-                  }}
-                  className={`px-2 py-1 rounded-[6px] text-[10px] font-bold transition-all cursor-pointer ${
-                    allocationMode === 'manual'
-                      ? 'bg-[#F2811D] text-black font-extrabold shadow-xs'
-                      : 'text-[#7D8F72] hover:text-white'
-                  }`}
-                  title="Manually set percentages. Warns if sum != 100%"
-                >
-                  Manual
-                </button>
-              </div>
-            </div>
-          ) : (
-            /* Per Account Dropdown & Add Account Button */
+          {/* ── Per Account Dropdown (if Per-Account tab is active) ── */}
+          {activeTab === 'per-account' && (
             <div className="space-y-2">
               <div className="relative">
                 {isRenamingAccount ? (
@@ -605,7 +747,6 @@ export function AccountCategoriesScreen({
                 )}
               </div>
 
-              {/* Add Account Button & Auto/Manual Toggle Row */}
               <div className="flex items-center justify-between px-0.5">
                 <button
                   onClick={() => setShowAddAccountModal(true)}
@@ -614,64 +755,28 @@ export function AccountCategoriesScreen({
                   <Plus className="w-3 h-3" />
                   <span>Add account</span>
                 </button>
-
-                {/* Auto / Manual Mode Toggle */}
-                <div className="flex items-center gap-0.5 bg-[#172013] p-0.5 rounded-lg border border-[#283620]">
-                  <button
-                    onClick={() => {
-                      setAllocationMode('auto');
-                      setActiveRules(prev => autoBalanceRules(prev));
-                      showToast('Auto-adjust mode: Total is always 100%');
-                    }}
-                    className={`px-2 py-1 rounded-[6px] text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                      allocationMode === 'auto'
-                        ? 'bg-[#4A622F] text-white shadow-xs'
-                        : 'text-[#7D8F72] hover:text-white'
-                    }`}
-                  >
-                    <Sparkles className="w-2.5 h-2.5" />
-                    <span>Auto 100%</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setAllocationMode('manual');
-                      showToast('Manual mode: Freely set values (warns if sum != 100%)');
-                    }}
-                    className={`px-2 py-1 rounded-[6px] text-[10px] font-bold transition-all cursor-pointer ${
-                      allocationMode === 'manual'
-                        ? 'bg-[#F2811D] text-black font-extrabold shadow-xs'
-                        : 'text-[#7D8F72] hover:text-white'
-                    }`}
-                  >
-                    Manual
-                  </button>
-                </div>
               </div>
             </div>
           )}
 
-          {/* ── Section Title & Version Selector ── */}
-          <div className="space-y-2 pt-1">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs sm:text-sm font-bold text-white tracking-tight">
-                {activeTab === 'global' ? 'Allocation for all accounts' : 'Allocation for this account'}
-              </h2>
-              <button
-                onClick={() => setShowAddCategoryModal(true)}
-                className="text-[11px] font-semibold text-[#8EBA55] hover:text-[#A8E063] flex items-center gap-1 cursor-pointer transition-colors"
-                title="Add a new category rule"
-              >
-                <Plus className="w-3 h-3" />
-                <span>Add Category</span>
-              </button>
+          {/* ── Version Switcher Bar (v1: Smart Steppers, v2: Safe Slider, v3: Quick Chips) ── */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between px-0.5">
+              <span className="text-[11px] font-bold text-[#8EBA55] uppercase tracking-wider">
+                Interaction Style
+              </span>
+              <span className="text-[10px] text-[#7D8F72]">
+                {uiVersion === 'v1' && '±5% Steppers & Direct Type'}
+                {uiVersion === 'v2' && 'Safe Clamped Slider'}
+                {uiVersion === 'v3' && 'Quick Chips & Distribution Bar'}
+              </span>
             </div>
 
-            {/* ── Version Switcher Pills (v1: Lock & Steppers, v2: Quick Chips, v3: Slider) ── */}
             <div className="bg-[#141B10] p-1 rounded-xl border border-[#27351F] flex items-center gap-1">
               <button
                 onClick={() => {
                   setUiVersion('v1');
-                  showToast('Version 1: Smart Pin & Steppers. Previous items stay locked!');
+                  showToast('Version 1: Tactile ±5% Steppers & Direct Type');
                 }}
                 className={`flex-1 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${
                   uiVersion === 'v1'
@@ -679,14 +784,13 @@ export function AccountCategoriesScreen({
                     : 'text-[#7D8F72] hover:text-white hover:bg-white/[0.03]'
                 }`}
               >
-                <Lock className="w-3 h-3" />
-                <span>v1: Smart Lock</span>
+                <span>v1: Stepper</span>
               </button>
 
               <button
                 onClick={() => {
                   setUiVersion('v2');
-                  showToast('Version 2: Quick Percentage Chips & Fill Remainder');
+                  showToast('Version 2: Safe Clamped Slider (Never breaks other categories)');
                 }}
                 className={`flex-1 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${
                   uiVersion === 'v2'
@@ -694,14 +798,14 @@ export function AccountCategoriesScreen({
                     : 'text-[#7D8F72] hover:text-white hover:bg-white/[0.03]'
                 }`}
               >
-                <Percent className="w-3 h-3" />
-                <span>v2: Quick Chips</span>
+                <Sliders className="w-3 h-3" />
+                <span>v2: Safe Slider</span>
               </button>
 
               <button
                 onClick={() => {
                   setUiVersion('v3');
-                  showToast('Version 3: Classic Range Sliders');
+                  showToast('Version 3: Quick Chips & Distribution Bar');
                 }}
                 className={`flex-1 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${
                   uiVersion === 'v3'
@@ -709,269 +813,344 @@ export function AccountCategoriesScreen({
                     : 'text-[#7D8F72] hover:text-white hover:bg-white/[0.03]'
                 }`}
               >
-                <Sliders className="w-3 h-3" />
-                <span>v3: Sliders</span>
+                <Percent className="w-3 h-3" />
+                <span>v3: Quick Chips</span>
               </button>
             </div>
           </div>
 
-          {/* ── Remaining Unassigned Pool Banner (for v1 and v2) ── */}
-          {uiVersion !== 'v3' && (
-            <div className="bg-[#1C2417] border border-[#2E3C25] rounded-[12px] p-3 flex items-center justify-between shadow-sm">
-              <div className="space-y-0.5">
-                <span className="text-[10px] font-bold text-[#8EBA55] uppercase tracking-wider">Unassigned Budget</span>
-                <p className="text-xs text-[#A8B79F]">
-                  {100 - totalPercentage === 0 ? (
-                    <span className="text-[#A5E265] font-semibold flex items-center gap-1">
-                      <CheckCheck className="w-3.5 h-3.5" /> Perfectly balanced (100%)
+          {/* ── SLEEK COMPACT ALLOCATION INDICATOR (Minimal vertical space) ── */}
+          <div className="bg-[#172013] border border-[#283620] rounded-[12px] p-2.5 space-y-2 shadow-sm">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className={`w-2 h-2 rounded-full shrink-0 ${
+                  isTotal100 ? 'bg-[#A8E063] shadow-[0_0_8px_rgba(168,224,99,0.5)]' : totalPercentage > 100 ? 'bg-rose-400' : 'bg-[#F2811D]'
+                }`} />
+                <div className="truncate">
+                  {isTotal100 ? (
+                    <span className="font-bold text-[#A8E063] text-xs">
+                      100% Balanced ✓
                     </span>
-                  ) : 100 - totalPercentage > 0 ? (
-                    <span><strong className="text-white">{100 - totalPercentage}%</strong> left to allocate</span>
+                  ) : totalPercentage < 100 ? (
+                    <span className="text-white/90 font-medium text-xs">
+                      <strong className="text-white font-bold">{totalPercentage}%</strong> allocated · <span className="text-[#A5E265] font-semibold">{remainingTo100}% left</span>
+                    </span>
                   ) : (
-                    <span className="text-rose-400 font-semibold">Over-allocated by {totalPercentage - 100}%</span>
+                    <span className="text-rose-400 font-bold text-xs">
+                      {totalPercentage}% (Over by {totalPercentage - 100}%)
+                    </span>
                   )}
-                </p>
+                </div>
               </div>
 
-              {100 - totalPercentage !== 0 && (
+              {!isTotal100 && (
                 <button
-                  onClick={triggerAutoBalance}
-                  className="px-2.5 py-1 bg-[#4A622F] hover:bg-[#587538] text-white rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm active:scale-95"
+                  onClick={handleAutoBalanceCurrentLevel}
+                  className="px-2 py-0.5 rounded-[6px] bg-[#364923] hover:bg-[#465F2D] text-[#C5E89B] text-[10px] font-bold border border-[#4C6432] transition-all cursor-pointer flex items-center gap-1 shrink-0 active:scale-95"
                 >
-                  <Sparkles className="w-3 h-3" />
-                  <span>Auto-Distribute</span>
+                  <Sparkles className="w-2.5 h-2.5" />
+                  <span>Auto-Balance</span>
                 </button>
               )}
             </div>
+
+            {/* Segmented Color Breakdown Bar */}
+            <div className="w-full h-1.5 bg-[#10160D] rounded-full overflow-hidden flex items-center">
+              {activeLevelNodes.map((cat, idx) => {
+                const color = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
+                const widthPercent = Math.max(0, Math.min(100, cat.percentage));
+                return (
+                  <div
+                    key={cat.id}
+                    style={{ width: `${widthPercent}%`, backgroundColor: color }}
+                    className="h-full transition-all duration-300"
+                    title={`${cat.name}: ${cat.percentage}%`}
+                  />
+                );
+              })}
+              {remainingTo100 > 0 && (
+                <div
+                  style={{ width: `${remainingTo100}%` }}
+                  className="h-full bg-white/10"
+                  title={`Unallocated: ${remainingTo100}%`}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* ── Breadcrumb & Hierarchy Level Bar ── */}
+          <div className="bg-[#141C10] border border-[#232F1B] rounded-[10px] px-3 py-2 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              <button
+                onClick={() => setNavigationPath([])}
+                className={`font-semibold cursor-pointer transition-colors ${
+                  navigationPath.length === 0 ? 'text-[#A8E063] font-bold' : 'text-[#7D8F72] hover:text-white'
+                }`}
+              >
+                Level 1: Root
+              </button>
+
+              {breadcrumbChain.map((bc, idx) => {
+                const isLast = idx === breadcrumbChain.length - 1;
+                return (
+                  <React.Fragment key={bc.id}>
+                    <ChevronRight className="w-3 h-3 text-[#506346] shrink-0" />
+                    <button
+                      onClick={() => setNavigationPath(navigationPath.slice(0, idx + 1))}
+                      className={`font-semibold truncate max-w-[110px] cursor-pointer transition-colors ${
+                        isLast ? 'text-[#A8E063] font-bold' : 'text-[#7D8F72] hover:text-white'
+                      }`}
+                    >
+                      {bc.name}
+                    </button>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+
+            {/* Current Level Pill */}
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#24331B] text-[#A5E265] border border-[#3A4F2C] shrink-0">
+              Level {currentLevelNumber}
+            </span>
+          </div>
+
+          {/* Context Note when inside a Subcategory */}
+          {parentNode && (
+            <div className="flex items-center justify-between px-1 text-[11px] text-[#8EA083]">
+              <span>
+                Subcategories inside <strong className="text-white">{parentNode.name}</strong> ({parentNode.percentage}% of parent)
+              </span>
+              <button
+                onClick={() => setNavigationPath(prev => prev.slice(0, -1))}
+                className="text-[#A8E063] font-semibold hover:underline cursor-pointer flex items-center gap-0.5"
+              >
+                <ChevronLeft className="w-3 h-3" />
+                <span>Up one level</span>
+              </button>
+            </div>
           )}
 
+          {/* ── Category List Header & Add Button ── */}
+          <div className="flex items-center justify-between px-0.5 pt-1">
+            <span className="text-xs font-bold text-white tracking-tight">
+              {parentNode ? `${parentNode.name} Subcategories` : 'Main Categories'}
+            </span>
+            <button
+              onClick={() => setShowAddCategoryModal(true)}
+              className="text-[11px] font-semibold text-[#8EBA55] hover:text-[#A8E063] flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <Plus className="w-3 h-3" />
+              <span>{parentNode ? 'Add Subcategory' : 'Add Category'}</span>
+            </button>
+          </div>
+
           {/* ── Categories Allocation Rows ── */}
-          <div className="space-y-3.5">
-            {activeRules.map((category, index) => {
-              const isAuto = category.isAutoRemainder && allocationMode === 'auto';
-              const isLocked = !!lockedCategoryIds[category.id];
-              const remainingTo100 = Math.max(0, 100 - (totalPercentage - category.percentage));
+          <div className="space-y-3">
+            {activeLevelNodes.map((category, index) => {
+              const color = CATEGORY_COLORS[index % CATEGORY_COLORS.length];
+              const childCount = category.children?.length || 0;
+              const hasChildren = childCount > 0;
 
               return (
-                <div key={category.id} className="bg-[#171F13] border border-[#26331F] rounded-[14px] p-3 space-y-2.5 transition-all">
+                <div
+                  key={category.id}
+                  className="bg-[#171F13] border border-[#26331F] rounded-[14px] p-3 space-y-2.5 transition-all shadow-sm"
+                >
                   
-                  {/* Category Header: Name + Order buttons (Top to Bottom) + Delete */}
+                  {/* Category Title Row: Color Tag + Name + Level Badge + Delete */}
                   <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2 min-w-0">
-                      {/* Top to Bottom Order Arrows */}
-                      <div className="flex items-center gap-0.5 bg-[#1F291A] rounded-md p-0.5 border border-[#2C3B24]">
-                        <button
-                          onClick={() => moveCategoryOrder(index, 'up')}
-                          disabled={index === 0}
-                          className="p-1 hover:text-white disabled:opacity-30 disabled:hover:text-[#7D8F72] text-[#7D8F72] transition-colors cursor-pointer"
-                          title="Move Up"
-                        >
-                          <ArrowUp className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={() => moveCategoryOrder(index, 'down')}
-                          disabled={index === activeRules.length - 1}
-                          className="p-1 hover:text-white disabled:opacity-30 disabled:hover:text-[#7D8F72] text-[#7D8F72] transition-colors cursor-pointer"
-                          title="Move Down"
-                        >
-                          <ArrowDown className="w-3 h-3" />
-                        </button>
-                      </div>
-
+                      <div
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: color }}
+                      />
                       <span className="font-semibold text-white/95 text-xs sm:text-sm truncate">
                         {category.name}
                       </span>
-
-                      {isAuto && (
-                        <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-[#384A25] text-[#C5E89B] border border-[#4C6432] shrink-0">
-                          auto
-                        </span>
-                      )}
+                      <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-[#1F291A] text-[#8EBA55] border border-[#2E3E26] shrink-0">
+                        L{category.level}
+                      </span>
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {/* Set Auto Button (v3 only) */}
-                      {uiVersion === 'v3' && allocationMode === 'auto' && !isAuto && (
-                        <button
-                          onClick={() => toggleAutoRemainder(category.id)}
-                          className="text-[10px] text-[#7D8F72] hover:text-[#A8E063] transition-colors cursor-pointer mr-1"
-                          title="Click to set this category as the auto-adjusting remainder"
-                        >
-                          set auto
-                        </button>
-                      )}
-
-                      {/* Lock Toggle Button */}
+                      {/* Drill down button for Subcategories (Level 2, Level 3...) */}
                       <button
-                        onClick={() => toggleCategoryLock(category.id)}
-                        className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
-                          isLocked
-                            ? 'bg-[#4A622F] border-[#6B8A44] text-white shadow-xs'
-                            : 'bg-[#1F291A] border-[#2C3B24] text-[#7D8F72] hover:text-white'
+                        onClick={() => handleDrillDown(category)}
+                        className={`px-2 py-1 rounded-[8px] text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                          hasChildren
+                            ? 'bg-[#2E3F21] hover:bg-[#3D532C] text-[#C5E89B] border border-[#486333]'
+                            : 'bg-[#1D2717] hover:bg-[#2B3923] text-[#7E9374] border border-[#2C3B24]'
                         }`}
-                        title={isLocked ? "Category is locked (will not change)" : "Click to lock this category percentage"}
+                        title={hasChildren ? `Manage ${childCount} subcategories` : `Add Level ${category.level + 1} subcategories`}
                       >
-                        {isLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                        {hasChildren ? (
+                          <>
+                            <Layers className="w-2.5 h-2.5 text-[#A8E063]" />
+                            <span>Level {category.level + 1} ({childCount})</span>
+                            <ChevronRight className="w-3 h-3 text-[#A8E063]" />
+                          </>
+                        ) : (
+                          <>
+                            <CornerDownRight className="w-2.5 h-2.5" />
+                            <span>+ Subcategory</span>
+                          </>
+                        )}
                       </button>
 
                       {/* Remove category */}
-                      {activeRules.length > 1 && (
+                      {activeLevelNodes.length > 1 && (
                         <button
                           onClick={() => handleRemoveCategory(category.id)}
-                          className="text-[#657858] hover:text-rose-400 p-1.5 rounded-lg hover:bg-white/[0.04] transition-colors cursor-pointer"
+                          className="text-[#657858] hover:text-rose-400 p-1 rounded-lg hover:bg-white/[0.04] transition-colors cursor-pointer"
                           title="Remove category"
                         >
-                          <Trash2 className="w-3 h-3" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>
                   </div>
 
-                  {/* ── VERSION 1: Smart Pin & Steppers (Prevents previous numbers from breaking) ── */}
+                  {/* ═════════════════════════════════════════════════════════════ */}
+                  {/* VERSION 1: Tactile ±5% Steppers & Direct Type                */}
+                  {/* ═════════════════════════════════════════════════════════════ */}
                   {uiVersion === 'v1' && (
                     <div className="flex items-center gap-2">
-                      {/* Steppers */}
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => {
-                            const next = Math.max(0, category.percentage - 5);
-                            handlePercentageChange(category.id, next);
-                          }}
-                          className="px-2 py-1.5 rounded-lg bg-[#212C1B] hover:bg-[#2C3B24] text-white text-[11px] font-bold border border-[#303F27] active:scale-95 transition-all cursor-pointer"
-                          title="Decrease by 5%"
-                        >
-                          -5%
-                        </button>
-                        <button
-                          onClick={() => {
-                            const next = Math.max(0, category.percentage - 1);
-                            handlePercentageChange(category.id, next);
-                          }}
-                          className="px-2 py-1.5 rounded-lg bg-[#212C1B] hover:bg-[#2C3B24] text-white text-[11px] font-bold border border-[#303F27] active:scale-95 transition-all cursor-pointer"
-                          title="Decrease by 1%"
-                        >
-                          -1%
-                        </button>
-                      </div>
+                      {/* Chunky Minus Button (−5%) */}
+                      <button
+                        onClick={() => updatePercentageNonDestructive(category.id, category.percentage - 5)}
+                        className="w-10 h-9 rounded-[10px] bg-[#212C1B] hover:bg-[#2E3C26] active:scale-95 text-white font-extrabold text-base border border-[#303F27] flex items-center justify-center transition-all cursor-pointer shrink-0"
+                        title="Decrease by 5%"
+                      >
+                        −
+                      </button>
 
-                      {/* Center Direct Input */}
-                      <div className="flex-1 h-[36px] bg-[#141C10] border border-[#2E3C25] rounded-[10px] flex items-center justify-center px-2 focus-within:border-[#8EBA55] transition-all">
+                      {/* Direct Numeric Input with % */}
+                      <div className="flex-1 h-9 bg-[#131A0F] border border-[#2B3822] rounded-[10px] flex items-center justify-center px-3 focus-within:border-[#8EBA55] transition-all">
                         <input
                           type="number"
                           min="0"
                           max="100"
                           value={category.percentage}
-                          onChange={(e) => handlePercentageChange(category.id, Number(e.target.value))}
-                          className="no-spin w-10 bg-transparent text-white text-center outline-none num-display font-extrabold text-sm"
+                          onChange={(e) => updatePercentageNonDestructive(category.id, Number(e.target.value))}
+                          className="no-spin w-12 bg-transparent text-white text-center outline-none num-display font-extrabold text-sm"
                         />
                         <span className="text-[#7E9173] text-xs font-bold">%</span>
                       </div>
 
-                      {/* Steppers + */}
-                      <div className="flex items-center gap-1">
+                      {/* Chunky Plus Button (+5%) */}
+                      <button
+                        onClick={() => updatePercentageNonDestructive(category.id, category.percentage + 5)}
+                        className="w-10 h-9 rounded-[10px] bg-[#212C1B] hover:bg-[#2E3C26] active:scale-95 text-white font-extrabold text-base border border-[#303F27] flex items-center justify-center transition-all cursor-pointer shrink-0"
+                        title="Increase by 5%"
+                      >
+                        +
+                      </button>
+
+                      {/* Quick "Max / Remainder" Pill */}
+                      {remainingTo100 > 0 && (
                         <button
                           onClick={() => {
-                            const next = Math.min(100, category.percentage + 1);
-                            handlePercentageChange(category.id, next);
+                            const newTotal = category.percentage + remainingTo100;
+                            updatePercentageNonDestructive(category.id, newTotal);
+                            showToast(`Assigned remaining ${remainingTo100}% to ${category.name}`);
                           }}
-                          className="px-2 py-1.5 rounded-lg bg-[#212C1B] hover:bg-[#2C3B24] text-white text-[11px] font-bold border border-[#303F27] active:scale-95 transition-all cursor-pointer"
-                          title="Increase by 1%"
+                          className="h-9 px-2.5 rounded-[10px] bg-[#324520] hover:bg-[#435B2B] text-[#C5E89B] text-[10px] font-extrabold border border-[#496531] active:scale-95 transition-all cursor-pointer shrink-0 flex items-center justify-center"
+                          title={`Assign remaining ${remainingTo100}% to this category`}
                         >
-                          +1%
+                          +{remainingTo100}% Rem
                         </button>
-                        <button
-                          onClick={() => {
-                            const next = Math.min(100, category.percentage + 5);
-                            handlePercentageChange(category.id, next);
-                          }}
-                          className="px-2 py-1.5 rounded-lg bg-[#212C1B] hover:bg-[#2C3B24] text-white text-[11px] font-bold border border-[#303F27] active:scale-95 transition-all cursor-pointer"
-                          title="Increase by 5%"
-                        >
-                          +5%
-                        </button>
-                        <button
-                          onClick={() => {
-                            handlePercentageChange(category.id, remainingTo100);
-                            showToast(`Assigned remaining balance (${remainingTo100}%) to ${category.name}`);
-                          }}
-                          className="px-2 py-1.5 rounded-lg bg-[#384A25] hover:bg-[#4A622F] text-[#C5E89B] text-[10px] font-extrabold border border-[#4C6432] active:scale-95 transition-all cursor-pointer shrink-0"
-                          title="Assign all remaining unallocated percent to this category"
-                        >
-                          Max
-                        </button>
-                      </div>
+                      )}
                     </div>
                   )}
 
-                  {/* ── VERSION 2: Quick Percentage Chips ── */}
+                  {/* ═════════════════════════════════════════════════════════════ */}
+                  {/* VERSION 2: Safe Clamped Slider (Never breaks other items)   */}
+                  {/* ═════════════════════════════════════════════════════════════ */}
                   {uiVersion === 'v2' && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {[10, 20, 30, 40, 50, 60].map(val => (
-                          <button
-                            key={val}
-                            onClick={() => handlePercentageChange(category.id, val)}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                              category.percentage === val
-                                ? 'bg-[#4A622F] text-white font-bold border border-[#6B8A44]'
-                                : 'bg-[#1F291A] text-[#8EBA55] border border-[#2B3923] hover:bg-[#293623]'
-                            }`}
-                          >
-                            {val}%
-                          </button>
-                        ))}
-                        <button
-                          onClick={() => handlePercentageChange(category.id, remainingTo100)}
-                          className="px-2.5 py-1 rounded-lg text-xs font-bold bg-[#384A25] text-[#C5E89B] border border-[#4C6432] hover:bg-[#4A622F] transition-all cursor-pointer"
-                        >
-                          Fill Remainder ({remainingTo100}%)
-                        </button>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-1">
-                        <span className="text-[11px] text-[#7D8F72]">Custom:</span>
-                        <div className="w-[72px] h-[30px] bg-[#141C10] border border-[#2E3C25] rounded-[8px] flex items-center justify-between px-2.5">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 relative flex items-center">
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value={category.percentage}
+                            onChange={(e) => updatePercentageSafeSlider(category.id, Number(e.target.value))}
+                            className="figma-allocation-slider"
+                            style={{
+                              background: `linear-gradient(to right, ${color} 0%, ${color} ${category.percentage}%, #252D1E ${category.percentage}%, #252D1E 100%)`
+                            }}
+                          />
+                        </div>
+                        <div className="w-[68px] h-[32px] bg-[#141C10] border border-[#2D3C24] rounded-[8px] flex items-center justify-between px-2.5 focus-within:border-[#8EBA55] transition-colors shadow-inner shrink-0">
                           <input
                             type="number"
                             min="0"
                             max="100"
                             value={category.percentage}
-                            onChange={(e) => handlePercentageChange(category.id, Number(e.target.value))}
+                            onChange={(e) => updatePercentageNonDestructive(category.id, Number(e.target.value))}
                             className="no-spin w-8 bg-transparent text-white text-right outline-none num-display font-bold text-xs"
                           />
                           <span className="text-[#7E9173] text-xs font-semibold ml-1">%</span>
                         </div>
                       </div>
+                      <div className="flex items-center justify-between text-[10px] text-[#718567] px-0.5">
+                        <span>Safe: clamped to available remainder</span>
+                        {remainingTo100 > 0 && (
+                          <button
+                            onClick={() => updatePercentageNonDestructive(category.id, category.percentage + remainingTo100)}
+                            className="text-[#A8E063] font-bold hover:underline cursor-pointer"
+                          >
+                            Fill +{remainingTo100}%
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
 
-                  {/* ── VERSION 3: Classic Range Slider ── */}
+                  {/* ═════════════════════════════════════════════════════════════ */}
+                  {/* VERSION 3: Quick Chips & Presets                            */}
+                  {/* ═════════════════════════════════════════════════════════════ */}
                   {uiVersion === 'v3' && (
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 relative flex items-center">
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          step="1"
-                          value={category.percentage}
-                          onChange={(e) => handlePercentageChange(category.id, Number(e.target.value))}
-                          className="figma-allocation-slider"
-                          style={{
-                            background: `linear-gradient(to right, #6B8F3C 0%, #8EBA55 ${category.percentage}%, #252D1E ${category.percentage}%, #252D1E 100%)`
-                          }}
-                        />
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {[10, 20, 25, 30, 40, 50].map(val => (
+                          <button
+                            key={val}
+                            onClick={() => updatePercentageNonDestructive(category.id, val)}
+                            className={`px-2.5 py-1 rounded-[8px] text-[11px] font-semibold transition-all cursor-pointer ${
+                              category.percentage === val
+                                ? 'bg-[#4A622F] text-white font-bold border border-[#6B8A44]'
+                                : 'bg-[#1E2819] text-[#8EBA55] border border-[#2A3722] hover:bg-[#283522]'
+                            }`}
+                          >
+                            {val}%
+                          </button>
+                        ))}
+                        {remainingTo100 > 0 && (
+                          <button
+                            onClick={() => updatePercentageNonDestructive(category.id, category.percentage + remainingTo100)}
+                            className="px-2.5 py-1 rounded-[8px] text-[11px] font-bold bg-[#334621] text-[#C5E89B] border border-[#496531] hover:bg-[#435C2B] transition-all cursor-pointer"
+                          >
+                            Fill Rem ({category.percentage + remainingTo100}%)
+                          </button>
+                        )}
                       </div>
-                      <div className="w-[66px] h-[34px] bg-[#1E2618] border border-[#313E27] rounded-[8px] flex items-center justify-between px-2.5 focus-within:border-[#8EBA55] transition-colors shadow-inner shrink-0">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={category.percentage}
-                          onChange={(e) => handlePercentageChange(category.id, Number(e.target.value))}
-                          className="no-spin w-8 bg-transparent text-white text-right outline-none num-display font-bold text-xs"
-                        />
-                        <span className="text-[#7E9173] text-xs font-semibold ml-1">%</span>
+
+                      <div className="flex items-center justify-between pt-0.5">
+                        <span className="text-[11px] text-[#7D8F72]">Custom percentage:</span>
+                        <div className="w-[70px] h-[28px] bg-[#141C10] border border-[#2B3822] rounded-[8px] flex items-center justify-between px-2">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={category.percentage}
+                            onChange={(e) => updatePercentageNonDestructive(category.id, Number(e.target.value))}
+                            className="no-spin w-8 bg-transparent text-white text-right outline-none num-display font-bold text-xs"
+                          />
+                          <span className="text-[#7E9173] text-xs font-semibold ml-1">%</span>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -981,23 +1160,25 @@ export function AccountCategoriesScreen({
             })}
           </div>
 
-          {/* ── Total Row ── */}
-          <div className="flex items-center justify-between pt-3 border-t border-[#26331E]">
-            <span className="font-bold text-sm text-white">Total</span>
+          {/* ── Level Total Summary ── */}
+          <div className="flex items-center justify-between pt-2 border-t border-[#232F1B]">
+            <span className="font-bold text-xs text-white">
+              Level {currentLevelNumber} Total
+            </span>
             <div className="flex items-center gap-2">
-              {allocationMode === 'manual' && !isTotal100 && (
+              {!isTotal100 && (
                 <button
-                  onClick={triggerAutoBalance}
-                  className="text-[10px] bg-[#4A622F] text-white px-2 py-0.5 rounded-md font-bold hover:bg-[#587538] transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+                  onClick={handleAutoBalanceCurrentLevel}
+                  className="text-[10px] bg-[#3B5026] text-[#C5E89B] px-2 py-0.5 rounded-md font-bold hover:bg-[#4B6630] border border-[#4E6B34] transition-all cursor-pointer flex items-center gap-1 shadow-sm"
                   title="Auto balance to 100%"
                 >
                   <Sparkles className="w-2.5 h-2.5" />
-                  <span>Auto Fix</span>
+                  <span>Fix to 100%</span>
                 </button>
               )}
               <span
                 className={`font-extrabold text-sm num-display tracking-tight ${
-                  isTotal100 ? 'text-white' : 'text-[#F2811D]'
+                  isTotal100 ? 'text-[#A8E063]' : 'text-[#F2811D]'
                 }`}
               >
                 {totalPercentage}%
@@ -1005,34 +1186,28 @@ export function AccountCategoriesScreen({
             </div>
           </div>
 
-          {/* ── Manual Mode Warning: When Total != 100% ── */}
-          {allocationMode === 'manual' && !isTotal100 && (
-            <div className="bg-[#261D12] border border-[#6E4215] rounded-[12px] p-3 text-xs flex items-start gap-2.5 animate-fade-in shadow-lg">
-              <AlertTriangle className="w-4 h-4 text-[#F2811D] shrink-0 mt-0.5" />
-              <div className="space-y-1 min-w-0 flex-1">
-                <p className="font-bold text-[#F2811D] leading-tight">
-                  Total is not 100% ({totalPercentage}%)
-                </p>
-                <p className="text-[11px] text-[#E0B496] leading-relaxed">
-                  The allocation must always equal 100% of the parent category. You are currently{' '}
-                  <span className="font-bold">
-                    {totalPercentage < 100 ? `short by ${100 - totalPercentage}%` : `over by ${totalPercentage - 100}%`}
-                  </span>.
-                </p>
-                <button
-                  onClick={triggerAutoBalance}
-                  className="mt-1 px-3 py-1 rounded-[6px] bg-[#F2811D] hover:bg-[#FF8F2D] text-black font-extrabold text-[10px] shadow-sm transition-all cursor-pointer inline-flex items-center gap-1"
-                >
-                  <Sparkles className="w-3 h-3" />
-                  <span>Auto-Adjust to 100%</span>
-                </button>
+          {/* Warning banner if not 100% */}
+          {!isTotal100 && (
+            <div className="bg-[#241B12] border border-[#5E3812] rounded-[10px] p-2.5 text-xs flex items-center justify-between gap-2 animate-fade-in shadow-sm">
+              <div className="flex items-center gap-2 min-w-0">
+                <AlertTriangle className="w-3.5 h-3.5 text-[#F2811D] shrink-0" />
+                <span className="text-[11px] text-[#E0B496] truncate">
+                  {totalPercentage < 100
+                    ? `${100 - totalPercentage}% unassigned at this level`
+                    : `Over-allocated by ${totalPercentage - 100}%`}
+                </span>
               </div>
+              <button
+                onClick={handleAutoBalanceCurrentLevel}
+                className="px-2.5 py-1 rounded-[6px] bg-[#F2811D] hover:bg-[#FF8F2D] text-black font-extrabold text-[10px] transition-all cursor-pointer shrink-0"
+              >
+                Auto-Fix
+              </button>
             </div>
           )}
 
-          {/* ── Action Buttons (Figma Save allocation & Use Default Allocation) ── */}
-          <div className="space-y-2.5 pt-1">
-            {/* 1. Save Allocation (Orange Button) */}
+          {/* ── Action Buttons (Save & Default Allocation) ── */}
+          <div className="space-y-2 pt-1">
             <button
               onClick={handleSaveAllocation}
               className="w-full py-3.5 rounded-[12px] bg-[#F2811D] hover:bg-[#FF8E2E] active:scale-[0.99] text-[#11130E] font-bold text-sm shadow-md transition-all cursor-pointer text-center"
@@ -1040,7 +1215,6 @@ export function AccountCategoriesScreen({
               Save allocation
             </button>
 
-            {/* 2. Use Default Allocation (Dark Olive Green Button) */}
             <div className="space-y-1">
               <button
                 onClick={applyDefaultAllocation}
@@ -1049,16 +1223,16 @@ export function AccountCategoriesScreen({
                 Use Default Allocation
               </button>
               <p className="text-[11px] text-[#788A6E] text-center">
-                Quickly apply standard settings without visiting library
+                Quickly reset standard 50/30/20 hierarchy with subcategories
               </p>
             </div>
           </div>
 
-          {/* ── Featured Template Card (Figma Exact Section) ── */}
+          {/* ── Featured Template Card ── */}
           <div className="bg-[#1A2214] border border-[#2B3822] rounded-[14px] p-4 space-y-2 mt-4 shadow-sm">
             <h3 className="font-bold text-xs text-white">Using a featured template</h3>
             <p className="text-[11px] text-[#7D8F72] leading-relaxed">
-              When you use the default allocation, a featured template will be applied to allocate the selected account&apos;s funds across different categories.
+              When you use a featured template, standard formulas like Zero-Based, FIRE, or Freelancer are automatically structured.
             </p>
             <button
               onClick={() => setShowTemplateModal(true)}
@@ -1072,11 +1246,10 @@ export function AccountCategoriesScreen({
       )}
 
       {/* ═════════════════════════════════════════════════════════════════════════ */}
-      {/* TAB 3: MANAGE CURRENCIES 2.0 (Figma Screen 3)                          */}
+      {/* TAB 3: MANAGE CURRENCIES 2.0                                           */}
       {/* ═════════════════════════════════════════════════════════════════════════ */}
       {activeTab === 'currencies' && (
         <div className="space-y-4 animate-fade-in">
-
           {/* Currency Sub-Tabs: All | Fiat | Crypto */}
           <div className="bg-[#182114] p-1 rounded-[12px] border border-[#27351F] flex items-center gap-1">
             {(['all', 'fiat', 'crypto'] as const).map(tab => (
@@ -1196,7 +1369,6 @@ export function AccountCategoriesScreen({
             </div>
           )}
 
-          {/* Save Change Button */}
           <button
             onClick={() => showToast('Currency settings updated!')}
             className="w-full py-3.5 rounded-[12px] bg-[#F2811D] hover:bg-[#FF8E2E] active:scale-[0.99] text-[#11130E] font-bold text-xs sm:text-sm shadow-md transition-all cursor-pointer text-center mt-2"
@@ -1260,21 +1432,25 @@ export function AccountCategoriesScreen({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
           <div className="relative w-full max-w-sm bg-[#161D12] border border-[#2B3822] rounded-2xl p-5 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-[#27351F] pb-3">
-              <h3 className="font-bold text-sm text-white">Add Category Rule</h3>
+              <h3 className="font-bold text-sm text-white">
+                {parentNode ? `Add Subcategory inside ${parentNode.name}` : 'Add Category Rule'}
+              </h3>
               <button onClick={() => setShowAddCategoryModal(false)} className="text-[#888] hover:text-white p-1 cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
             <div className="space-y-2">
-              <label className="text-xs text-[#7D8F72] font-semibold">Category Name</label>
+              <label className="text-xs text-[#7D8F72] font-semibold">
+                {parentNode ? 'Subcategory Name' : 'Category Name'}
+              </label>
               <input
                 type="text"
-                placeholder="e.g. Investment, Debt, Education"
+                placeholder={parentNode ? "e.g. Groceries, Car Loan, Streaming" : "e.g. Needs, Wants, Savings"}
                 value={newCategoryName}
                 onChange={(e) => setNewCategoryName(e.target.value)}
                 className="w-full bg-[#1A2214] border border-[#2B3822] focus:border-[#4A622F] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none"
                 autoFocus
-                onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddCategoryAtCurrentLevel()}
               />
             </div>
             <div className="flex gap-2 pt-2">
@@ -1285,7 +1461,7 @@ export function AccountCategoriesScreen({
                 Cancel
               </button>
               <button
-                onClick={handleAddCategory}
+                onClick={handleAddCategoryAtCurrentLevel}
                 disabled={!newCategoryName.trim()}
                 className="flex-1 py-2 rounded-xl bg-[#4A622F] hover:bg-[#587538] disabled:opacity-50 text-xs font-bold text-white cursor-pointer"
               >
