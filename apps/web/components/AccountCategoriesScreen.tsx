@@ -14,7 +14,14 @@ import {
   Check,
   X,
   Wallet,
-  Edit2
+  Edit2,
+  Lock,
+  Unlock,
+  ArrowUp,
+  ArrowDown,
+  Percent,
+  Sliders,
+  CheckCheck
 } from 'lucide-react';
 import { useAppStore } from '../app/store';
 
@@ -126,6 +133,33 @@ export function AccountCategoriesScreen({
 
   // Allocation mode: 'auto' (total always 100% with auto-balancing) or 'manual' (freely editable with total warning)
   const [allocationMode, setAllocationMode] = useState<'auto' | 'manual'>('auto');
+
+  // UI Allocation Experience Version Selector:
+  // v1: Safe Pin & Lock System with Smart Remaining Pool & Steppers (Prevents previous items from breaking)
+  // v2: Direct Visual Tap Cards (Fixed quick percentage chips 10%, 20%, 30%, 50% + Custom + Fill Remainder)
+  // v3: Original Slider (Figma baseline with isolated manual override)
+  const [uiVersion, setUiVersion] = useState<'v1' | 'v2' | 'v3'>('v1');
+  const [lockedCategoryIds, setLockedCategoryIds] = useState<Record<string, boolean>>({});
+
+  const toggleCategoryLock = (id: string) => {
+    setLockedCategoryIds(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
+  const moveCategoryOrder = (index: number, direction: 'up' | 'down') => {
+    const targetIdx = direction === 'up' ? index - 1 : index + 1;
+    if (targetIdx < 0 || targetIdx >= activeRules.length) return;
+
+    setActiveRules(prev => {
+      const copy = [...prev];
+      const temp = copy[index];
+      copy[index] = copy[targetIdx];
+      copy[targetIdx] = temp;
+      return copy;
+    });
+  };
 
   // Selected account for 'per-account' tab
   const [selectedAccountId, setSelectedAccountId] = useState<string>(() => {
@@ -616,55 +650,175 @@ export function AccountCategoriesScreen({
             </div>
           )}
 
-          {/* ── Section Title: Allocation for all accounts / for this account ── */}
-          <div className="flex items-center justify-between pt-1">
-            <h2 className="text-xs sm:text-sm font-bold text-white tracking-tight">
-              {activeTab === 'global' ? 'Allocation for all accounts' : 'Allocation for this account'}
-            </h2>
-            <button
-              onClick={() => setShowAddCategoryModal(true)}
-              className="text-[11px] font-semibold text-[#8EBA55] hover:text-[#A8E063] flex items-center gap-1 cursor-pointer transition-colors"
-              title="Add a new category rule"
-            >
-              <Plus className="w-3 h-3" />
-              <span>Add Category</span>
-            </button>
+          {/* ── Section Title & Version Selector ── */}
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs sm:text-sm font-bold text-white tracking-tight">
+                {activeTab === 'global' ? 'Allocation for all accounts' : 'Allocation for this account'}
+              </h2>
+              <button
+                onClick={() => setShowAddCategoryModal(true)}
+                className="text-[11px] font-semibold text-[#8EBA55] hover:text-[#A8E063] flex items-center gap-1 cursor-pointer transition-colors"
+                title="Add a new category rule"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Add Category</span>
+              </button>
+            </div>
+
+            {/* ── Version Switcher Pills (v1: Lock & Steppers, v2: Quick Chips, v3: Slider) ── */}
+            <div className="bg-[#141B10] p-1 rounded-xl border border-[#27351F] flex items-center gap-1">
+              <button
+                onClick={() => {
+                  setUiVersion('v1');
+                  showToast('Version 1: Smart Pin & Steppers. Previous items stay locked!');
+                }}
+                className={`flex-1 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                  uiVersion === 'v1'
+                    ? 'bg-[#4A622F] text-white shadow-xs'
+                    : 'text-[#7D8F72] hover:text-white hover:bg-white/[0.03]'
+                }`}
+              >
+                <Lock className="w-3 h-3" />
+                <span>v1: Smart Lock</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setUiVersion('v2');
+                  showToast('Version 2: Quick Percentage Chips & Fill Remainder');
+                }}
+                className={`flex-1 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                  uiVersion === 'v2'
+                    ? 'bg-[#4A622F] text-white shadow-xs'
+                    : 'text-[#7D8F72] hover:text-white hover:bg-white/[0.03]'
+                }`}
+              >
+                <Percent className="w-3 h-3" />
+                <span>v2: Quick Chips</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setUiVersion('v3');
+                  showToast('Version 3: Classic Range Sliders');
+                }}
+                className={`flex-1 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                  uiVersion === 'v3'
+                    ? 'bg-[#4A622F] text-white shadow-xs'
+                    : 'text-[#7D8F72] hover:text-white hover:bg-white/[0.03]'
+                }`}
+              >
+                <Sliders className="w-3 h-3" />
+                <span>v3: Sliders</span>
+              </button>
+            </div>
           </div>
 
-          {/* ── Categories Allocation Rows (Custom Range Slider + Written Percentage) ── */}
-          <div className="space-y-4">
-            {activeRules.map((category) => {
+          {/* ── Remaining Unassigned Pool Banner (for v1 and v2) ── */}
+          {uiVersion !== 'v3' && (
+            <div className="bg-[#1C2417] border border-[#2E3C25] rounded-[12px] p-3 flex items-center justify-between shadow-sm">
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-bold text-[#8EBA55] uppercase tracking-wider">Unassigned Budget</span>
+                <p className="text-xs text-[#A8B79F]">
+                  {100 - totalPercentage === 0 ? (
+                    <span className="text-[#A5E265] font-semibold flex items-center gap-1">
+                      <CheckCheck className="w-3.5 h-3.5" /> Perfectly balanced (100%)
+                    </span>
+                  ) : 100 - totalPercentage > 0 ? (
+                    <span><strong className="text-white">{100 - totalPercentage}%</strong> left to allocate</span>
+                  ) : (
+                    <span className="text-rose-400 font-semibold">Over-allocated by {totalPercentage - 100}%</span>
+                  )}
+                </p>
+              </div>
+
+              {100 - totalPercentage !== 0 && (
+                <button
+                  onClick={triggerAutoBalance}
+                  className="px-2.5 py-1 bg-[#4A622F] hover:bg-[#587538] text-white rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm active:scale-95"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>Auto-Distribute</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* ── Categories Allocation Rows ── */}
+          <div className="space-y-3.5">
+            {activeRules.map((category, index) => {
               const isAuto = category.isAutoRemainder && allocationMode === 'auto';
+              const isLocked = !!lockedCategoryIds[category.id];
+              const remainingTo100 = Math.max(0, 100 - (totalPercentage - category.percentage));
 
               return (
-                <div key={category.id} className="space-y-2 group">
-                  {/* Category Name & Auto Pill */}
+                <div key={category.id} className="bg-[#171F13] border border-[#26331F] rounded-[14px] p-3 space-y-2.5 transition-all">
+                  
+                  {/* Category Header: Name + Order buttons (Top to Bottom) + Delete */}
                   <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-white/95 text-xs sm:text-sm">{category.name}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      {/* Top to Bottom Order Arrows */}
+                      <div className="flex items-center gap-0.5 bg-[#1F291A] rounded-md p-0.5 border border-[#2C3B24]">
+                        <button
+                          onClick={() => moveCategoryOrder(index, 'up')}
+                          disabled={index === 0}
+                          className="p-1 hover:text-white disabled:opacity-30 disabled:hover:text-[#7D8F72] text-[#7D8F72] transition-colors cursor-pointer"
+                          title="Move Up"
+                        >
+                          <ArrowUp className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => moveCategoryOrder(index, 'down')}
+                          disabled={index === activeRules.length - 1}
+                          className="p-1 hover:text-white disabled:opacity-30 disabled:hover:text-[#7D8F72] text-[#7D8F72] transition-colors cursor-pointer"
+                          title="Move Down"
+                        >
+                          <ArrowDown className="w-3 h-3" />
+                        </button>
+                      </div>
+
+                      <span className="font-semibold text-white/95 text-xs sm:text-sm truncate">
+                        {category.name}
+                      </span>
+
                       {isAuto && (
-                        <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-[#384A25] text-[#C5E89B] border border-[#4C6432]">
+                        <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-[#384A25] text-[#C5E89B] border border-[#4C6432] shrink-0">
                           auto
                         </span>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      {/* Make this category the Auto Remainder */}
-                      {allocationMode === 'auto' && !isAuto && (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {/* Set Auto Button (v3 only) */}
+                      {uiVersion === 'v3' && allocationMode === 'auto' && !isAuto && (
                         <button
                           onClick={() => toggleAutoRemainder(category.id)}
-                          className="text-[10px] text-[#7D8F72] hover:text-[#A8E063] transition-colors cursor-pointer"
+                          className="text-[10px] text-[#7D8F72] hover:text-[#A8E063] transition-colors cursor-pointer mr-1"
                           title="Click to set this category as the auto-adjusting remainder"
                         >
                           set auto
                         </button>
                       )}
-                      {/* Delete category button - subtle on hover */}
+
+                      {/* Lock Toggle Button */}
+                      <button
+                        onClick={() => toggleCategoryLock(category.id)}
+                        className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                          isLocked
+                            ? 'bg-[#4A622F] border-[#6B8A44] text-white shadow-xs'
+                            : 'bg-[#1F291A] border-[#2C3B24] text-[#7D8F72] hover:text-white'
+                        }`}
+                        title={isLocked ? "Category is locked (will not change)" : "Click to lock this category percentage"}
+                      >
+                        {isLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                      </button>
+
+                      {/* Remove category */}
                       {activeRules.length > 1 && (
                         <button
                           onClick={() => handleRemoveCategory(category.id)}
-                          className="text-[#55634B] hover:text-rose-400 p-0.5 transition-colors cursor-pointer opacity-70 group-hover:opacity-100"
+                          className="text-[#657858] hover:text-rose-400 p-1.5 rounded-lg hover:bg-white/[0.04] transition-colors cursor-pointer"
                           title="Remove category"
                         >
                           <Trash2 className="w-3 h-3" />
@@ -673,37 +827,155 @@ export function AccountCategoriesScreen({
                     </div>
                   </div>
 
-                  {/* Slider Track & Number Box (Written or Slider) */}
-                  <div className="flex items-center gap-3">
-                    {/* Range Slider with CSS class .figma-allocation-slider */}
-                    <div className="flex-1 relative flex items-center">
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        step="1"
-                        value={category.percentage}
-                        onChange={(e) => handlePercentageChange(category.id, Number(e.target.value))}
-                        className="figma-allocation-slider"
-                        style={{
-                          background: `linear-gradient(to right, #6B8F3C 0%, #8EBA55 ${category.percentage}%, #252D1E ${category.percentage}%, #252D1E 100%)`
-                        }}
-                      />
-                    </div>
+                  {/* ── VERSION 1: Smart Pin & Steppers (Prevents previous numbers from breaking) ── */}
+                  {uiVersion === 'v1' && (
+                    <div className="flex items-center gap-2">
+                      {/* Steppers */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => {
+                            const next = Math.max(0, category.percentage - 5);
+                            handlePercentageChange(category.id, next);
+                          }}
+                          className="px-2 py-1.5 rounded-lg bg-[#212C1B] hover:bg-[#2C3B24] text-white text-[11px] font-bold border border-[#303F27] active:scale-95 transition-all cursor-pointer"
+                          title="Decrease by 5%"
+                        >
+                          -5%
+                        </button>
+                        <button
+                          onClick={() => {
+                            const next = Math.max(0, category.percentage - 1);
+                            handlePercentageChange(category.id, next);
+                          }}
+                          className="px-2 py-1.5 rounded-lg bg-[#212C1B] hover:bg-[#2C3B24] text-white text-[11px] font-bold border border-[#303F27] active:scale-95 transition-all cursor-pointer"
+                          title="Decrease by 1%"
+                        >
+                          -1%
+                        </button>
+                      </div>
 
-                    {/* Written Percentage Input Box [ 50 % ] with hidden spinners */}
-                    <div className="w-[66px] h-[34px] bg-[#1E2618] border border-[#313E27] rounded-[8px] flex items-center justify-between px-2.5 focus-within:border-[#8EBA55] transition-colors shadow-inner shrink-0">
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={category.percentage}
-                        onChange={(e) => handlePercentageChange(category.id, Number(e.target.value))}
-                        className="no-spin w-8 bg-transparent text-white text-right outline-none num-display font-bold text-xs"
-                      />
-                      <span className="text-[#7E9173] text-xs font-semibold ml-1">%</span>
+                      {/* Center Direct Input */}
+                      <div className="flex-1 h-[36px] bg-[#141C10] border border-[#2E3C25] rounded-[10px] flex items-center justify-center px-2 focus-within:border-[#8EBA55] transition-all">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={category.percentage}
+                          onChange={(e) => handlePercentageChange(category.id, Number(e.target.value))}
+                          className="no-spin w-10 bg-transparent text-white text-center outline-none num-display font-extrabold text-sm"
+                        />
+                        <span className="text-[#7E9173] text-xs font-bold">%</span>
+                      </div>
+
+                      {/* Steppers + */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => {
+                            const next = Math.min(100, category.percentage + 1);
+                            handlePercentageChange(category.id, next);
+                          }}
+                          className="px-2 py-1.5 rounded-lg bg-[#212C1B] hover:bg-[#2C3B24] text-white text-[11px] font-bold border border-[#303F27] active:scale-95 transition-all cursor-pointer"
+                          title="Increase by 1%"
+                        >
+                          +1%
+                        </button>
+                        <button
+                          onClick={() => {
+                            const next = Math.min(100, category.percentage + 5);
+                            handlePercentageChange(category.id, next);
+                          }}
+                          className="px-2 py-1.5 rounded-lg bg-[#212C1B] hover:bg-[#2C3B24] text-white text-[11px] font-bold border border-[#303F27] active:scale-95 transition-all cursor-pointer"
+                          title="Increase by 5%"
+                        >
+                          +5%
+                        </button>
+                        <button
+                          onClick={() => {
+                            handlePercentageChange(category.id, remainingTo100);
+                            showToast(`Assigned remaining balance (${remainingTo100}%) to ${category.name}`);
+                          }}
+                          className="px-2 py-1.5 rounded-lg bg-[#384A25] hover:bg-[#4A622F] text-[#C5E89B] text-[10px] font-extrabold border border-[#4C6432] active:scale-95 transition-all cursor-pointer shrink-0"
+                          title="Assign all remaining unallocated percent to this category"
+                        >
+                          Max
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  {/* ── VERSION 2: Quick Percentage Chips ── */}
+                  {uiVersion === 'v2' && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {[10, 20, 30, 40, 50, 60].map(val => (
+                          <button
+                            key={val}
+                            onClick={() => handlePercentageChange(category.id, val)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                              category.percentage === val
+                                ? 'bg-[#4A622F] text-white font-bold border border-[#6B8A44]'
+                                : 'bg-[#1F291A] text-[#8EBA55] border border-[#2B3923] hover:bg-[#293623]'
+                            }`}
+                          >
+                            {val}%
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => handlePercentageChange(category.id, remainingTo100)}
+                          className="px-2.5 py-1 rounded-lg text-xs font-bold bg-[#384A25] text-[#C5E89B] border border-[#4C6432] hover:bg-[#4A622F] transition-all cursor-pointer"
+                        >
+                          Fill Remainder ({remainingTo100}%)
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[11px] text-[#7D8F72]">Custom:</span>
+                        <div className="w-[72px] h-[30px] bg-[#141C10] border border-[#2E3C25] rounded-[8px] flex items-center justify-between px-2.5">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={category.percentage}
+                            onChange={(e) => handlePercentageChange(category.id, Number(e.target.value))}
+                            className="no-spin w-8 bg-transparent text-white text-right outline-none num-display font-bold text-xs"
+                          />
+                          <span className="text-[#7E9173] text-xs font-semibold ml-1">%</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── VERSION 3: Classic Range Slider ── */}
+                  {uiVersion === 'v3' && (
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 relative flex items-center">
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="1"
+                          value={category.percentage}
+                          onChange={(e) => handlePercentageChange(category.id, Number(e.target.value))}
+                          className="figma-allocation-slider"
+                          style={{
+                            background: `linear-gradient(to right, #6B8F3C 0%, #8EBA55 ${category.percentage}%, #252D1E ${category.percentage}%, #252D1E 100%)`
+                          }}
+                        />
+                      </div>
+                      <div className="w-[66px] h-[34px] bg-[#1E2618] border border-[#313E27] rounded-[8px] flex items-center justify-between px-2.5 focus-within:border-[#8EBA55] transition-colors shadow-inner shrink-0">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={category.percentage}
+                          onChange={(e) => handlePercentageChange(category.id, Number(e.target.value))}
+                          className="no-spin w-8 bg-transparent text-white text-right outline-none num-display font-bold text-xs"
+                        />
+                        <span className="text-[#7E9173] text-xs font-semibold ml-1">%</span>
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               );
             })}
