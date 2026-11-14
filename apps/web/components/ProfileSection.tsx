@@ -223,6 +223,8 @@ export function ProfileSection() {
   const categories = useAppStore(state => state.categories);
   const ledger = useAppStore(state => state.ledger);
   const goals = useAppStore(state => state.goals);
+  const storeSubView = useAppStore(state => state.settingsSubView);
+  const storeInitialTab = useAppStore(state => state.settingsInitialTab);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -236,6 +238,7 @@ export function ProfileSection() {
   // Toggle tab: 'my-account' vs 'all-categories'
   const [activeSegment, setActiveSegment] = useState<'my-account' | 'all-categories'>('all-categories');
   const [subView, setSubView] = useState<'overview' | 'account-categories'>(() => {
+    if (storeSubView) return storeSubView;
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('screen') === 'allocations' || params.get('view') === 'allocations') {
@@ -244,6 +247,12 @@ export function ProfileSection() {
     }
     return 'overview';
   });
+
+  useEffect(() => {
+    if (storeSubView) {
+      setSubView(storeSubView);
+    }
+  }, [storeSubView]);
 
   // Selected radio items in lists
   const [selectedCatId, setSelectedCatId] = useState<string>(categories[0]?.id || '');
@@ -507,7 +516,7 @@ export function ProfileSection() {
     return (
       <AccountCategoriesScreen
         onBack={() => setSubView('overview')}
-        initialTab={activeSegment === 'my-account' ? 'per-account' : 'global'}
+        initialTab={storeInitialTab || (activeSegment === 'my-account' ? 'per-account' : 'global')}
       />
     );
   }

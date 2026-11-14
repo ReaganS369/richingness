@@ -57,6 +57,8 @@ interface AppState {
   syncStatus: SyncStatusType;
   // Navigation
   activeTab: TabId;
+  settingsSubView?: 'overview' | 'account-categories';
+  settingsInitialTab?: 'global' | 'per-account' | 'currencies';
   // Ledger Databases
   accounts: Account[];
   categories: BudgetCategory[];
@@ -77,6 +79,7 @@ interface AppState {
   // Actions
   logout: () => Promise<void>;
   setActiveTab: (tab: TabId) => void;
+  openSettingsAllocations: (initialTab?: 'global' | 'per-account' | 'currencies') => void;
   setSyncStatus: (status: SyncStatusType) => void;
   
   // Accounts Actions
@@ -94,6 +97,7 @@ interface AppState {
   ) => Promise<void>;
   
   // Budget Actions
+  addCategory: (name: string, budgetAmount?: bigint, parentId?: string | null) => Promise<void>;
   updateAllocation: (categoryId: string, amount: bigint) => Promise<void>;
   triggerRecovery: (targetCategoryId: string, deficitAmount: bigint) => Promise<void>;
 
@@ -415,6 +419,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setActiveTab: (activeTab) => set({ activeTab }),
+  openSettingsAllocations: (initialTab = 'global') => set({
+    activeTab: 'settings',
+    settingsSubView: 'account-categories',
+    settingsInitialTab: initialTab
+  }),
   setSyncStatus: (syncStatus) => set({ syncStatus }),
 
   addAccount: async (name, type, currency) => {
@@ -495,6 +504,31 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
       }
     });
+  },
+
+  addCategory: async (name: string, budgetAmount = 0n, parentId: string | null = null) => {
+    const session = get().session;
+    if (!globalRepository || !session) return;
+    const scopedRepo = globalRepository.forUser(getUserKey(session));
+
+    const existingCats = get().categories;
+    const newCategory: BudgetCategory = {
+      id: `cat-${Date.now()}`,
+      parentId: parentId || null,
+      name: name.trim(),
+      rolloverMode: 'carry',
+      budgetAmount,
+      priority: 3,
+      isIncome: false,
+      isHidden: false,
+      sortOrder: existingCats.length + 1
+    };
+
+    await scopedRepo.saveCategory(newCategory);
+
+    if (activeSyncEngine) {
+      await activeSyncEngine.enqueueOperation('categories', 'insert', newCategory as unknown as Record<string, unknown>);
+    }
   },
 
   updateAllocation: async (categoryId, amount) => {

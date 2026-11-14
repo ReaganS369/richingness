@@ -3,10 +3,12 @@
 import React, { useState } from 'react';
 import {
   ChevronDown,
+  ChevronRight,
   CheckCircle2,
   ChevronsUpDown,
   Edit2,
-  Layers
+  Layers,
+  Wallet
 } from 'lucide-react';
 import { useAppStore } from '../app/store';
 
@@ -425,13 +427,16 @@ const REFINED_PROFILE = {
 export function ExpandableCategoriesTree({
   searchQuery = '',
   filter = 'ALL',
-  onPayDue
+  onPayDue,
+  onNavigateToAllocations
 }: {
   searchQuery?: string;
   filter?: 'ALL' | 'DUE' | 'REPAY';
   onPayDue?: (amount: number, categoryName: string) => void;
+  onNavigateToAllocations?: (tab: 'global' | 'per-account' | 'currencies') => void;
 }) {
   const categories = useAppStore(state => state.categories);
+  const accounts = useAppStore(state => state.accounts);
 
   // Production preset: Figma Life Budget (with full 5-level deep hierarchy)
   const activePresetId: 'figma-life-budget' | 'user-demo-200' | 'five-level-test' = 'figma-life-budget';
@@ -453,16 +458,47 @@ export function ExpandableCategoriesTree({
   };
 
   if (categories.length === 0) {
+    const hasAccounts = accounts.length > 0;
     return (
-      <div className="bg-[#1B1A17] border border-[#2A2824] rounded-[14px] p-8 text-center space-y-3 shadow-xl">
-        <div className="w-12 h-12 rounded-full bg-[#23211C] border border-[#33302A] flex items-center justify-center mx-auto text-[#8E8A82]">
-          <Layers className="w-6 h-6 text-[#7A7872]" />
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => {
+          if (onNavigateToAllocations) {
+            onNavigateToAllocations(hasAccounts ? 'global' : 'per-account');
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            if (onNavigateToAllocations) {
+              onNavigateToAllocations(hasAccounts ? 'global' : 'per-account');
+            }
+          }
+        }}
+        className="w-full bg-[#1B1A17] hover:bg-[#201E1A] border border-[#2A2824] hover:border-[#48602E] active:scale-[0.99] rounded-[14px] p-7 text-center space-y-3.5 shadow-xl transition-all cursor-pointer group select-none"
+      >
+        <div className="w-14 h-14 rounded-full bg-[#23211C] group-hover:bg-[#48602E]/25 border border-[#33302A] group-hover:border-[#6B8A44] flex items-center justify-center mx-auto text-[#8E8A82] group-hover:text-white transition-all shadow-inner">
+          {hasAccounts ? (
+            <Layers className="w-7 h-7 text-[#7A7872] group-hover:text-[#A5E265] transition-colors" />
+          ) : (
+            <Wallet className="w-7 h-7 text-[#7A7872] group-hover:text-[#A5E265] transition-colors" />
+          )}
         </div>
         <div>
-          <h3 className="text-base font-bold text-white">No Categories Added Yet</h3>
-          <p className="text-xs text-[#8E8A82] mt-1.5 max-w-xs mx-auto leading-relaxed">
-            Your budget tree is completely empty. Start fresh by adding transactions or creating your custom budget categories.
+          <h3 className="text-base sm:text-lg font-bold text-white group-hover:text-[#A5E265] transition-colors">
+            {hasAccounts ? "You don't have any categories yet" : "Set up your first account"}
+          </h3>
+          <p className="text-xs sm:text-sm text-[#8E8A82] group-hover:text-white/80 mt-1 max-w-xs mx-auto leading-relaxed transition-colors">
+            {hasAccounts
+              ? "Tap here to create and customize your budget categories."
+              : "Connect your primary account or wallet first to get started."}
           </p>
+        </div>
+
+        <div className="pt-1 flex items-center justify-center gap-1.5 text-xs font-semibold text-[#8EBA55] group-hover:text-[#A5E265] group-hover:translate-x-0.5 transition-all">
+          <span>{hasAccounts ? "Create a category now" : "Add an account now"}</span>
+          <ChevronRight className="w-4 h-4" />
         </div>
       </div>
     );

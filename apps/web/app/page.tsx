@@ -234,8 +234,8 @@ function SecondaryBtn({ children, className = '', ...p }: React.ButtonHTMLAttrib
 export default function Home() {
   const {
     session, activeTab, syncStatus, accounts, goals, ledger, categories,
-    initAuth, logout, setActiveTab,
-    addAccount, addTransaction, updateAllocation, addGoal,
+    initAuth, logout, setActiveTab, openSettingsAllocations,
+    addAccount, addCategory, addTransaction, updateAllocation, addGoal,
     triggerRecovery, getBalances, getNetWorth, getBudgetTree,
     getGoalsProgress, getSpendingSummary, getBudgetHealth, triggerSyncPass
   } = useAppStore();
@@ -255,6 +255,9 @@ export default function Home() {
   const [showAddTxModal,    setShowAddTxModal]    = useState(false);
   const [showAddAcctModal,  setShowAddAcctModal]  = useState(false);
   const [showAddGoalModal,  setShowAddGoalModal]  = useState(false);
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [categoryNameInput, setCategoryNameInput] = useState('');
+  const [categoryBudgetInput, setCategoryBudgetInput] = useState('');
   const [showRecoveryModal, setShowRecoveryModal] = useState<{ categoryId: string; name: string; deficit: bigint } | null>(null);
 
   const [txType,        setTxType]        = useState<'INCOME' | 'EXPENSE' | 'TRANSFER_OUT'>('EXPENSE');
@@ -486,9 +489,9 @@ export default function Home() {
           <div
             className={`w-full mx-auto animate-fade-up ${
               activeTab === 'dashboard'
-                ? 'max-w-md p-3.5 sm:p-4 pb-28 space-y-3'
+                ? 'max-w-md px-2.5 sm:px-4 py-3 pb-28 space-y-3'
                 : activeTab === 'settings'
-                ? 'w-full max-w-md mx-auto p-3.5 sm:p-4 pb-28'
+                ? 'w-full max-w-md mx-auto px-2.5 sm:px-4 py-3 pb-28'
                 : 'max-w-5xl p-4 sm:p-6 md:p-8 pb-24 space-y-5'
             }`}
           >
@@ -604,6 +607,9 @@ export default function Home() {
                   <ExpandableCategoriesTree
                     searchQuery={categorySearch}
                     filter={categoryFilter}
+                    onNavigateToAllocations={(targetTab) => {
+                      openSettingsAllocations(targetTab);
+                    }}
                     onPayDue={(amount, catName) => {
                       setTxType('EXPENSE');
                       setTxAmount(amount.toString());
@@ -1256,6 +1262,48 @@ export default function Home() {
             <div className="flex gap-3 pt-1">
               <SecondaryBtn type="button" onClick={() => setShowAddAcctModal(false)}>Cancel</SecondaryBtn>
               <PrimaryBtn type="submit">Create Account</PrimaryBtn>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Add Category */}
+      {showAddCategoryModal && (
+        <Modal title="Add Category" onClose={() => setShowAddCategoryModal(false)} icon={<Plus className="w-4 h-4" />}>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (categoryNameInput.trim()) {
+                const budgetAmount = categoryBudgetInput.trim() ? formatRupeesToPaise(categoryBudgetInput.trim()) : 0n;
+                await addCategory(categoryNameInput.trim(), budgetAmount);
+                setShowAddCategoryModal(false);
+              }
+            }}
+            className="space-y-4"
+          >
+            <Field label="Category Name">
+              <input
+                type="text"
+                required
+                autoFocus
+                value={categoryNameInput}
+                onChange={e => setCategoryNameInput(e.target.value)}
+                placeholder="Needs, Rent, Groceries, Dining…"
+                className={inputCls}
+              />
+            </Field>
+            <Field label="Monthly Budget Target (₹, optional)">
+              <input
+                type="text"
+                value={categoryBudgetInput}
+                onChange={e => setCategoryBudgetInput(e.target.value)}
+                placeholder="e.g. 5000"
+                className={inputCls}
+              />
+            </Field>
+            <div className="flex gap-3 pt-1">
+              <SecondaryBtn type="button" onClick={() => setShowAddCategoryModal(false)}>Cancel</SecondaryBtn>
+              <PrimaryBtn type="submit">Create Category</PrimaryBtn>
             </div>
           </form>
         </Modal>

@@ -349,7 +349,12 @@ export function AccountCategoriesScreen({
   }, []);
 
   const accountOptions = accounts;
-  const activeAccountObj = accountOptions.find(a => a.id === selectedAccountId) || accountOptions[0];
+  const activeAccountObj = accountOptions.find(a => a.id === selectedAccountId) || accountOptions[0] || {
+    id: 'acct-default',
+    name: 'Primary Account',
+    type: 'savings' as const,
+    currency: 'INR'
+  };
 
   return (
     <div className="w-full max-w-md mx-auto text-white select-none animate-fade-in pb-8">
