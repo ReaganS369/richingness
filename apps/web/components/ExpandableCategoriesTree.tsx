@@ -472,13 +472,15 @@ export function ExpandableCategoriesTree({
   filter = 'ALL',
   onPayDue,
   onNavigateToAllocations,
-  onSpendCategory
+  onSpendCategory,
+  realAccountBalance = 0
 }: {
   searchQuery?: string;
   filter?: 'ALL' | 'DUE' | 'REPAY';
   onPayDue?: (amount: number, categoryName: string) => void;
   onNavigateToAllocations?: (tab: 'global' | 'per-account' | 'currencies') => void;
   onSpendCategory?: (categoryId: string, categoryName: string) => void;
+  realAccountBalance?: number;
 }) {
   const storeCategories = useAppStore(state => state.categories);
   const storeLedger = useAppStore(state => state.ledger);
@@ -522,8 +524,8 @@ export function ExpandableCategoriesTree({
 
   const hasCategories = (savedAllocations && savedAllocations.length > 0) || storeCategories.length > 0;
 
-  // Pool total: either custom override or standard 12,000 or sum of categories
-  const poolTotal = customPoolTotal !== null ? customPoolTotal : 12000;
+  // Pool total: dynamically tied to real account balance (or custom override)
+  const poolTotal = customPoolTotal !== null ? customPoolTotal : realAccountBalance;
 
   // Dynamically convert configured allocations or store categories into visual items
   const categoryItems: CategoryNodeItem[] = savedAllocations && savedAllocations.length > 0
@@ -556,10 +558,7 @@ export function ExpandableCategoriesTree({
 
   // Cascading math engine
   const computeAllocatedAmount = (node: CategoryNodeItem, parentAmount: number): number => {
-    if (customPoolTotal === null && node.displayTotal !== undefined) {
-      return node.displayTotal;
-    }
-    return Math.round((parentAmount * node.percentage) / 100);
+    return Math.round((parentAmount * (node.percentage || 0)) / 100);
   };
 
   // Filter checker
@@ -689,18 +688,25 @@ export function ExpandableCategoriesTree({
                 />
               </div>
 
-              {/* Category Name */}
-              <span
-                className={`font-bold tracking-tight text-white leading-none ${
-                  isLevel1
-                    ? 'text-sm sm:text-base'
-                    : isLevel2
-                    ? 'text-xs sm:text-sm text-white/95'
-                    : 'text-xs text-white/90'
-                }`}
-              >
-                {node.name}
-              </span>
+              {/* Category Name & Rule Percentage */}
+              <div className="flex items-baseline gap-1.5 min-w-0">
+                <span
+                  className={`font-bold tracking-tight text-white leading-none ${
+                    isLevel1
+                      ? 'text-sm sm:text-base'
+                      : isLevel2
+                      ? 'text-xs sm:text-sm text-white/95'
+                      : 'text-xs text-white/90'
+                  }`}
+                >
+                  {node.name}
+                </span>
+                {node.percentage !== undefined && !node.name.includes('%') && (
+                  <span className="text-[10px] font-semibold text-[#8E8A82]">
+                    {node.percentage}%
+                  </span>
+                )}
+              </div>
 
               {/* Badges: Due or Repay */}
               {node.badges?.map(badge => (
@@ -807,11 +813,11 @@ export function ExpandableCategoriesTree({
         {hasChildren && visibleChildren.length > 0 && (
           <div
             className={`tree-branch-grid ${
-              isExpanded ? 'is-expanded mt-1 mb-1' : 'pointer-events-none'
+              isExpanded ? 'is-expanded mt-1.5 mb-2' : 'pointer-events-none'
             }`}
             style={{ marginLeft: `${railStep}px` }}
           >
-            <div className="tree-branch-content relative">
+            <div className="tree-branch-content relative bg-[#171613]/90 border-l border-[#33302A] rounded-r-xl pl-3 pr-1 py-2 space-y-2.5 shadow-inner">
               {/* Scope Rail for this level */}
               <div
                 className="absolute top-[14px] bottom-1.5 bg-[#5F7E36] rounded-full z-0 pointer-events-none"
@@ -832,13 +838,15 @@ export function ExpandableCategoriesTree({
           </div>
         )}
 
-        {/* Subtle horizontal separator between siblings (starts at textIndent so rail is never cut) */}
-        {!isLastSibling && (
+        {/* Clear section separator between Level 1 categories, and subtle divider between siblings */}
+        {isLevel1 && !isLastSibling ? (
+          <div className="border-b border-[#2C2923] my-3.5" />
+        ) : !isLastSibling ? (
           <div
-            className="border-b border-[#282622]/50 my-1"
+            className="border-b border-[#24221D] my-1.5"
             style={{ marginLeft: `${textIndent}px` }}
           />
-        )}
+        ) : null}
 
       </div>
     );

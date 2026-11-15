@@ -639,6 +639,7 @@ export default function Home() {
                   <ExpandableCategoriesTree
                     searchQuery={categorySearch}
                     filter={categoryFilter}
+                    realAccountBalance={totalBalanceRupees}
                     onNavigateToAllocations={(targetTab) => {
                       openSettingsAllocations(targetTab);
                     }}
