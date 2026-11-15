@@ -224,6 +224,7 @@ export function ProfileSection() {
   const ledger = useAppStore(state => state.ledger);
   const goals = useAppStore(state => state.goals);
   const storeSubView = useAppStore(state => state.settingsSubView);
+  const setSettingsSubView = useAppStore(state => state.setSettingsSubView);
   const storeInitialTab = useAppStore(state => state.settingsInitialTab);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -251,6 +252,8 @@ export function ProfileSection() {
   useEffect(() => {
     if (storeSubView) {
       setSubView(storeSubView);
+    } else {
+      setSubView('overview');
     }
   }, [storeSubView]);
 
@@ -515,14 +518,17 @@ export function ProfileSection() {
   if (subView === 'account-categories') {
     return (
       <AccountCategoriesScreen
-        onBack={() => setSubView('overview')}
+        onBack={() => {
+          setSubView('overview');
+          setSettingsSubView('overview');
+        }}
         initialTab={storeInitialTab || (activeSegment === 'my-account' ? 'per-account' : 'global')}
       />
     );
   }
 
   return (
-    <div className="w-full max-w-md mx-auto space-y-4 text-white pb-6 select-none animate-fade-up">
+    <div className="w-full max-w-md md:max-w-xl lg:max-w-2xl mx-auto space-y-4 text-white pb-6 select-none animate-fade-up px-1 sm:px-0">
 
       {/* ── Toast Notification ── */}
       {feedbackMsg && (

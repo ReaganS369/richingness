@@ -79,6 +79,7 @@ interface AppState {
   // Actions
   logout: () => Promise<void>;
   setActiveTab: (tab: TabId) => void;
+  setSettingsSubView: (subView?: 'overview' | 'account-categories') => void;
   openSettingsAllocations: (initialTab?: 'global' | 'per-account' | 'currencies') => void;
   setSyncStatus: (status: SyncStatusType) => void;
   
@@ -444,6 +445,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setActiveTab: (activeTab) => set({ activeTab }),
+  setSettingsSubView: (settingsSubView) => set({ settingsSubView }),
   openSettingsAllocations: (initialTab = 'global') => set({
     activeTab: 'settings',
     settingsSubView: 'account-categories',

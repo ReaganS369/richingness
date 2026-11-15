@@ -489,16 +489,16 @@ export default function Home() {
           <div
             className={`w-full mx-auto animate-fade-up ${
               activeTab === 'dashboard'
-                ? 'max-w-md px-2.5 sm:px-4 py-3 pb-28 space-y-3'
+                ? 'w-full max-w-md md:max-w-2xl lg:max-w-4xl px-2.5 sm:px-4 md:px-6 py-2.5 sm:py-3 md:py-6 pb-28 md:pb-12 space-y-3 md:space-y-4'
                 : activeTab === 'settings'
-                ? 'w-full max-w-md mx-auto px-2.5 sm:px-4 py-3 pb-28'
-                : 'max-w-5xl p-4 sm:p-6 md:p-8 pb-24 space-y-5'
+                ? 'w-full max-w-md md:max-w-2xl lg:max-w-3xl mx-auto px-2.5 sm:px-4 md:px-6 py-2.5 sm:py-3 md:py-6 pb-28 md:pb-12'
+                : 'max-w-5xl p-4 sm:p-6 md:p-8 pb-24 md:pb-12 space-y-5'
             }`}
           >
 
             {/* ═══ TAB: DASHBOARD (Exact Figma Node 554-1901 Home 2.0) ═══════════════ */}
             {activeTab === 'dashboard' && (
-              <div className="space-y-3 flex-1 flex flex-col">
+              <div className="space-y-3 md:space-y-4 flex-1 flex flex-col">
 
                 {/* ── Total Balance 2.0 Card (Figma Width 357px, Height 134px, Radius 12px, Color #4A622F) ── */}
                 <div className="w-full bg-[#4A622F] rounded-[14px] p-4 text-white shadow-xl min-h-[134px] flex flex-col justify-between shrink-0">
@@ -597,9 +597,17 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* ── Section Title: Categories ── */}
-                <div className="w-full pt-1 pb-0 shrink-0">
-                  <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">Categories</h2>
+                {/* ── Section Title: Categories + Add Category Header Button ── */}
+                <div className="w-full flex items-center justify-between pt-1 pb-0 shrink-0">
+                  <h2 className="text-base sm:text-lg md:text-xl font-bold text-white tracking-tight">Categories</h2>
+                  <button
+                    onClick={() => openSettingsAllocations('global')}
+                    className="text-xs font-semibold text-[#8EBA55] hover:text-[#A8E063] flex items-center gap-1 transition-colors cursor-pointer py-1 px-2 rounded-lg hover:bg-white/[0.04]"
+                    title="Open category setup and allocations"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Category</span>
+                  </button>
                 </div>
 
                 {/* ── Expandable Categories Hierarchical Tree (Exact Image 5 Design) ── */}
@@ -1066,7 +1074,7 @@ export default function Home() {
           return (
             <nav
               aria-label="Bottom Navigation"
-              className="app-bottom-nav py-2 px-4 sm:px-6 flex justify-center shadow-2xl backdrop-blur-md"
+              className="md:hidden app-bottom-nav py-2 px-3 sm:px-6 flex justify-center shadow-2xl backdrop-blur-md"
             >
               <div className="flex items-center justify-between w-full max-w-[340px] sm:max-w-[360px] gap-2.5">
                 {/* ── 1. Left: History (Transactions) ── */}
