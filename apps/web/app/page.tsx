@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   useAppStore,
@@ -302,6 +302,36 @@ export default function Home() {
 
   const now = new Date();
   const monthLabel = now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+
+  // Flattens store categories and hierarchical allocation categories for easy spending assignment
+  const availableCategories = useMemo(() => {
+    const list: { id: string; name: string }[] = categories.map(c => ({ id: c.id, name: c.name }));
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('richingness_category_allocations_v2');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed.globalTree)) {
+            const recurse = (nodes: Array<{ id: string; name: string; children?: unknown[] }>, prefix = '') => {
+              nodes.forEach(n => {
+                const fullName = prefix ? `${prefix} › ${n.name}` : n.name;
+                if (!list.some(item => item.id === n.id)) {
+                  list.push({ id: n.id, name: fullName });
+                }
+                if (Array.isArray(n.children) && n.children.length > 0) {
+                  recurse(n.children as Array<{ id: string; name: string; children?: unknown[] }>, fullName);
+                }
+              });
+            };
+            recurse(parsed.globalTree);
+          }
+        }
+      } catch {
+        // Ignored
+      }
+    }
+    return list;
+  }, [categories]);
 
   // ── Shell ────────────────────────────────────────────────────────────────
   return (
@@ -1161,6 +1191,24 @@ export default function Home() {
             </nav>
           );
         })()}
+
+        {/* ── Mobile Floating Action Button (FAB) to Add Expense / Log Purchase ── */}
+        <button
+          type="button"
+          onClick={() => {
+            setTxType('EXPENSE');
+            setTxAmount('');
+            setTxMerchant('');
+            if (accounts.length > 0) setTxAccountId(accounts[0].id);
+            if (availableCategories.length > 0) setTxReferenceId(availableCategories[0].id);
+            setShowAddTxModal(true);
+          }}
+          className="md:hidden fixed bottom-20 right-4 z-40 w-12 h-12 rounded-full bg-[#E5E3DC] hover:bg-white text-[#1B1A17] shadow-2xl flex items-center justify-center active:scale-95 transition-all cursor-pointer border border-white/20"
+          title="Add Expense / Buy Stuff"
+          aria-label="Add Expense"
+        >
+          <Plus className="w-6 h-6 stroke-[2.5]" />
+        </button>
       </div>
 
       {/* ═══ MODALS ═══════════════════════════════════════════════════════ */}
@@ -1221,7 +1269,7 @@ export default function Home() {
                 <Field label="Envelope / Goal">
                   <select required value={txReferenceId} onChange={e => setTxReferenceId(e.target.value)} className={selectCls}>
                     <option value="" disabled>Select category</option>
-                    {categories.map(c => <option key={c.id} value={c.id}>📂 {c.name}</option>)}
+                    {availableCategories.map(c => <option key={c.id} value={c.id}>📂 {c.name}</option>)}
                     {goals.map(g => <option key={g.id} value={g.id}>🎯 {g.name}</option>)}
                   </select>
                 </Field>

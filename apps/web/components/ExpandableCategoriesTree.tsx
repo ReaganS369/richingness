@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import {
   ChevronDown,
   CheckCircle2,
-  ChevronsUpDown,
   Layers,
   X
 } from 'lucide-react';
@@ -552,21 +551,6 @@ export function ExpandableCategoriesTree({
     setExpandedNodes(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const toggleExpandAll = () => {
-    const hasAnyExpanded = Object.values(expandedNodes).some(Boolean);
-    const nextState: Record<string, boolean> = {};
-    const recurse = (nodes: CategoryNodeItem[]) => {
-      nodes.forEach(n => {
-        if (n.children && n.children.length > 0) {
-          nextState[n.id] = !hasAnyExpanded;
-          recurse(n.children);
-        }
-      });
-    };
-    recurse(categoryItems);
-    setExpandedNodes(nextState);
-  };
-
   // Cascading math engine
   const computeAllocatedAmount = (node: CategoryNodeItem, parentAmount: number): number => {
     if (customPoolTotal === null && node.displayTotal !== undefined) {
@@ -854,22 +838,22 @@ export function ExpandableCategoriesTree({
       <div className="bg-[#1B1A17] border border-[#2A2824] rounded-[14px] p-3.5 sm:p-5 space-y-3 shadow-xl">
 
         {/* Section Title & Pool Total + Expand All Button */}
+        {/* Section Title & Badges (Matching Figma Design - Clean header, no Expand All button) */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-bold text-[#E5E3DC] tracking-tight">
               Life Budget
             </h3>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              onClick={toggleExpandAll}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-2xs font-semibold text-[#A2E060] bg-[#485F2C]/20 hover:bg-[#485F2C]/35 border border-[#587437]/40 transition-all cursor-pointer shadow-sm active:scale-95"
-              title="Expand or collapse all categories"
-            >
-              <ChevronsUpDown className="w-3.5 h-3.5" />
-              <span>{Object.values(expandedNodes).some(Boolean) ? 'Collapse All' : 'Expand All'}</span>
-            </button>
+            {categoryItems.some(c => c.badges?.includes('Due')) && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#382C17] border border-[#685327] text-[#E8C47A]">
+                Due
+              </span>
+            )}
+            {categoryItems.some(c => c.badges?.includes('Repay')) && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#2A2B18] border border-[#525424] text-[#D8E87A]">
+                Repay
+              </span>
+            )}
           </div>
         </div>
 
