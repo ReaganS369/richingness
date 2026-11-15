@@ -212,7 +212,7 @@ export function AccountCategoriesScreen({
   onBack,
   initialTab = 'global'
 }: AccountCategoriesScreenProps) {
-  const { accounts, addAccount, updateAccountName } = useAppStore();
+  const { accounts, addAccount, updateAccountName, addCategory } = useAppStore();
 
   // Active top navigation tab (Global | Per Account | Currencies)
   const [activeTab, setActiveTab] = useState<'global' | 'per-account' | 'currencies'>(() => {
@@ -516,9 +516,16 @@ export function AccountCategoriesScreen({
   };
 
   // Apply default 50/30/20 allocation
-  const applyDefaultAllocation = () => {
+  const applyDefaultAllocation = async () => {
     setActiveTree(() => DEFAULT_HIERARCHICAL_RULES);
     setNavigationPath([]);
+    try {
+      for (const node of DEFAULT_HIERARCHICAL_RULES) {
+        await addCategory(node.name, BigInt(node.percentage * 100));
+      }
+    } catch {
+      // Ignored
+    }
     showToast('Applied Default 50/30/20 with subcategories!');
   };
 
@@ -537,8 +544,8 @@ export function AccountCategoriesScreen({
     showToast(`Applied "${tmpl.title}" template!`);
   };
 
-  // Save allocations to local storage
-  const handleSaveAllocation = () => {
+  // Save allocations to local storage and sync categories
+  const handleSaveAllocation = async () => {
     if (!isTotal100) {
       showToast(`Notice: Current level total is ${totalPercentage}%. Recommended to balance to 100%.`);
     }
@@ -549,6 +556,10 @@ export function AccountCategoriesScreen({
         savedAt: new Date().toISOString()
       };
       localStorage.setItem('richingness_category_allocations_v2', JSON.stringify(payload));
+
+      for (const node of globalTree) {
+        await addCategory(node.name, BigInt(node.percentage * 100));
+      }
     } catch {
       // Ignored
     }
@@ -653,6 +664,23 @@ export function AccountCategoriesScreen({
       {activeTab !== 'currencies' && (
         <div className="space-y-3.5">
 
+          {/* ── Global Scope Box (Figma Design) ── */}
+          {activeTab === 'global' && (
+            <div className="space-y-1.5">
+              <div className="bg-[#1A2315] border border-[#2C3B23] rounded-[12px] px-3.5 py-2.5 flex items-center justify-between text-xs font-semibold text-white">
+                <div className="flex items-center gap-2">
+                  <Globe className="w-3.5 h-3.5 text-[#8EBA55]" />
+                  <span>All accounts</span>
+                </div>
+              </div>
+              <div className="px-0.5 pt-0.5">
+                <span className="text-xs font-bold text-white tracking-tight">
+                  Allocation for all accounts
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* ── Per Account Dropdown (if Per-Account tab is active) ── */}
           {activeTab === 'per-account' && (
             <div className="space-y-2">
@@ -751,6 +779,12 @@ export function AccountCategoriesScreen({
                   <Plus className="w-3 h-3" />
                   <span>Add account</span>
                 </button>
+              </div>
+
+              <div className="px-0.5 pt-0.5">
+                <span className="text-xs font-bold text-white tracking-tight">
+                  Allocation for this account
+                </span>
               </div>
             </div>
           )}
@@ -944,7 +978,7 @@ export function AccountCategoriesScreen({
                   className="bg-[#171F13] border border-[#26331F] rounded-[14px] p-3.5 space-y-3 transition-all shadow-sm"
                 >
                   
-                  {/* Category Title Row: Color Indicator + Name + Subcategory Link + Delete */}
+                  {/* Category Title Row: Color Indicator + Name + Subcategory Link + [Version 2 Value Box] + Delete */}
                   <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div
@@ -954,14 +988,12 @@ export function AccountCategoriesScreen({
                       <span className="font-semibold text-white/95 text-sm truncate">
                         {category.name}
                       </span>
-                    </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      {/* Subcategory Navigation: Clean designer link instead of chunky badge */}
+                      {/* Subcategory Navigation */}
                       <button
                         type="button"
                         onClick={() => handleDrillDown(category)}
-                        className={`text-xs font-medium flex items-center gap-1 py-1 px-2 rounded-lg transition-colors cursor-pointer ${
+                        className={`text-xs font-medium flex items-center gap-1 py-0.5 px-2 rounded-lg transition-colors cursor-pointer ${
                           hasChildren
                             ? 'text-[#A8E063] hover:bg-white/[0.04]'
                             : 'text-[#6C7E61] hover:text-[#A8E063] hover:bg-white/[0.03]'
@@ -970,16 +1002,33 @@ export function AccountCategoriesScreen({
                       >
                         {hasChildren ? (
                           <>
-                            <span>{childCount} subcategories</span>
-                            <ChevronRight className="w-3.5 h-3.5 text-[#A8E063]" />
+                            <span>{childCount} subs</span>
+                            <ChevronRight className="w-3 h-3 text-[#A8E063]" />
                           </>
                         ) : (
                           <>
-                            <Plus className="w-3 h-3" />
-                            <span>Subcategory</span>
+                            <Plus className="w-2.5 h-2.5" />
+                            <span>Sub</span>
                           </>
                         )}
                       </button>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {/* Version 2: Exact Figma percentage display box [ 50 % ] */}
+                      {uiVersion === 'v2' && (
+                        <div className="w-[62px] h-[30px] bg-[#11170D] border border-[#2B3921] rounded-[8px] flex items-center justify-between px-2 focus-within:border-[#8EBA55] transition-colors shadow-inner">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={category.percentage}
+                            onChange={(e) => updatePercentageNonDestructive(category.id, Number(e.target.value))}
+                            className="no-spin w-7 bg-transparent text-white text-right outline-none font-bold text-xs"
+                          />
+                          <span className="text-[#7E9173] text-[11px] font-semibold ml-0.5">%</span>
+                        </div>
+                      )}
 
                       {/* Remove category */}
                       {activeLevelNodes.length > 1 && (
@@ -1038,37 +1087,22 @@ export function AccountCategoriesScreen({
                   )}
 
                   {/* ═════════════════════════════════════════════════════════════ */}
-                  {/* VERSION 2: Safe Clamped Slider (Clean Figma Style)          */}
+                  {/* VERSION 2: Full-width Slider (Exact Figma Node 76-6 Visual) */}
                   {/* ═════════════════════════════════════════════════════════════ */}
                   {uiVersion === 'v2' && (
-                    <div className="pt-0.5">
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 relative flex items-center">
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            step="1"
-                            value={category.percentage}
-                            onChange={(e) => updatePercentageSafeSlider(category.id, Number(e.target.value))}
-                            className="figma-allocation-slider w-full cursor-pointer"
-                            style={{
-                              background: `linear-gradient(to right, ${color} 0%, ${color} ${category.percentage}%, #252D1E ${category.percentage}%, #252D1E 100%)`
-                            }}
-                          />
-                        </div>
-                        <div className="w-[64px] h-[32px] bg-[#11170D] border border-[#2B3921] rounded-[8px] flex items-center justify-between px-2 focus-within:border-[#8EBA55] transition-colors shadow-inner shrink-0">
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={category.percentage}
-                            onChange={(e) => updatePercentageNonDestructive(category.id, Number(e.target.value))}
-                            className="no-spin w-7 bg-transparent text-white text-right outline-none font-bold text-xs"
-                          />
-                          <span className="text-[#7E9173] text-[11px] font-semibold ml-0.5">%</span>
-                        </div>
-                      </div>
+                    <div className="pt-1">
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={category.percentage}
+                        onChange={(e) => updatePercentageSafeSlider(category.id, Number(e.target.value))}
+                        className="figma-allocation-slider w-full cursor-pointer"
+                        style={{
+                          background: `linear-gradient(to right, ${color} 0%, ${color} ${category.percentage}%, #252D1E ${category.percentage}%, #252D1E 100%)`
+                        }}
+                      />
                     </div>
                   )}
 
@@ -1140,16 +1174,16 @@ export function AccountCategoriesScreen({
                 Use Default Allocation
               </button>
               <p className="text-[11px] text-[#788A6E] text-center">
-                Quickly reset standard 50/30/20 hierarchy with subcategories
+                Quickly apply standard settings without visiting library
               </p>
             </div>
           </div>
 
-          {/* ── Featured Template Card ── */}
+          {/* ── Featured Template Card (Figma Exact) ── */}
           <div className="bg-[#1A2214] border border-[#2B3822] rounded-[14px] p-4 space-y-2 mt-4 shadow-sm">
             <h3 className="font-bold text-xs text-white">Using a featured template</h3>
             <p className="text-[11px] text-[#7D8F72] leading-relaxed">
-              When you use a featured template, standard formulas like Zero-Based, FIRE, or Freelancer are automatically structured.
+              When you use the default allocation, a featured template will be applied to allocate the selected account&apos;s funds across different categories.
             </p>
             <button
               onClick={() => setShowTemplateModal(true)}

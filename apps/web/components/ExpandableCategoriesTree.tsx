@@ -3,11 +3,11 @@
 import React, { useState } from 'react';
 import {
   ChevronDown,
-  ChevronRight,
   CheckCircle2,
   ChevronsUpDown,
   Edit2,
-  Layers
+  Layers,
+  X
 } from 'lucide-react';
 import { useAppStore } from '../app/store';
 
@@ -435,6 +435,11 @@ export function ExpandableCategoriesTree({
   onNavigateToAllocations?: (tab: 'global' | 'per-account' | 'currencies') => void;
 }) {
   const categories = useAppStore(state => state.categories);
+  const addCategory = useAppStore(state => state.addCategory);
+
+  // Modals matching Figma Draft / Category due payment pop... and Repay pop-up
+  const [dueModalOpen, setDueModalOpen] = useState(false);
+  const [repayModalOpen, setRepayModalOpen] = useState(false);
 
   // Production preset: Figma Life Budget (with full 5-level deep hierarchy)
   const activePresetId: 'figma-life-budget' | 'user-demo-200' | 'five-level-test' = 'figma-life-budget';
@@ -457,34 +462,41 @@ export function ExpandableCategoriesTree({
 
   if (categories.length === 0) {
     return (
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (onNavigateToAllocations) {
-            onNavigateToAllocations('global');
-          }
-        }}
-        className="w-full text-center bg-[#1B1A17] hover:bg-[#201E1A] active:bg-[#26241F] border border-[#2A2824] hover:border-[#48602E] rounded-[14px] p-4.5 sm:p-6 space-y-2.5 shadow-xl transition-all cursor-pointer group touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#8EBA55] select-none block"
-      >
-        <div className="w-14 h-14 rounded-full bg-[#23211C] group-hover:bg-[#48602E]/25 border border-[#33302A] group-hover:border-[#6B8A44] flex items-center justify-center mx-auto text-[#8E8A82] group-hover:text-white transition-all shadow-inner">
-          <Layers className="w-7 h-7 text-[#7A7872] group-hover:text-[#A5E265] transition-colors" />
+      <div className="w-full text-center bg-[#1B1A17] border border-[#2A2824] rounded-[14px] p-4.5 sm:p-6 space-y-3.5 shadow-xl select-none block">
+        <div className="w-14 h-14 rounded-full bg-[#23211C] border border-[#33302A] flex items-center justify-center mx-auto text-[#8E8A82] shadow-inner">
+          <Layers className="w-7 h-7 text-[#7A7872]" />
         </div>
         <div>
-          <h3 className="text-base sm:text-lg font-bold text-white group-hover:text-[#A5E265] transition-colors">
-            You don't have any categories yet
+          <h3 className="text-base sm:text-lg font-bold text-white">
+            You don&apos;t have any categories yet
           </h3>
-          <p className="text-xs sm:text-sm text-[#8E8A82] group-hover:text-white/80 mt-1 max-w-xs mx-auto leading-relaxed transition-colors">
-            Tap anywhere to set up and customize your budget categories.
+          <p className="text-xs sm:text-sm text-[#8E8A82] mt-1 max-w-xs mx-auto leading-relaxed">
+            Set up and customize your budget categories, or explore the full Figma Life Budget template.
           </p>
         </div>
 
-        <div className="pt-1 flex items-center justify-center gap-1.5 text-xs font-semibold text-[#8EBA55] group-hover:text-[#A5E265] group-hover:translate-x-0.5 transition-all">
-          <span>Create a category now</span>
-          <ChevronRight className="w-4 h-4" />
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1 max-w-xs mx-auto">
+          <button
+            type="button"
+            onClick={() => onNavigateToAllocations && onNavigateToAllocations('global')}
+            className="w-full sm:flex-1 py-2.5 px-3 rounded-[10px] bg-[#4A622F] hover:bg-[#587538] text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
+          >
+            <span>+ Add Category</span>
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              for (const c of FIGMA_LIFE_BUDGET_PRESET.categories) {
+                await addCategory(c.name, BigInt(c.percentage * 100));
+              }
+              showToast('Loaded Figma Life Budget (₹12,000)!');
+            }}
+            className="w-full sm:flex-1 py-2.5 px-3 rounded-[10px] bg-[#24221D] hover:bg-[#302D26] text-[#D8E8BA] text-xs font-semibold border border-[#3B3830] transition-all cursor-pointer active:scale-95"
+          >
+            <span>Explore Figma Demo</span>
+          </button>
         </div>
-      </button>
+      </div>
     );
   }
 
@@ -625,16 +637,22 @@ export function ExpandableCategoriesTree({
 
               {/* Badges: Due or Repay */}
               {node.badges?.map(badge => (
-                <span
+                <button
+                  type="button"
                   key={badge}
-                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide shadow-sm transition-all ${
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (badge === 'Due') setDueModalOpen(true);
+                    if (badge === 'Repay') setRepayModalOpen(true);
+                  }}
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide shadow-sm transition-all cursor-pointer ${
                     badge === 'Due'
-                      ? 'bg-[#382C17] border border-[#685327] text-[#E8C47A]'
-                      : 'bg-[#2A2B18] border border-[#525424] text-[#D8E87A]'
+                      ? 'bg-[#382C17] border border-[#685327] text-[#E8C47A] hover:border-[#E8C47A]'
+                      : 'bg-[#2A2B18] border border-[#525424] text-[#D8E87A] hover:border-[#D8E87A]'
                   }`}
                 >
                   {badge}
-                </span>
+                </button>
               ))}
             </div>
 
@@ -689,10 +707,10 @@ export function ExpandableCategoriesTree({
                   </p>
                 </div>
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (onPayDue) onPayDue(node.dueNotice!.amount, node.name);
-                    showToast(`Payment of ₹${node.dueNotice!.amount} initiated for ${node.name}!`);
+                    setDueModalOpen(true);
                   }}
                   className="px-4 sm:px-5 py-1.5 rounded-[8px] bg-gradient-to-r from-[#F2811D] to-[#E37414] hover:from-[#FF8F2D] hover:to-[#F2811D] active:scale-95 text-white font-bold text-xs sm:text-sm shadow-[0_3px_10px_rgba(242,129,29,0.35)] transition-all cursor-pointer shrink-0"
                 >
@@ -911,6 +929,118 @@ export function ExpandableCategoriesTree({
         })()}
 
       </div>
+
+      {/* ── Figma Due Payment Pop-up Modal (Exact Draft / Category due payment pop... from Figma) ── */}
+      {dueModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs animate-fade-in p-0 sm:p-4">
+          <div className="w-full sm:max-w-md bg-[#1B1A16] border border-[#333028] rounded-t-[20px] sm:rounded-[20px] p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-6">
+            <div className="flex items-center justify-between pb-1">
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-white">
+                  Due ₹4,000 – Rent
+                </h3>
+                <p className="text-xs text-[#8E8A82] mt-0.5">
+                  Borrowed from 2 categories to cover this expense
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDueModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.1] flex items-center justify-center text-[#8E8A82] hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Breakdown of borrowed categories */}
+            <div className="bg-[#24221D] border border-[#35322A] rounded-[12px] divide-y divide-[#333028] overflow-hidden">
+              <div className="px-3.5 py-2.5 flex items-center justify-between text-xs">
+                <span className="font-medium text-white/90">Supermarket groceries</span>
+                <span className="font-extrabold text-[#F2811D] num-display">₹2,500</span>
+              </div>
+              <div className="px-3.5 py-2.5 flex items-center justify-between text-xs">
+                <span className="font-medium text-white/90">Dining &amp; Takeout</span>
+                <span className="font-extrabold text-[#F2811D] num-display">₹1,500</span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setDueModalOpen(false);
+                  if (onPayDue) onPayDue(4000, 'Rent');
+                  showToast('Opened payment transfer for Rent!');
+                }}
+                className="w-full py-3 rounded-[12px] bg-[#F2811D] hover:bg-[#FF8E2E] active:scale-[0.99] text-[#11130E] font-bold text-xs sm:text-sm shadow-md transition-all cursor-pointer text-center"
+              >
+                Pay from another category
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDueModalOpen(false);
+                  showToast('Payment recorded for Rent!');
+                }}
+                className="w-full py-2.5 rounded-[12px] bg-[#2A2823] hover:bg-[#35322B] active:scale-[0.99] text-white font-semibold text-xs transition-all border border-[#3D3A31] cursor-pointer text-center"
+              >
+                Record payment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Figma Category Repay Pop-up Modal (Exact Draft / Category repay pop-up from Figma) ── */}
+      {repayModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs animate-fade-in p-0 sm:p-4">
+          <div className="w-full sm:max-w-md bg-[#1B1A16] border border-[#333028] rounded-t-[20px] sm:rounded-[20px] p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-6">
+            <div className="flex items-center justify-between pb-1">
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-white">
+                  Repay ₹650
+                </h3>
+                <p className="text-xs text-[#8E8A82] mt-0.5">
+                  Surplus funds available to restore borrowed pools
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRepayModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.1] flex items-center justify-center text-[#8E8A82] hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="bg-[#24221D] border border-[#35322A] rounded-[12px] p-3 text-xs text-[#D8E8BA]">
+              Restores ₹650 from Hobbies &amp; Outings back to Essential Buffer pool.
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setRepayModalOpen(false);
+                  showToast('Repayment of ₹650 applied successfully!');
+                }}
+                className="w-full py-3 rounded-[12px] bg-[#F2811D] hover:bg-[#FF8E2E] active:scale-[0.99] text-[#11130E] font-bold text-xs sm:text-sm shadow-md transition-all cursor-pointer text-center"
+              >
+                Repay to source category
+              </button>
+              <button
+                type="button"
+                onClick={() => setRepayModalOpen(false)}
+                className="w-full py-2.5 rounded-[12px] bg-[#2A2823] hover:bg-[#35322B] active:scale-[0.99] text-[#8E8A82] hover:text-white font-semibold text-xs transition-all border border-[#3D3A31] cursor-pointer text-center"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
