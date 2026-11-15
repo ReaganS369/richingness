@@ -297,6 +297,7 @@ export function ProfileSection() {
   const [showProfileEditModal, setShowProfileEditModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [showAddFundsModal, setShowAddFundsModal] = useState(false);
+  const [isSubmittingFunds, setIsSubmittingFunds] = useState(false);
   const [fundsAmount, setFundsAmount] = useState('');
   const [fundsAccountId, setFundsAccountId] = useState(accounts[0]?.id || '');
   const [fundsNote, setFundsNote] = useState('');
@@ -550,6 +551,7 @@ export function ProfileSection() {
 
   const handleAddFundsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingFunds) return;
     const amt = parseFloat(fundsAmount);
     if (isNaN(amt) || amt <= 0) {
       showToast('Please enter a valid amount');
@@ -561,19 +563,24 @@ export function ProfileSection() {
       return;
     }
 
-    await addTransaction(
-      targetAccId,
-      'INCOME',
-      formatRupeesToPaise(fundsAmount),
-      'INR',
-      '',
-      fundsNote.trim() || 'Deposit / Add Funds'
-    );
+    setIsSubmittingFunds(true);
+    try {
+      await addTransaction(
+        targetAccId,
+        'INCOME',
+        formatRupeesToPaise(fundsAmount),
+        'INR',
+        '',
+        fundsNote.trim() || 'Deposit / Add Funds'
+      );
 
-    showToast(`₹${amt.toLocaleString('en-IN')} added! Funds automatically distributed to your categories.`);
-    setShowAddFundsModal(false);
-    setFundsAmount('');
-    setFundsNote('');
+      showToast(`₹${amt.toLocaleString('en-IN')} added! Funds automatically distributed to your categories.`);
+      setShowAddFundsModal(false);
+      setFundsAmount('');
+      setFundsNote('');
+    } finally {
+      setIsSubmittingFunds(false);
+    }
   };
 
   if (subView === 'account-categories') {
@@ -1440,9 +1447,12 @@ export function ProfileSection() {
 
             <button
               type="submit"
-              className="w-full py-3 rounded-xl bg-[#4A622F] hover:bg-[#587438] active:scale-95 text-white font-bold text-xs transition-all cursor-pointer mt-2 shadow-md border border-[#64853E]/40"
+              disabled={isSubmittingFunds}
+              className={`w-full py-3 rounded-xl bg-[#4A622F] hover:bg-[#587438] active:scale-95 text-white font-bold text-xs transition-all cursor-pointer mt-2 shadow-md border border-[#64853E]/40 ${
+                isSubmittingFunds ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
-              Deposit & Distribute Funds
+              {isSubmittingFunds ? 'Processing Deposit…' : 'Deposit & Distribute Funds'}
             </button>
           </form>
         </Modal>

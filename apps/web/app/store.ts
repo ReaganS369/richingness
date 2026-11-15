@@ -534,6 +534,11 @@ export const useAppStore = create<AppState>((set, get) => ({
           }
         }
       });
+      set(state => {
+        const existingIds = new Set(state.ledger.map(l => l.id));
+        const newOps = transferOps.filter(op => !existingIds.has(op.id));
+        return { ledger: [...state.ledger, ...newOps] };
+      });
       return;
     }
 
@@ -566,6 +571,16 @@ export const useAppStore = create<AppState>((set, get) => ({
           }
         }
       }
+    });
+
+    set(state => {
+      const exists = state.ledger.some(l => l.id === newOp.id);
+      return {
+        ledger: exists ? state.ledger : [...state.ledger, newOp],
+        goals: categoryOrTargetId.startsWith('goal-') && type === 'EXPENSE'
+          ? state.goals.map(g => g.id === categoryOrTargetId ? { ...g, currentAmount: g.currentAmount + amount } : g)
+          : state.goals
+      };
     });
   },
 
