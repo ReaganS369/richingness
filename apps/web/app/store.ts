@@ -38,6 +38,7 @@ import {
 
 import { WebRepository } from '@repo/storage-web';
 import { IRepository } from '@repo/database';
+import { requestStoragePersistence } from './storageService';
 
 export type TabId = 'dashboard' | 'accounts' | 'budget' | 'transactions' | 'goals' | 'reports' | 'settings';
 export type SyncStatusType = 'offline' | 'connecting' | 'pulling' | 'pushing' | 'synced' | 'failed' | 'conflict' | 'syncing' | 'pending';
@@ -207,29 +208,43 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ syncStatus: event.state as SyncStatusType });
     });
 
-    // 4. Load initial database records
+    // 4. Request persistent browser storage permission (offline-first persistence)
+    if (typeof window !== 'undefined') {
+      requestStoragePersistence().catch(() => {});
+    }
+
+    // 5. Load initial database records
     let accounts = await scopedRepo.getAccounts();
     let categories = await scopedRepo.getCategories();
     let ledger = await scopedRepo.getLedger();
     let goals = await scopedRepo.getGoals();
 
-    // Clean up any legacy starter demo seed records if present
+    // Clean up any test dummy data or legacy seed records if present
+    const hasDummyTransactions = ledger.some(l => l.id?.startsWith('op-init-'));
     const isLegacyDemo = accounts.some(a => a.id === 'acct-hdfc' && a.name.includes('HDFC Salary'));
-    if (isLegacyDemo) {
+    if (hasDummyTransactions || isLegacyDemo) {
       const rawRepo = scopedRepo as unknown as {
         saveAccount: (record: unknown) => Promise<void>;
         saveCategory: (record: unknown) => Promise<void>;
         saveTransaction: (record: unknown) => Promise<void>;
         saveGoal: (record: unknown) => Promise<void>;
       };
-      for (const a of accounts) await rawRepo.saveAccount({ ...a, deletedAt: new Date() });
-      for (const c of categories) await rawRepo.saveCategory({ ...c, deletedAt: new Date() });
-      for (const l of ledger) await rawRepo.saveTransaction({ ...l, deletedAt: new Date() });
-      for (const g of goals) await rawRepo.saveGoal({ ...g, deletedAt: new Date() });
-      accounts = [];
-      categories = [];
-      ledger = [];
-      goals = [];
+      if (hasDummyTransactions) {
+        for (const l of ledger.filter(l => l.id?.startsWith('op-init-'))) {
+          await rawRepo.saveTransaction({ ...l, deletedAt: new Date() });
+        }
+        ledger = await scopedRepo.getLedger();
+      }
+      if (isLegacyDemo) {
+        for (const a of accounts) await rawRepo.saveAccount({ ...a, deletedAt: new Date() });
+        for (const c of categories) await rawRepo.saveCategory({ ...c, deletedAt: new Date() });
+        for (const l of ledger) await rawRepo.saveTransaction({ ...l, deletedAt: new Date() });
+        for (const g of goals) await rawRepo.saveGoal({ ...g, deletedAt: new Date() });
+        accounts = [];
+        categories = [];
+        ledger = [];
+        goals = [];
+      }
     }
 
     // Ensure there is always a clean default primary account
@@ -244,112 +259,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       accounts = [defaultAccount];
     }
 
-    // Seed default categories matching Figma Life Budget
-    if (categories.length === 0) {
-      const defaultCategories: BudgetCategory[] = [
-        {
-          id: 'cat-needs',
-          parentId: null,
-          name: 'Needs',
-          rolloverMode: 'carry',
-          budgetAmount: 600000n, // 50% = ₹6,000
-          priority: 1,
-          isIncome: false,
-          isHidden: false,
-          sortOrder: 1
-        },
-        {
-          id: 'cat-wants',
-          parentId: null,
-          name: 'Wants',
-          rolloverMode: 'carry',
-          budgetAmount: 360000n, // 30% = ₹3,600
-          priority: 2,
-          isIncome: false,
-          isHidden: false,
-          sortOrder: 2
-        },
-        {
-          id: 'cat-savings',
-          parentId: null,
-          name: 'Savings & Investments',
-          rolloverMode: 'carry',
-          budgetAmount: 240000n, // 20% = ₹2,400
-          priority: 3,
-          isIncome: false,
-          isHidden: false,
-          sortOrder: 3
-        }
-      ];
-      for (const cat of defaultCategories) {
-        await scopedRepo.saveCategory(cat);
-      }
-      categories = defaultCategories;
-    }
-
-    // Seed default transactions matching Figma Life Budget (Income ₹12,000, Expense ₹11,350)
-    if (ledger.length === 0 && accounts.length > 0) {
-      const primaryId = accounts[0].id;
-      const initialTransactions: LedgerOperation[] = [
-        {
-          id: 'op-init-income',
-          accountId: primaryId,
-          type: 'INCOME',
-          amount: 1200000n, // ₹12,000.00
-          currency: 'INR',
-          exchangeRate: 1.0,
-          date: new Date()
-        },
-        {
-          id: 'op-init-rent',
-          accountId: primaryId,
-          type: 'EXPENSE',
-          amount: 400000n, // ₹4,000.00
-          currency: 'INR',
-          exchangeRate: 1.0,
-          referenceId: 'cat-needs',
-          date: new Date()
-        },
-        {
-          id: 'op-init-groceries',
-          accountId: primaryId,
-          type: 'EXPENSE',
-          amount: 250000n, // ₹2,500.00
-          currency: 'INR',
-          exchangeRate: 1.0,
-          referenceId: 'cat-needs',
-          date: new Date()
-        },
-        {
-          id: 'op-init-dining',
-          accountId: primaryId,
-          type: 'EXPENSE',
-          amount: 150000n, // ₹1,500.00
-          currency: 'INR',
-          exchangeRate: 1.0,
-          referenceId: 'cat-wants',
-          date: new Date()
-        },
-        {
-          id: 'op-init-other',
-          accountId: primaryId,
-          type: 'EXPENSE',
-          amount: 335000n, // ₹3,350.00
-          currency: 'INR',
-          exchangeRate: 1.0,
-          referenceId: 'cat-needs',
-          date: new Date()
-        }
-      ];
-      for (const tx of initialTransactions) {
-        await scopedRepo.saveTransaction(tx);
-      }
-      ledger = await scopedRepo.getLedger();
-    }
-
     set({ accounts, categories, ledger, goals });
 
-    // 5. Start background sync service only if authenticated
+    // 6. Start background sync service only if authenticated
     if (supabase && userId !== 'richingness_guest_user') {
       const schemaCheck = await supabaseAdapter.verifySchema();
       if (schemaCheck.valid) {
@@ -411,6 +323,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     for (const t of curTxs) await rawRepo.saveTransaction({ ...t, deletedAt: new Date() });
     const curGoals = await scopedRepo.getGoals();
     for (const g of curGoals) await rawRepo.saveGoal({ ...g, deletedAt: new Date() });
+
+    // Clear localStorage allocation templates and settings
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('richingness_category_allocations_v2');
+    }
 
     // Re-initialize with pristine seed
     await get().initializeStore(userKey);

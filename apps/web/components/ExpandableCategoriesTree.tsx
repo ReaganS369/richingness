@@ -6,8 +6,11 @@ import {
   CheckCircle2,
   ChevronsUpDown,
   Edit2,
+  Layers,
   X
 } from 'lucide-react';
+import { useAppStore } from '../app/store';
+import { DEFAULT_HIERARCHICAL_RULES, CategoryNodeAllocation } from './AccountCategoriesScreen';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 export interface CategoryNodeItem {
@@ -40,7 +43,7 @@ export interface BudgetPoolPreset {
 // ── Presets ─────────────────────────────────────────────────────────────────
 
 // Preset 1: Exact Figma Screen (Image 5 & Annotations - Life Budget ₹12,000)
-const FIGMA_LIFE_BUDGET_PRESET: BudgetPoolPreset = {
+export const FIGMA_LIFE_BUDGET_PRESET: BudgetPoolPreset = {
   id: 'figma-life-budget',
   name: 'Life Budget',
   total: 12000,
@@ -206,7 +209,7 @@ const FIGMA_LIFE_BUDGET_PRESET: BudgetPoolPreset = {
 };
 
 // Preset 2: User Prompt Exact Example (Pool ₹200 with 3-level percentage cascade)
-const USER_PROMPT_DEMO_PRESET: BudgetPoolPreset = {
+export const USER_PROMPT_DEMO_PRESET: BudgetPoolPreset = {
   id: 'user-demo-200',
   name: 'User Example Budget',
   total: 200,
@@ -302,7 +305,7 @@ const USER_PROMPT_DEMO_PRESET: BudgetPoolPreset = {
 };
 
 // Preset 3: 5-Level Deep Hierarchy Test
-const FIVE_LEVEL_TEST_PRESET: BudgetPoolPreset = {
+export const FIVE_LEVEL_TEST_PRESET: BudgetPoolPreset = {
   id: 'five-level-test',
   name: '5-Level Deep Budget',
   total: 10000,
@@ -421,6 +424,50 @@ const REFINED_PROFILE = {
 } as const;
 
 // ── Main Component ──────────────────────────────────────────────────────────
+// Convert saved allocations tree into visual CategoryNodeItem list
+function convertAllocationsToItems(
+  nodes: CategoryNodeAllocation[],
+  parentAmount: number,
+  ledgerOps: Array<{ type: string; referenceId?: string | null; description?: string; amount: bigint }>,
+  level = 1
+): CategoryNodeItem[] {
+  return nodes.map(node => {
+    const allocated = Math.round((parentAmount * (node.percentage || 0)) / 100);
+    const spent = Number(
+      ledgerOps
+        .filter(op => op.type === 'EXPENSE' && op.referenceId === node.id)
+        .reduce((sum, op) => sum + op.amount, 0n)
+    ) / 100;
+
+    const isDue = spent > allocated && allocated > 0;
+    const isRepay = allocated > spent && spent > 0;
+    const badges: string[] = [];
+    if (isDue) badges.push('Due');
+    else if (isRepay && node.name.toLowerCase().includes('hobbies')) badges.push('Repay');
+
+    const children = node.children && node.children.length > 0
+      ? convertAllocationsToItems(node.children, allocated || parentAmount, ledgerOps, level + 1)
+      : undefined;
+
+    return {
+      id: node.id,
+      name: node.name,
+      percentage: node.percentage,
+      level,
+      displayTotal: allocated,
+      income: 0,
+      expense: spent,
+      badges: badges.length > 0 ? badges : undefined,
+      dueNotice: isDue ? {
+        text: `Due: ₹${spent - allocated}`,
+        amount: spent - allocated,
+        buttonText: 'Pay'
+      } : undefined,
+      children
+    };
+  });
+}
+
 export function ExpandableCategoriesTree({
   searchQuery = '',
   filter = 'ALL',
@@ -432,12 +479,14 @@ export function ExpandableCategoriesTree({
   onPayDue?: (amount: number, categoryName: string) => void;
   onNavigateToAllocations?: (tab: 'global' | 'per-account' | 'currencies') => void;
 }) {
+  const storeCategories = useAppStore(state => state.categories);
+  const storeLedger = useAppStore(state => state.ledger);
+  const addCategory = useAppStore(state => state.addCategory);
+
   // Modals matching Figma Draft / Category due payment pop... and Repay pop-up
   const [dueModalOpen, setDueModalOpen] = useState(false);
   const [repayModalOpen, setRepayModalOpen] = useState(false);
 
-  // Production preset: Figma Life Budget (with full 5-level deep hierarchy)
-  const activePresetId: 'figma-life-budget' | 'user-demo-200' | 'five-level-test' = 'figma-life-budget';
   const activeProfile = REFINED_PROFILE;
 
   // Custom pool override
@@ -455,6 +504,54 @@ export function ExpandableCategoriesTree({
     setTimeout(() => setToastMsg(null), 3000);
   };
 
+  // Saved allocations in localStorage
+  const [savedAllocations, setSavedAllocations] = useState<CategoryNodeAllocation[] | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('richingness_category_allocations_v2');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed.globalTree) && parsed.globalTree.length > 0) {
+            return parsed.globalTree;
+          }
+        }
+      } catch {
+        // Ignored
+      }
+    }
+    return null;
+  });
+
+  const hasCategories = (savedAllocations && savedAllocations.length > 0) || storeCategories.length > 0;
+
+  // Pool total: either custom override or standard 12,000 or sum of categories
+  const poolTotal = customPoolTotal !== null ? customPoolTotal : 12000;
+
+  // Dynamically convert configured allocations or store categories into visual items
+  const categoryItems: CategoryNodeItem[] = savedAllocations && savedAllocations.length > 0
+    ? convertAllocationsToItems(savedAllocations, poolTotal, storeLedger)
+    : storeCategories.map((c) => {
+        const pct = Number(c.budgetAmount) > 0 ? Math.min(100, Math.round(Number(c.budgetAmount) / 100)) : 0;
+        const allocated = Math.round((poolTotal * pct) / 100);
+        const spent = Number(
+          storeLedger
+            .filter(op => op.type === 'EXPENSE' && op.referenceId === c.id)
+            .reduce((sum, op) => sum + op.amount, 0n)
+        ) / 100;
+
+        return {
+          id: c.id,
+          name: c.name,
+          percentage: pct,
+          level: 1,
+          displayTotal: allocated,
+          income: 0,
+          expense: spent,
+          badges: spent > allocated && allocated > 0 ? ['Due'] : undefined,
+          children: undefined
+        };
+      });
+
   const toggleNode = (id: string) => {
     setExpandedNodes(prev => ({ ...prev, [id]: !prev[id] }));
   };
@@ -470,22 +567,13 @@ export function ExpandableCategoriesTree({
         }
       });
     };
-    recurse(currentPreset.categories);
+    recurse(categoryItems);
     setExpandedNodes(nextState);
   };
 
-  const currentPreset =
-    activePresetId === 'figma-life-budget'
-      ? FIGMA_LIFE_BUDGET_PRESET
-      : activePresetId === 'user-demo-200'
-      ? USER_PROMPT_DEMO_PRESET
-      : FIVE_LEVEL_TEST_PRESET;
-
-  const poolTotal = customPoolTotal !== null ? customPoolTotal : currentPreset.total;
-
   // Cascading math engine
   const computeAllocatedAmount = (node: CategoryNodeItem, parentAmount: number): number => {
-    if (activePresetId === 'figma-life-budget' && customPoolTotal === null && node.displayTotal !== undefined) {
+    if (customPoolTotal === null && node.displayTotal !== undefined) {
       return node.displayTotal;
     }
     return Math.round((parentAmount * node.percentage) / 100);
@@ -505,6 +593,61 @@ export function ExpandableCategoriesTree({
     }
     return false;
   };
+
+  // If no categories configured yet, render clean empty state matching Figma
+  if (!hasCategories) {
+    return (
+      <div className="w-full text-center bg-[#1B1A17] border border-[#2A2824] rounded-[14px] p-6 space-y-3.5 shadow-xl select-none block">
+        <div className="w-14 h-14 rounded-full bg-[#23211C] border border-[#33302A] flex items-center justify-center mx-auto text-[#8E8A82] shadow-inner">
+          <Layers className="w-7 h-7 text-[#7A7872]" />
+        </div>
+        <div>
+          <h3 className="text-base sm:text-lg font-bold text-white">
+            You don&apos;t have any categories yet
+          </h3>
+          <p className="text-xs sm:text-sm text-[#8E8A82] mt-1 max-w-xs mx-auto leading-relaxed">
+            Set up and customize your budget categories, or start with the standard 50/30/20 template.
+          </p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1 max-w-xs mx-auto">
+          <button
+            type="button"
+            onClick={() => onNavigateToAllocations && onNavigateToAllocations('global')}
+            className="w-full sm:flex-1 py-2.5 px-3 rounded-[10px] bg-[#4A622F] hover:bg-[#587538] text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
+          >
+            <span>+ Add Category</span>
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              const payload = {
+                globalTree: DEFAULT_HIERARCHICAL_RULES,
+                perAccountTrees: {},
+                savedAt: new Date().toISOString()
+              };
+              localStorage.setItem('richingness_category_allocations_v2', JSON.stringify(payload));
+              setSavedAllocations(DEFAULT_HIERARCHICAL_RULES);
+              for (const c of DEFAULT_HIERARCHICAL_RULES) {
+                await addCategory(c.name, BigInt(c.percentage * 100));
+              }
+              showToast('Applied 50/30/20 Budget Template!');
+            }}
+            className="w-full sm:flex-1 py-2.5 px-3 rounded-[10px] bg-[#24221D] hover:bg-[#302D26] text-[#D8E8BA] text-xs font-semibold border border-[#3B3830] transition-all cursor-pointer active:scale-95"
+          >
+            <span>Use 50/30/20 Template</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Calculate live summary metrics
+  const totalExpense = categoryItems.reduce((acc, cat) => acc + (cat.expense || 0), 0);
+  const totalIncome = Number(storeLedger.filter(l => l.type === 'INCOME').reduce((acc, l) => acc + l.amount, 0n)) / 100;
+  const availableBalance = Math.max(0, poolTotal - totalExpense);
+  const expensePercentage = poolTotal > 0 ? Math.min(100, Math.round((totalExpense / poolTotal) * 100)) : 0;
+  const availablePercentage = Math.max(0, 100 - expensePercentage);
 
   // ── Multi-Rail Category Item ──────────────────────────────────────────────
   const renderCategoryItem = (
@@ -721,9 +864,6 @@ export function ExpandableCategoriesTree({
     );
   };
 
-  const expensePercentage = poolTotal > 0 ? Math.min(100, Math.round((currentPreset.expense / poolTotal) * 100)) : 0;
-  const availablePercentage = Math.max(0, 100 - expensePercentage);
-
   return (
     <div className="w-full space-y-3 select-none animate-fade-in">
 
@@ -742,7 +882,7 @@ export function ExpandableCategoriesTree({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-bold text-[#E5E3DC] tracking-tight">
-              {currentPreset.name}
+              Life Budget
             </h3>
             {isEditingPool ? (
               <div className="flex items-center gap-1">
@@ -820,19 +960,19 @@ export function ExpandableCategoriesTree({
           <div className="px-2 sm:px-3">
             <p className="text-[10px] sm:text-[11px] text-[#8E8A82] font-semibold uppercase tracking-wider">Income</p>
             <p className="text-xs sm:text-base font-extrabold text-[#9CD669] num-display mt-0.5 tracking-tight">
-              ₹{currentPreset.income.toLocaleString('en-IN')}
+              ₹{totalIncome.toLocaleString('en-IN')}
             </p>
           </div>
           <div className="px-2 sm:px-3">
             <p className="text-[10px] sm:text-[11px] text-[#8E8A82] font-semibold uppercase tracking-wider">Expense</p>
             <p className="text-xs sm:text-base font-extrabold text-white num-display mt-0.5 tracking-tight">
-              ₹{currentPreset.expense.toLocaleString('en-IN')}
+              ₹{totalExpense.toLocaleString('en-IN')}
             </p>
           </div>
           <div className="pl-2 sm:px-3">
             <p className="text-[10px] sm:text-[11px] text-[#8E8A82] font-semibold uppercase tracking-wider">Available</p>
             <p className="text-xs sm:text-base font-extrabold text-[#9CD669] num-display mt-0.5 tracking-tight">
-              ₹{currentPreset.available.toLocaleString('en-IN')}
+              ₹{availableBalance.toLocaleString('en-IN')}
             </p>
           </div>
         </div>
@@ -853,7 +993,7 @@ export function ExpandableCategoriesTree({
           </div>
           <div className="flex items-center justify-between text-[10px] text-[#7A7872] font-medium px-0.5">
             <span>{expensePercentage}% Allocated</span>
-            <span className="text-[#8EBA55] font-semibold">₹{currentPreset.available.toLocaleString('en-IN')} Remaining</span>
+            <span className="text-[#8EBA55] font-semibold">₹{availableBalance.toLocaleString('en-IN')} Remaining</span>
           </div>
         </div>
 
@@ -866,7 +1006,7 @@ export function ExpandableCategoriesTree({
           down past all Level 1 categories and nested sub-trees, terminating cleanly at bottom-1.5.
         */}
         {(() => {
-          const visibleRoots = currentPreset.categories.filter(c => nodeMatchesFilter(c));
+          const visibleRoots = categoryItems.filter(c => nodeMatchesFilter(c));
           return (
             <div className="relative pt-0">
               {visibleRoots.length > 0 && (

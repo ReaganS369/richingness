@@ -20,6 +20,7 @@ import {
 import { useAppStore, authService } from '../app/store';
 import { formatRupeesToPaise } from '@repo/shared';
 import { AccountCategoriesScreen } from './AccountCategoriesScreen';
+import { getStorageInfo, requestStoragePersistence, StorageInfo } from '../app/storageService';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 export interface UserProfileItem {
@@ -228,6 +229,24 @@ export function ProfileSection() {
   const storeInitialTab = useAppStore(state => state.settingsInitialTab);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Storage Persistence Status
+  const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
+
+  useEffect(() => {
+    getStorageInfo().then(setStorageInfo);
+  }, []);
+
+  const handleRequestStorage = async () => {
+    const granted = await requestStoragePersistence();
+    const updated = await getStorageInfo();
+    setStorageInfo(updated);
+    if (granted || updated.isPersisted) {
+      showToast('Persistent offline storage granted!');
+    } else {
+      showToast('Storage permission handled by browser policy.');
+    }
+  };
 
   // ── Profiles System ("This, That, and Those") ────────────────────────────
   const [profiles, setProfiles] = useState<UserProfileItem[]>(DEFAULT_PROFILES);
@@ -821,6 +840,38 @@ export function ProfileSection() {
                 className="hidden"
               />
             </label>
+          </div>
+
+          {/* Browser Storage Permission & Persistence Status */}
+          <div className="pt-2 border-t border-[#282622] flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${storageInfo?.isPersisted ? 'bg-[#9CD669]' : 'bg-[#E08518]'}`} />
+              <span className="text-[#8E8A82]">
+                {storageInfo?.isPersisted ? 'Storage: Persistent' : 'Storage: Browser Offline'}
+              </span>
+              {storageInfo?.usageFormatted && (
+                <span className="text-[#666]">({storageInfo.usageFormatted})</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {!storageInfo?.isPersisted && (
+                <button
+                  type="button"
+                  onClick={handleRequestStorage}
+                  className="text-[11px] font-semibold text-[#8EBA55] hover:underline cursor-pointer"
+                >
+                  Enable Persistence
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleResetDefaults}
+                className="text-[11px] font-semibold text-[#EF4444] hover:underline cursor-pointer"
+                title="Clear all local data and reset cache"
+              >
+                Reset Cache
+              </button>
+            </div>
           </div>
         </div>
       </div>

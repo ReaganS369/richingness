@@ -39,7 +39,7 @@ export interface FeaturedTemplate {
 }
 
 // ── Default Hierarchical Category Structure ────────────────────────────────
-const DEFAULT_HIERARCHICAL_RULES: CategoryNodeAllocation[] = [
+export const DEFAULT_HIERARCHICAL_RULES: CategoryNodeAllocation[] = [
   {
     id: 'cat-needs',
     name: 'Needs',
@@ -238,13 +238,24 @@ export function AccountCategoriesScreen({
   });
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
 
-  // Global hierarchical tree rules
-  const [globalTree, setGlobalTree] = useState<CategoryNodeAllocation[]>(DEFAULT_HIERARCHICAL_RULES);
+  // Global hierarchical tree rules (loaded from localStorage or empty)
+  const [globalTree, setGlobalTree] = useState<CategoryNodeAllocation[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('richingness_category_allocations_v2');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed.globalTree)) return parsed.globalTree;
+        }
+      } catch {
+        // Ignored
+      }
+    }
+    return [];
+  });
 
   // Per-account hierarchical tree rules map
-  const [perAccountTrees, setPerAccountTrees] = useState<Record<string, CategoryNodeAllocation[]>>({
-    'acct-hdfc': DEFAULT_HIERARCHICAL_RULES
-  });
+  const [perAccountTrees, setPerAccountTrees] = useState<Record<string, CategoryNodeAllocation[]>>({});
 
   // UI Modals & Notifications
   const [showTemplateModal, setShowTemplateModal] = useState(false);
@@ -520,6 +531,13 @@ export function AccountCategoriesScreen({
     setActiveTree(() => DEFAULT_HIERARCHICAL_RULES);
     setNavigationPath([]);
     try {
+      const payload = {
+        globalTree: DEFAULT_HIERARCHICAL_RULES,
+        perAccountTrees,
+        savedAt: new Date().toISOString()
+      };
+      localStorage.setItem('richingness_category_allocations_v2', JSON.stringify(payload));
+
       for (const node of DEFAULT_HIERARCHICAL_RULES) {
         await addCategory(node.name, BigInt(node.percentage * 100));
       }
@@ -530,7 +548,7 @@ export function AccountCategoriesScreen({
   };
 
   // Apply template
-  const handleApplyTemplate = (tmpl: FeaturedTemplate) => {
+  const handleApplyTemplate = async (tmpl: FeaturedTemplate) => {
     const mapped: CategoryNodeAllocation[] = tmpl.categories.map((c, i) => ({
       id: `cat-tmpl-${i}-${Date.now()}`,
       name: c.name,
@@ -541,6 +559,19 @@ export function AccountCategoriesScreen({
     setActiveTree(() => mapped);
     setNavigationPath([]);
     setShowTemplateModal(false);
+    try {
+      const payload = {
+        globalTree: activeTab === 'global' ? mapped : globalTree,
+        perAccountTrees: activeTab !== 'global' ? { ...perAccountTrees, [selectedAccountId]: mapped } : perAccountTrees,
+        savedAt: new Date().toISOString()
+      };
+      localStorage.setItem('richingness_category_allocations_v2', JSON.stringify(payload));
+      for (const node of mapped) {
+        await addCategory(node.name, BigInt(node.percentage * 100));
+      }
+    } catch {
+      // Ignored
+    }
     showToast(`Applied "${tmpl.title}" template!`);
   };
 
@@ -967,7 +998,36 @@ export function AccountCategoriesScreen({
 
           {/* ── Categories Allocation Rows ── */}
           <div className="space-y-2.5">
-            {activeLevelNodes.map((category, index) => {
+            {activeLevelNodes.length === 0 ? (
+              <div className="bg-[#171F13] border border-[#26331F] rounded-[14px] p-6 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-[#202B1A] border border-[#304026] flex items-center justify-center mx-auto text-[#8E8A82]">
+                  <LayoutTemplate className="w-6 h-6 text-[#A8E063]" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white">No categories in this allocation</h4>
+                  <p className="text-xs text-[#8E8A82] mt-1 max-w-xs mx-auto">
+                    Add your first category or apply the standard 50/30/20 budget template.
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1 max-w-xs mx-auto">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCategoryModal(true)}
+                    className="w-full sm:flex-1 py-2 px-3 rounded-[10px] bg-[#4A622F] hover:bg-[#587538] text-white text-xs font-semibold cursor-pointer active:scale-95 transition-all"
+                  >
+                    + Add Category
+                  </button>
+                  <button
+                    type="button"
+                    onClick={applyDefaultAllocation}
+                    className="w-full sm:flex-1 py-2 px-3 rounded-[10px] bg-[#24221D] hover:bg-[#302D26] text-[#D8E8BA] text-xs font-semibold border border-[#3B3830] cursor-pointer active:scale-95 transition-all"
+                  >
+                    Use 50/30/20 Template
+                  </button>
+                </div>
+              </div>
+            ) : (
+              activeLevelNodes.map((category, index) => {
               const color = CATEGORY_COLORS[index % CATEGORY_COLORS.length];
               const childCount = category.children?.length || 0;
               const hasChildren = childCount > 0;
@@ -1108,7 +1168,7 @@ export function AccountCategoriesScreen({
 
                 </div>
               );
-            })}
+            }))}
           </div>
 
           {/* ── Level Total Summary ── */}
