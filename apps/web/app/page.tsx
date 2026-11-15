@@ -489,19 +489,19 @@ export default function Home() {
           <div
             className={`w-full mx-auto animate-fade-up ${
               activeTab === 'dashboard'
-                ? 'w-full max-w-md md:max-w-2xl lg:max-w-4xl px-2.5 sm:px-4 md:px-6 py-2.5 sm:py-3 md:py-6 pb-28 md:pb-12 space-y-3 md:space-y-4'
+                ? 'w-full max-w-md md:max-w-2xl lg:max-w-4xl px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-6 pb-28 md:pb-12 space-y-2.5 md:space-y-4'
                 : activeTab === 'settings'
-                ? 'w-full max-w-md md:max-w-2xl lg:max-w-3xl mx-auto px-2.5 sm:px-4 md:px-6 py-2.5 sm:py-3 md:py-6 pb-28 md:pb-12'
-                : 'max-w-5xl p-4 sm:p-6 md:p-8 pb-24 md:pb-12 space-y-5'
+                ? 'w-full max-w-md md:max-w-2xl lg:max-w-3xl mx-auto px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-6 pb-28 md:pb-12'
+                : 'max-w-5xl p-3 sm:p-6 md:p-8 pb-24 md:pb-12 space-y-4 md:space-y-5'
             }`}
           >
 
             {/* ═══ TAB: DASHBOARD (Exact Figma Node 554-1901 Home 2.0) ═══════════════ */}
             {activeTab === 'dashboard' && (
-              <div className="space-y-3 md:space-y-4 flex-1 flex flex-col">
+              <div className="space-y-2.5 md:space-y-4 flex-1 flex flex-col">
 
                 {/* ── Total Balance 2.0 Card (Figma Width 357px, Height 134px, Radius 12px, Color #4A622F) ── */}
-                <div className="w-full bg-[#4A622F] rounded-[14px] p-4 text-white shadow-xl min-h-[134px] flex flex-col justify-between shrink-0">
+                <div className="w-full bg-[#4A622F] rounded-[14px] p-3.5 sm:p-4 text-white shadow-xl min-h-[130px] flex flex-col justify-between shrink-0">
                   <div>
                     <p className="text-white/85 text-xs font-medium">Total Balance</p>
                     <h1 className="text-2xl sm:text-3xl font-extrabold text-white mt-0.5 tracking-tight num-display">
@@ -510,7 +510,7 @@ export default function Home() {
                   </div>
 
                   {/* Sub-boxes with Row gap 15px, Column gap 15px (Figma Radius 6px, Height 49px, Color #637948) */}
-                  <div className="grid grid-cols-2 gap-[15px] mt-2.5">
+                  <div className="grid grid-cols-2 gap-[12px] sm:gap-[15px] mt-2.5">
                     <div className="bg-[#637948] rounded-[6px] h-[49px] px-3.5 py-1.5 flex flex-col justify-center">
                       <p className="text-white/80 text-[11px] font-medium leading-none">Income</p>
                       <p className="text-base font-bold text-white mt-0.5 leading-tight num-display">

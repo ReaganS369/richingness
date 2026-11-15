@@ -466,7 +466,7 @@ export function ExpandableCategoriesTree({
             onNavigateToAllocations('global');
           }
         }}
-        className="w-full text-center bg-[#1B1A17] hover:bg-[#201E1A] active:bg-[#26241F] border border-[#2A2824] hover:border-[#48602E] rounded-[14px] p-6 sm:p-7 space-y-3.5 shadow-xl transition-all cursor-pointer group touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#8EBA55] select-none block"
+        className="w-full text-center bg-[#1B1A17] hover:bg-[#201E1A] active:bg-[#26241F] border border-[#2A2824] hover:border-[#48602E] rounded-[14px] p-4.5 sm:p-6 space-y-2.5 shadow-xl transition-all cursor-pointer group touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#8EBA55] select-none block"
       >
         <div className="w-14 h-14 rounded-full bg-[#23211C] group-hover:bg-[#48602E]/25 border border-[#33302A] group-hover:border-[#6B8A44] flex items-center justify-center mx-auto text-[#8E8A82] group-hover:text-white transition-all shadow-inner">
           <Layers className="w-7 h-7 text-[#7A7872] group-hover:text-[#A5E265] transition-colors" />
