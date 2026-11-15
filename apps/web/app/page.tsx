@@ -235,7 +235,7 @@ function SecondaryBtn({ children, className = '', ...p }: React.ButtonHTMLAttrib
 export default function Home() {
   const {
     session, activeTab, syncStatus, accounts, goals, ledger, categories,
-    initAuth, logout, setActiveTab, openSettingsAllocations,
+    initAuth, logout, setActiveTab, openSettingsAllocations, setSettingsSubView,
     addAccount, addCategory, addTransaction, updateAllocation, addGoal,
     triggerRecovery, getBalances, getNetWorth, getBudgetTree,
     getGoalsProgress, getSpendingSummary, getBudgetHealth, triggerSyncPass
@@ -1173,7 +1173,10 @@ export default function Home() {
 
                 {/* ── 3. Right: Settings ── */}
                 <button
-                  onClick={() => setActiveTab('settings')}
+                  onClick={() => {
+                    setSettingsSubView('overview');
+                    setActiveTab('settings');
+                  }}
                   title="Settings"
                   aria-label="Settings"
                   className={`transition-all duration-300 ease-out cursor-pointer flex items-center justify-center ${
@@ -1252,18 +1255,28 @@ export default function Home() {
             </Field>
 
             <Field label="From Account">
-              <div className="relative">
-                <select
-                  required
-                  value={txAccountId}
-                  onChange={e => setTxAccountId(e.target.value)}
-                  className="w-full bg-[#211F1B] border border-[#2F2C25] focus:border-[#4A622F] rounded-xl px-4 py-3 text-white outline-none transition-all duration-150 text-sm focus:ring-1 focus:ring-[#4A622F] appearance-none cursor-pointer pr-10"
-                >
-                  <option value="" disabled className="bg-[#211F1B] text-[#8E8A82]">Select account</option>
-                  {accounts.map(a => <option key={a.id} value={a.id} className="bg-[#211F1B] text-white">{a.name}</option>)}
-                </select>
-                <ChevronDown className="w-4 h-4 text-[#8E8A82] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
-              </div>
+              {accounts.length <= 1 ? (
+                <div className="flex items-center justify-between bg-[#211F1B] border border-[#2F2C25] rounded-xl px-4 py-3 text-white text-sm">
+                  <div className="flex items-center gap-2.5">
+                    <Wallet className="w-4 h-4 text-[#8EBA55]" />
+                    <span className="font-medium">{accounts[0]?.name || 'Primary Account'}</span>
+                  </div>
+                  <span className="text-[11px] text-[#8E8A82] bg-white/[0.04] px-2 py-0.5 rounded">Default</span>
+                </div>
+              ) : (
+                <div className="relative">
+                  <select
+                    required
+                    value={txAccountId}
+                    onChange={e => setTxAccountId(e.target.value)}
+                    className="w-full bg-[#211F1B] border border-[#2F2C25] focus:border-[#4A622F] rounded-xl px-4 py-3 text-white outline-none transition-all duration-150 text-sm focus:ring-1 focus:ring-[#4A622F] appearance-none cursor-pointer pr-10"
+                  >
+                    <option value="" disabled className="bg-[#211F1B] text-[#8E8A82]">Select account</option>
+                    {accounts.map(a => <option key={a.id} value={a.id} className="bg-[#211F1B] text-white">{a.name}</option>)}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-[#8E8A82] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                </div>
+              )}
             </Field>
 
             {txType === 'TRANSFER_OUT' ? (

@@ -15,8 +15,7 @@ import {
   Check,
   X,
   Wallet,
-  Edit2,
-  Sliders
+  Edit2
 } from 'lucide-react';
 import { useAppStore } from '../app/store';
 
@@ -224,10 +223,9 @@ export function AccountCategoriesScreen({
   const [isRenamingAccount, setIsRenamingAccount] = useState(false);
   const [renamedTitle, setRenamedTitle] = useState('');
 
-  // UI Allocation Experience Version Selector:
-  // v1: Smart Steppers (Integrated ±5% & Direct Type - clean, tactile, no clutter)
-  // v2: Safe Clamped Slider (Smooth visual slider safely clamped so it never alters previous items)
-  const [uiVersion, setUiVersion] = useState<'v1' | 'v2'>('v1');
+  // Archived for future reuse: Version 2 Precision Slider
+  // const [uiVersion, setUiVersion] = useState<'v1' | 'v2'>('v1');
+  // const updatePercentageSafeSlider = ... (stored in codebase archive)
 
   // Hierarchy Navigation Path: [] = Level 1 (Root), ['cat-needs'] = Level 2, ['cat-needs', 'cat-food'] = Level 3
   const [navigationPath, setNavigationPath] = useState<string[]>([]);
@@ -362,17 +360,8 @@ export function AccountCategoriesScreen({
     setActiveTree(prev => recursiveUpdate(prev));
   };
 
-  // Safe Clamped Slider update: cannot exceed available unallocated remainder
-  const updatePercentageSafeSlider = (id: string, newPercentage: number) => {
-    const currentItem = activeLevelNodes.find(n => n.id === id);
-    if (!currentItem) return;
-
-    // The maximum this item can reach without breaking other items is: its current value + unallocated budget
-    const maxAllowed = Math.min(100, currentItem.percentage + Math.max(0, remainingTo100));
-    const clampedVal = Math.max(0, Math.min(maxAllowed, Math.round(newPercentage)));
-
-    updatePercentageNonDestructive(id, clampedVal);
-  };
+  // Archived for future reuse: Safe Clamped Slider update
+  // const updatePercentageSafeSlider = (id: string, newPercentage: number) => { ... };
 
   // Auto-distribute remainder at current level
   const handleAutoBalanceCurrentLevel = () => {
@@ -820,50 +809,7 @@ export function AccountCategoriesScreen({
             </div>
           )}
 
-          {/* ── Version Switcher Bar: v1 Stepper vs v2 Slider ── */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between px-0.5">
-              <span className="text-[11px] font-bold text-[#8EBA55] uppercase tracking-wider">
-                Interaction Style
-              </span>
-              <span className="text-[10px] text-[#7D8F72]">
-                {uiVersion === 'v1' ? 'Tactile Steppers (±5%)' : 'Smooth Precision Slider'}
-              </span>
-            </div>
-
-            <div className="bg-[#141B10] p-1 rounded-xl border border-[#27351F] flex items-center gap-1 shadow-inner">
-              <button
-                type="button"
-                onClick={() => {
-                  setUiVersion('v1');
-                  showToast('Version 1: Tactile ±5% Stepper');
-                }}
-                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  uiVersion === 'v1'
-                    ? 'bg-[#4A622F] text-white shadow-xs'
-                    : 'text-[#829577] hover:text-white hover:bg-white/[0.03]'
-                }`}
-              >
-                <span>Version 1: Stepper</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setUiVersion('v2');
-                  showToast('Version 2: Precision Slider');
-                }}
-                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  uiVersion === 'v2'
-                    ? 'bg-[#4A622F] text-white shadow-xs'
-                    : 'text-[#829577] hover:text-white hover:bg-white/[0.03]'
-                }`}
-              >
-                <Sliders className="w-3.5 h-3.5" />
-                <span>Version 2: Slider</span>
-              </button>
-            </div>
-          </div>
+          {/* (Note: Version 2 Precision Slider is preserved in codebase archives for future reuse if needed) */}
 
           {/* ── SLEEK COMPACT ALLOCATION INDICATOR (Minimal vertical space) ── */}
           <div className="bg-[#172013] border border-[#283620] rounded-[12px] p-2.5 space-y-2 shadow-sm">
@@ -922,6 +868,43 @@ export function AccountCategoriesScreen({
                 />
               )}
             </div>
+          </div>
+
+          {/* ── Quick-Switch Category Segmented Bar (Single Tap between Root and Top Categories) ── */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar pt-0.5">
+            <button
+              type="button"
+              onClick={() => setNavigationPath([])}
+              className={`px-3 py-1.5 rounded-[10px] text-xs font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 ${
+                navigationPath.length === 0
+                  ? 'bg-[#4A622F] text-white shadow-xs border border-[#5F7C3C]'
+                  : 'bg-[#182114] text-[#829577] hover:text-white border border-[#27351F]'
+              }`}
+            >
+              <span>Root Level</span>
+            </button>
+            {activeTree.map((rootCat, idx) => {
+              const isSelected = navigationPath[0] === rootCat.id;
+              const color = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
+              return (
+                <button
+                  key={rootCat.id}
+                  type="button"
+                  onClick={() => {
+                    handleDrillDown(rootCat);
+                  }}
+                  className={`px-3 py-1.5 rounded-[10px] text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                    isSelected
+                      ? 'bg-[#4A622F] text-white shadow-xs border border-[#5F7C3C]'
+                      : 'bg-[#182114] text-[#829577] hover:text-white border border-[#27351F]'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                  <span>{rootCat.name}</span>
+                  <span className="text-[10px] opacity-80 font-bold">{rootCat.percentage}%</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* ── Refined Breadcrumb & Level Path ── */}
@@ -1068,21 +1051,6 @@ export function AccountCategoriesScreen({
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      {/* Version 2: Exact Figma percentage display box [ 50 % ] */}
-                      {uiVersion === 'v2' && (
-                        <div className="w-[62px] h-[30px] bg-[#11170D] border border-[#2B3921] rounded-[8px] flex items-center justify-between px-2 focus-within:border-[#8EBA55] transition-colors shadow-inner">
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={category.percentage}
-                            onChange={(e) => updatePercentageNonDestructive(category.id, Number(e.target.value))}
-                            className="no-spin w-7 bg-transparent text-white text-right outline-none font-bold text-xs"
-                          />
-                          <span className="text-[#7E9173] text-[11px] font-semibold ml-0.5">%</span>
-                        </div>
-                      )}
-
                       {/* Remove category */}
                       {activeLevelNodes.length > 1 && (
                         <button
@@ -1098,66 +1066,47 @@ export function AccountCategoriesScreen({
                   </div>
 
                   {/* ═════════════════════════════════════════════════════════════ */}
-                  {/* VERSION 1: Refined Integrated Stepper                        */}
+                  {/* Tactile ±5% Stepper Pill                                     */}
                   {/* ═════════════════════════════════════════════════════════════ */}
-                  {uiVersion === 'v1' && (
-                    <div className="flex items-center justify-between gap-3 pt-0.5">
-                      <div className="text-xs text-[#829577] min-w-0 truncate">
-                        Allocation: <span className="text-white font-bold">{category.percentage}%</span>
-                      </div>
-
-                      {/* Integrated Stepper Pill */}
-                      <div className="flex items-center bg-[#11170D] border border-[#2B3921] rounded-[10px] overflow-hidden shadow-inner shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => updatePercentageNonDestructive(category.id, category.percentage - 5)}
-                          className="w-9 h-8 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/[0.07] active:bg-white/[0.12] text-base font-bold transition-all cursor-pointer"
-                          title="Decrease 5%"
-                        >
-                          −
-                        </button>
-                        <div className="w-14 h-8 flex items-center justify-center border-x border-[#2B3921] bg-[#0E130B] px-1">
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={category.percentage}
-                            onChange={(e) => updatePercentageNonDestructive(category.id, Number(e.target.value))}
-                            className="no-spin w-8 bg-transparent text-white text-center outline-none font-bold text-xs"
-                          />
-                          <span className="text-[#7E9173] text-[11px] font-semibold">%</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => updatePercentageNonDestructive(category.id, category.percentage + 5)}
-                          className="w-9 h-8 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/[0.07] active:bg-white/[0.12] text-base font-bold transition-all cursor-pointer"
-                          title="Increase 5%"
-                        >
-                          +
-                        </button>
-                      </div>
+                  <div className="flex items-center justify-between gap-3 pt-0.5">
+                    <div className="text-xs text-[#829577] min-w-0 truncate">
+                      Allocation: <span className="text-white font-bold">{category.percentage}%</span>
                     </div>
-                  )}
 
-                  {/* ═════════════════════════════════════════════════════════════ */}
-                  {/* VERSION 2: Full-width Slider (Exact Figma Node 76-6 Visual) */}
-                  {/* ═════════════════════════════════════════════════════════════ */}
-                  {uiVersion === 'v2' && (
-                    <div className="pt-1">
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        step="1"
-                        value={category.percentage}
-                        onChange={(e) => updatePercentageSafeSlider(category.id, Number(e.target.value))}
-                        className="figma-allocation-slider w-full cursor-pointer"
-                        style={{
-                          background: `linear-gradient(to right, ${color} 0%, ${color} ${category.percentage}%, #252D1E ${category.percentage}%, #252D1E 100%)`
-                        }}
-                      />
+                    {/* Integrated Stepper Pill */}
+                    <div className="flex items-center bg-[#11170D] border border-[#2B3921] rounded-[10px] overflow-hidden shadow-inner shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => updatePercentageNonDestructive(category.id, category.percentage - 5)}
+                        className="w-11 h-9 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/[0.07] active:bg-white/[0.15] text-lg font-bold transition-all cursor-pointer active:scale-95"
+                        title="Decrease 5%"
+                      >
+                        −
+                      </button>
+                      <div className="w-14 h-9 flex items-center justify-center border-x border-[#2B3921] bg-[#0E130B] px-1">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={category.percentage}
+                          onChange={(e) => {
+                            const clean = e.target.value.replace(/\D/g, '');
+                            updatePercentageNonDestructive(category.id, clean === '' ? 0 : Number(clean));
+                          }}
+                          className="no-spin w-8 bg-transparent text-white text-center outline-none font-bold text-xs"
+                        />
+                        <span className="text-[#7E9173] text-[11px] font-semibold">%</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => updatePercentageNonDestructive(category.id, category.percentage + 5)}
+                        className="w-11 h-9 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/[0.07] active:bg-white/[0.15] text-lg font-bold transition-all cursor-pointer active:scale-95"
+                        title="Increase 5%"
+                      >
+                        +
+                      </button>
                     </div>
-                  )}
+                  </div>
 
                 </div>
               );

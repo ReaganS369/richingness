@@ -224,6 +224,7 @@ export function ProfileSection() {
   const categories = useAppStore(state => state.categories);
   const ledger = useAppStore(state => state.ledger);
   const goals = useAppStore(state => state.goals);
+  const addTransaction = useAppStore(state => state.addTransaction);
   const storeSubView = useAppStore(state => state.settingsSubView);
   const setSettingsSubView = useAppStore(state => state.setSettingsSubView);
   const storeInitialTab = useAppStore(state => state.settingsInitialTab);
@@ -255,8 +256,13 @@ export function ProfileSection() {
   const activeProfile = profiles.find(p => p.id === activeProfileId) || profiles[0];
   const isGuestActive = activeProfile.type === 'Guest' || activeProfile.id === 'prof-guest';
 
-  // Toggle tab: 'my-account' vs 'all-categories'
-  const [activeSegment, setActiveSegment] = useState<'my-account' | 'all-categories'>('all-categories');
+  // Toggle tab: 'my-account' vs 'all-categories' (defaults to 'my-account' when going to Settings)
+  const [activeSegment, setActiveSegment] = useState<'my-account' | 'all-categories'>(() => {
+    if (categories.length === 0 && storeSubView === 'account-categories') {
+      return 'all-categories';
+    }
+    return 'my-account';
+  });
   const [subView, setSubView] = useState<'overview' | 'account-categories'>(() => {
     if (storeSubView) return storeSubView;
     if (typeof window !== 'undefined') {
@@ -271,8 +277,12 @@ export function ProfileSection() {
   useEffect(() => {
     if (storeSubView) {
       setSubView(storeSubView);
+      if (storeSubView === 'overview') {
+        setActiveSegment('my-account');
+      }
     } else {
       setSubView('overview');
+      setActiveSegment('my-account');
     }
   }, [storeSubView]);
 
@@ -286,6 +296,10 @@ export function ProfileSection() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showProfileEditModal, setShowProfileEditModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showAddFundsModal, setShowAddFundsModal] = useState(false);
+  const [fundsAmount, setFundsAmount] = useState('');
+  const [fundsAccountId, setFundsAccountId] = useState(accounts[0]?.id || '');
+  const [fundsNote, setFundsNote] = useState('');
   const [showAddGoalModal, setShowAddGoalModal] = useState(false);
   const [showTemplatesModal, setShowTemplatesModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -534,12 +548,41 @@ export function ProfileSection() {
     }
   };
 
+  const handleAddFundsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = parseFloat(fundsAmount);
+    if (isNaN(amt) || amt <= 0) {
+      showToast('Please enter a valid amount');
+      return;
+    }
+    const targetAccId = fundsAccountId || selectedAccountId || accounts[0]?.id;
+    if (!targetAccId) {
+      showToast('No account found to deposit funds into');
+      return;
+    }
+
+    await addTransaction(
+      targetAccId,
+      'INCOME',
+      formatRupeesToPaise(fundsAmount),
+      'INR',
+      '',
+      fundsNote.trim() || 'Deposit / Add Funds'
+    );
+
+    showToast(`₹${amt.toLocaleString('en-IN')} added! Funds automatically distributed to your categories.`);
+    setShowAddFundsModal(false);
+    setFundsAmount('');
+    setFundsNote('');
+  };
+
   if (subView === 'account-categories') {
     return (
       <AccountCategoriesScreen
         onBack={() => {
           setSubView('overview');
           setSettingsSubView('overview');
+          setActiveSegment('my-account');
         }}
         initialTab={storeInitialTab || (activeSegment === 'my-account' ? 'per-account' : 'global')}
       />
@@ -682,13 +725,15 @@ export function ProfileSection() {
                 </div>
               )}
 
-              {/* Transfer Funds Orange Button (Figma Orange #E87A24) */}
-              <button
-                onClick={() => setShowTransferModal(true)}
-                className="w-full py-3.5 rounded-xl bg-[#E87A24] hover:bg-[#F38936] active:scale-[0.99] text-[#141310] font-bold text-sm transition-all shadow-md cursor-pointer text-center mt-2"
-              >
-                Transfer Funds
-              </button>
+              {/* Transfer Funds Orange Button (Only when 2+ accounts exist) */}
+              {accountsList.length > 1 && (
+                <button
+                  onClick={() => setShowTransferModal(true)}
+                  className="w-full py-3.5 rounded-xl bg-[#E87A24] hover:bg-[#F38936] active:scale-[0.99] text-[#141310] font-bold text-sm transition-all shadow-md cursor-pointer text-center mt-2"
+                >
+                  Transfer Funds
+                </button>
+              )}
             </>
           ) : (
             /* 2. My Account Tab */
@@ -728,13 +773,30 @@ export function ProfileSection() {
                 </div>
               )}
 
-              {/* Transfer Funds Orange Button (Figma Orange #E87A24) */}
-              <button
-                onClick={() => setShowTransferModal(true)}
-                className="w-full py-3.5 rounded-xl bg-[#E87A24] hover:bg-[#F38936] active:scale-[0.99] text-[#141310] font-bold text-sm transition-all shadow-md cursor-pointer text-center mt-2"
-              >
-                Transfer Funds
-              </button>
+              {/* Action Buttons: Add Funds (always available) + Transfer Funds (only when 2+ accounts exist) */}
+              <div className="space-y-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFundsAccountId(selectedAccountId || accounts[0]?.id || '');
+                    setShowAddFundsModal(true);
+                  }}
+                  className="w-full py-3.5 rounded-xl bg-[#4A622F] hover:bg-[#587437] active:scale-[0.99] text-white font-bold text-sm transition-all shadow-md cursor-pointer text-center flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Funds to Account</span>
+                </button>
+
+                {accountsList.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowTransferModal(true)}
+                    className="w-full py-3 rounded-xl bg-[#E87A24] hover:bg-[#F38936] active:scale-[0.99] text-[#141310] font-bold text-sm transition-all shadow-md cursor-pointer text-center"
+                  >
+                    Transfer Funds Between Accounts
+                  </button>
+                )}
+              </div>
             </>
           )}
         </div>
@@ -1316,6 +1378,71 @@ export function ProfileSection() {
               className="w-full py-2.5 rounded-xl bg-[#4A622F] hover:bg-[#587438] active:scale-95 text-white font-bold text-xs transition-all cursor-pointer mt-2 shadow-md border border-[#64853E]/40"
             >
               Complete Transfer
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {/* ── Add Funds to Account Modal ── */}
+      {showAddFundsModal && (
+        <Modal title="Add Funds to Account" onClose={() => setShowAddFundsModal(false)}>
+          <form onSubmit={handleAddFundsSubmit} className="space-y-3.5">
+            <div className="bg-[#141B10] border border-[#27351F] rounded-xl p-3 text-xs text-[#C5E89B] space-y-1">
+              <p className="font-semibold text-white">💰 Dynamic Budget Allocation</p>
+              <p className="text-[11px] text-[#8EA083] leading-relaxed">
+                Depositing funds into your account automatically distributes across your categories according to your allocation percentages (e.g. 50% Needs, 30% Wants, 20% Savings).
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Target Account</label>
+              {accountsList.length <= 1 ? (
+                <div className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2.5 text-xs text-white font-medium">
+                  {accounts[0]?.name || 'Primary Account'} (₹{(accountsList[0]?.amount || 0).toLocaleString('en-IN')})
+                </div>
+              ) : (
+                <select
+                  value={fundsAccountId}
+                  onChange={e => setFundsAccountId(e.target.value)}
+                  className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#4A622F]"
+                >
+                  {accountsList.map(acc => (
+                    <option key={acc.id} value={acc.id}>{acc.name} (₹{acc.amount.toLocaleString('en-IN')})</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Amount to Deposit (₹)</label>
+              <input
+                type="number"
+                required
+                min="1"
+                step="any"
+                value={fundsAmount}
+                onChange={e => setFundsAmount(e.target.value)}
+                placeholder="e.g. 10000"
+                className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4A622F] font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Source / Note (Optional)</label>
+              <input
+                type="text"
+                value={fundsNote}
+                onChange={e => setFundsNote(e.target.value)}
+                placeholder="e.g. Monthly Salary, Freelance Deposit, Client Payment"
+                className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#4A622F]"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3 rounded-xl bg-[#4A622F] hover:bg-[#587438] active:scale-95 text-white font-bold text-xs transition-all cursor-pointer mt-2 shadow-md border border-[#64853E]/40"
+            >
+              Deposit & Distribute Funds
             </button>
           </form>
         </Modal>
