@@ -597,17 +597,9 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* ── Section Title: Categories + Add Category Header Button ── */}
+                {/* ── Section Title: Categories (Clean overview, no editing on Home page) ── */}
                 <div className="w-full flex items-center justify-between pt-1 pb-0 shrink-0">
                   <h2 className="text-base sm:text-lg md:text-xl font-bold text-white tracking-tight">Categories</h2>
-                  <button
-                    onClick={() => openSettingsAllocations('global')}
-                    className="text-xs font-semibold text-[#8EBA55] hover:text-[#A8E063] flex items-center gap-1 transition-colors cursor-pointer py-1 px-2 rounded-lg hover:bg-white/[0.04]"
-                    title="Open category setup and allocations"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Category</span>
-                  </button>
                 </div>
 
                 {/* ── Expandable Categories Hierarchical Tree (Exact Image 5 Design) ── */}

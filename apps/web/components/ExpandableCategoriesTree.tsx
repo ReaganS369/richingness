@@ -5,7 +5,6 @@ import {
   ChevronDown,
   CheckCircle2,
   ChevronsUpDown,
-  Edit2,
   Layers,
   X
 } from 'lucide-react';
@@ -489,9 +488,7 @@ export function ExpandableCategoriesTree({
   const activeProfile = REFINED_PROFILE;
 
   // Custom pool override
-  const [customPoolTotal, setCustomPoolTotal] = useState<number | null>(null);
-  const [isEditingPool, setIsEditingPool] = useState(false);
-  const [poolInput, setPoolInput] = useState('');
+  const [customPoolTotal] = useState<number | null>(null);
 
   // Expanded nodes map (default: all collapsed so user starts with a clean, unexpanded overview)
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
@@ -862,59 +859,8 @@ export function ExpandableCategoriesTree({
             <h3 className="text-sm font-bold text-[#E5E3DC] tracking-tight">
               Life Budget
             </h3>
-            {isEditingPool ? (
-              <div className="flex items-center gap-1">
-                <input
-                  type="number"
-                  value={poolInput}
-                  onChange={(e) => setPoolInput(e.target.value)}
-                  placeholder={poolTotal.toString()}
-                  className="w-20 bg-[#12110E] border border-[#485F2C] rounded px-1.5 py-0.5 text-xs text-white outline-none"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const val = parseInt(poolInput);
-                      if (!isNaN(val) && val > 0) setCustomPoolTotal(val);
-                      setIsEditingPool(false);
-                    }
-                    if (e.key === 'Escape') setIsEditingPool(false);
-                  }}
-                />
-                <button
-                  onClick={() => {
-                    const val = parseInt(poolInput);
-                    if (!isNaN(val) && val > 0) setCustomPoolTotal(val);
-                    setIsEditingPool(false);
-                  }}
-                  className="text-[10px] bg-[#485F2C] text-white px-1.5 py-0.5 rounded cursor-pointer"
-                >
-                  Save
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => {
-                  setPoolInput(poolTotal.toString());
-                  setIsEditingPool(true);
-                }}
-                className="text-[#7A7872] hover:text-[#8EBA55] transition-colors p-0.5 cursor-pointer"
-                title="Edit pool amount"
-              >
-                <Edit2 className="w-3 h-3" />
-              </button>
-            )}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            {onNavigateToAllocations && (
-              <button
-                type="button"
-                onClick={() => onNavigateToAllocations('global')}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg text-2xs font-semibold text-[#8EBA55] hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] transition-all cursor-pointer shadow-sm active:scale-95"
-                title="Configure allocations"
-              >
-                <span>Allocations</span>
-              </button>
-            )}
             <button
               type="button"
               onClick={toggleExpandAll}
