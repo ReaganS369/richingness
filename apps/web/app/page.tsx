@@ -267,6 +267,7 @@ export default function Home() {
   const [txToAccountId, setTxToAccountId] = useState('');
   const [txReferenceId, setTxReferenceId] = useState('');
   const [txMerchant,    setTxMerchant]    = useState('');
+  const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
 
   const [acctName,     setAcctName]     = useState('');
   const [acctType,     setAcctType]     = useState<Account['type']>('checking');
@@ -645,6 +646,16 @@ export default function Home() {
                       setTxType('EXPENSE');
                       setTxAmount(amount.toString());
                       setTxMerchant(catName);
+                      setSelectedCategoryName(catName);
+                      if (accounts.length > 0) setTxAccountId(accounts[0].id);
+                      setShowAddTxModal(true);
+                    }}
+                    onSpendCategory={(catId, catName) => {
+                      setTxType('EXPENSE');
+                      setTxAmount('');
+                      setTxMerchant('');
+                      setTxReferenceId(catId);
+                      setSelectedCategoryName(catName);
                       if (accounts.length > 0) setTxAccountId(accounts[0].id);
                       setShowAddTxModal(true);
                     }}
@@ -1192,37 +1203,27 @@ export default function Home() {
             </nav>
           );
         })()}
-
-        {/* ── Mobile Floating Action Button (FAB) to Add Expense / Log Purchase ── */}
-        <button
-          type="button"
-          onClick={() => {
-            setTxType('EXPENSE');
-            setTxAmount('');
-            setTxMerchant('');
-            if (accounts.length > 0) setTxAccountId(accounts[0].id);
-            if (availableCategories.length > 0) setTxReferenceId(availableCategories[0].id);
-            setShowAddTxModal(true);
-          }}
-          className="md:hidden fixed bottom-20 right-4 z-40 w-12 h-12 rounded-full bg-[#E5E3DC] hover:bg-white text-[#1B1A17] shadow-2xl flex items-center justify-center active:scale-95 transition-all cursor-pointer border border-white/20"
-          title="Add Expense / Buy Stuff"
-          aria-label="Add Expense"
-        >
-          <Plus className="w-6 h-6 stroke-[2.5]" />
-        </button>
       </div>
 
       {/* ═══ MODALS ═══════════════════════════════════════════════════════ */}
 
       {/* Add Transaction */}
       {showAddTxModal && (
-        <Modal title="New Transaction" onClose={() => setShowAddTxModal(false)} icon={<Plus className="w-4 h-4" />}>
+        <Modal
+          title={selectedCategoryName ? `Add Spend · ${selectedCategoryName}` : 'New Transaction'}
+          onClose={() => {
+            setShowAddTxModal(false);
+            setSelectedCategoryName(null);
+          }}
+          icon={<Plus className="w-4 h-4" />}
+        >
           <form
             onSubmit={(e) => {
               e.preventDefault();
               if (txAccountId && txAmount) {
                 addTransaction(txAccountId, txType, formatRupeesToPaise(txAmount), 'INR', txReferenceId, txMerchant || undefined, txType === 'TRANSFER_OUT' ? txToAccountId : null);
                 setShowAddTxModal(false);
+                setSelectedCategoryName(null);
               }
             }}
             className="space-y-4"
@@ -1279,9 +1280,19 @@ export default function Home() {
                   <ChevronDown className="w-4 h-4 text-[#8E8A82] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
                 </div>
               </Field>
+            ) : selectedCategoryName ? (
+              <Field label="Category">
+                <div className="flex items-center justify-between bg-[#141310] border border-[#2B2923] rounded-xl px-4 py-3 text-sm font-semibold text-white">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#A8E063] shadow-[0_0_6px_rgba(168,224,99,0.5)]" />
+                    <span>{selectedCategoryName}</span>
+                  </div>
+                  <span className="text-[11px] text-[#A8E063] font-medium bg-[#4A622F]/20 px-2 py-0.5 rounded border border-[#587437]/30">Direct Spend</span>
+                </div>
+              </Field>
             ) : (
               <>
-                <Field label="Envelope / Goal">
+                <Field label="Category / Envelope">
                   <div className="relative">
                     <select
                       required
@@ -1296,14 +1307,23 @@ export default function Home() {
                     <ChevronDown className="w-4 h-4 text-[#8E8A82] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
                   </div>
                 </Field>
-                <Field label="Merchant / Payee">
-                  <input type="text" value={txMerchant} onChange={e => setTxMerchant(e.target.value)} placeholder="Swiggy, Amazon, Netflix…" className={inputCls} />
-                </Field>
               </>
             )}
 
+            <Field label="Merchant / Payee">
+              <input type="text" value={txMerchant} onChange={e => setTxMerchant(e.target.value)} placeholder="Swiggy, Amazon, Netflix…" className={inputCls} />
+            </Field>
+
             <div className="flex gap-3 pt-1">
-              <SecondaryBtn type="button" onClick={() => setShowAddTxModal(false)}>Cancel</SecondaryBtn>
+              <SecondaryBtn
+                type="button"
+                onClick={() => {
+                  setShowAddTxModal(false);
+                  setSelectedCategoryName(null);
+                }}
+              >
+                Cancel
+              </SecondaryBtn>
               <PrimaryBtn type="submit">Confirm Entry</PrimaryBtn>
             </div>
           </form>
