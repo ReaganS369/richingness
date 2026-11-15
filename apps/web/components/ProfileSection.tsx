@@ -528,7 +528,7 @@ export function ProfileSection() {
   }
 
   return (
-    <div className="w-full max-w-md md:max-w-xl lg:max-w-2xl mx-auto space-y-4 text-white pb-6 select-none animate-fade-up px-0.5 sm:px-0">
+    <div className="w-full md:max-w-xl lg:max-w-2xl md:mx-auto space-y-4 text-white pb-6 select-none animate-fade-up px-1 sm:px-0">
 
       {/* ── Toast Notification ── */}
       {feedbackMsg && (

@@ -487,12 +487,12 @@ export default function Home() {
         {/* Main content - scrollable shell */}
         <main className="app-main-scroll bg-[#161512]">
           <div
-            className={`w-full mx-auto animate-fade-up ${
+            className={`w-full animate-fade-up ${
               activeTab === 'dashboard'
-                ? 'w-full max-w-md md:max-w-2xl lg:max-w-4xl px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-6 pb-28 md:pb-12 space-y-2.5 md:space-y-4'
+                ? 'w-full md:max-w-2xl lg:max-w-5xl md:mx-auto px-3 sm:px-4 md:px-6 py-3 md:py-6 pb-28 md:pb-12 space-y-3 md:space-y-4'
                 : activeTab === 'settings'
-                ? 'w-full max-w-md md:max-w-2xl lg:max-w-3xl mx-auto px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-6 pb-28 md:pb-12'
-                : 'max-w-5xl p-3 sm:p-6 md:p-8 pb-24 md:pb-12 space-y-4 md:space-y-5'
+                ? 'w-full md:max-w-2xl lg:max-w-4xl md:mx-auto px-3 sm:px-4 md:px-6 py-3 md:py-6 pb-28 md:pb-12'
+                : 'w-full max-w-5xl mx-auto p-3 sm:p-6 md:p-8 pb-24 md:pb-12 space-y-4 md:space-y-5'
             }`}
           >
 
@@ -1076,7 +1076,7 @@ export default function Home() {
               aria-label="Bottom Navigation"
               className="md:hidden app-bottom-nav py-2 px-3 sm:px-6 flex justify-center shadow-2xl backdrop-blur-md"
             >
-              <div className="flex items-center justify-between w-full max-w-[340px] sm:max-w-[360px] gap-2.5">
+              <div className="flex items-center justify-between w-full max-w-md px-1 gap-2.5">
                 {/* ── 1. Left: History (Transactions) ── */}
                 <button
                   onClick={() => setActiveTab('transactions')}
