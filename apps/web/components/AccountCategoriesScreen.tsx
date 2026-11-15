@@ -1004,25 +1004,18 @@ export function AccountCategoriesScreen({
                   <LayoutTemplate className="w-6 h-6 text-[#A8E063]" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-white">No categories in this allocation</h4>
+                  <h4 className="text-sm font-bold text-white">No categories configured yet</h4>
                   <p className="text-xs text-[#8E8A82] mt-1 max-w-xs mx-auto">
-                    Add your first category or apply the standard 50/30/20 budget template.
+                    Add your first category below, or apply a template from the template section to speed up setup.
                   </p>
                 </div>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1 max-w-xs mx-auto">
+                <div className="flex justify-center pt-1">
                   <button
                     type="button"
                     onClick={() => setShowAddCategoryModal(true)}
-                    className="w-full sm:flex-1 py-2 px-3 rounded-[10px] bg-[#4A622F] hover:bg-[#587538] text-white text-xs font-semibold cursor-pointer active:scale-95 transition-all"
+                    className="py-2.5 px-5 rounded-[10px] bg-[#4A622F] hover:bg-[#587538] text-white text-xs font-semibold cursor-pointer active:scale-95 transition-all"
                   >
                     + Add Category
-                  </button>
-                  <button
-                    type="button"
-                    onClick={applyDefaultAllocation}
-                    className="w-full sm:flex-1 py-2 px-3 rounded-[10px] bg-[#24221D] hover:bg-[#302D26] text-[#D8E8BA] text-xs font-semibold border border-[#3B3830] cursor-pointer active:scale-95 transition-all"
-                  >
-                    Use 50/30/20 Template
                   </button>
                 </div>
               </div>
@@ -1393,46 +1386,110 @@ export function AccountCategoriesScreen({
       {/* MODALS: TEMPLATES, ADD CATEGORY, ADD ACCOUNT                            */}
       {/* ═════════════════════════════════════════════════════════════════════════ */}
 
-      {/* ── 1. Templates Modal ── */}
+      {/* ── 1. Templates Store Modal (Exact Figma Draft / Templates store Screen) ── */}
       {showTemplateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-sm bg-[#161D12] border border-[#2B3822] rounded-2xl p-5 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-md bg-[#161D12] border border-[#2B3822] rounded-[20px] p-4 sm:p-5 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-[#27351F] pb-3">
-              <div className="flex items-center gap-2">
-                <LayoutTemplate className="w-4 h-4 text-[#8EBA55]" />
-                <h3 className="font-bold text-sm text-white">Allocation Templates</h3>
+              <div>
+                <h3 className="font-bold text-base text-white">Templates store</h3>
+                <p className="text-[11px] text-[#7D8F72]">Speed up setting your categories with tested templates</p>
               </div>
               <button
+                type="button"
                 onClick={() => setShowTemplateModal(false)}
-                className="text-[#888] hover:text-white p-1 cursor-pointer"
+                className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.1] flex items-center justify-center text-[#8E8A82] hover:text-white transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-              {FEATURED_TEMPLATES.map(tmpl => (
-                <div
-                  key={tmpl.id}
-                  className="bg-[#1A2214] border border-[#2B3822] hover:border-[#4A622F] rounded-xl p-3.5 space-y-2 transition-all cursor-pointer"
-                  onClick={() => handleApplyTemplate(tmpl)}
-                >
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-xs text-white">{tmpl.title}</h4>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#4A622F]/40 text-[#C5E89B] border border-[#526B36]">
-                      {tmpl.category}
+            {/* Template Search Bar */}
+            <div className="bg-[#10160D] border border-[#27351F] rounded-[10px] px-3 py-2 flex items-center gap-2">
+              <svg className="w-4 h-4 text-[#7D8F72]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search templates"
+                className="bg-transparent text-xs text-white placeholder-[#687C5E] outline-none w-full font-medium"
+              />
+            </div>
+
+            <div className="space-y-4 overflow-y-auto pr-1 flex-1">
+              {/* Featured Templates */}
+              <div className="space-y-2">
+                <span className="text-[11px] font-bold text-[#A8E063] uppercase tracking-wider">
+                  Featured Templates
+                </span>
+                <div className="bg-[#1A2214] border border-[#3B4D2F] rounded-xl p-3.5 space-y-2.5 shadow-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="font-bold text-sm text-white">50/30/20 Budget</h4>
+                      <p className="text-[11px] text-[#A2BA92] mt-0.5">By Richingness · ★ 4.8 | 12.4K uses</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyTemplate(FEATURED_TEMPLATES[0])}
+                      className="px-3.5 py-1.5 rounded-[8px] bg-[#F2811D] hover:bg-[#FF8E2E] active:scale-95 text-[#11130E] font-bold text-xs shadow-sm transition-all cursor-pointer"
+                    >
+                      Use
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-[#7D8F72] leading-relaxed">
+                    Standard balanced formula: 50% Needs, 30% Wants, 20% Savings.
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                    <span className="text-[10px] bg-black/40 px-2 py-0.5 rounded text-white/90">
+                      Needs: <span className="font-bold text-[#8EBA55]">50%</span>
+                    </span>
+                    <span className="text-[10px] bg-black/40 px-2 py-0.5 rounded text-white/90">
+                      Wants: <span className="font-bold text-[#8EBA55]">30%</span>
+                    </span>
+                    <span className="text-[10px] bg-black/40 px-2 py-0.5 rounded text-white/90">
+                      Savings: <span className="font-bold text-[#8EBA55]">20%</span>
                     </span>
                   </div>
-                  <p className="text-[11px] text-[#7D8F72] leading-relaxed">{tmpl.description}</p>
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {tmpl.categories.map(c => (
-                      <span key={c.name} className="text-[10px] bg-black/40 px-2 py-0.5 rounded text-white/90">
-                        {c.name}: <span className="font-bold text-[#8EBA55]">{c.percentage}%</span>
-                      </span>
-                    ))}
-                  </div>
                 </div>
-              ))}
+              </div>
+
+              {/* Popular Templates */}
+              <div className="space-y-2">
+                <span className="text-[11px] font-bold text-[#8EA083] uppercase tracking-wider">
+                  Popular Templates
+                </span>
+                <div className="space-y-2">
+                  {FEATURED_TEMPLATES.slice(1).map(tmpl => (
+                    <div
+                      key={tmpl.id}
+                      className="bg-[#171F13] border border-[#27351F] hover:border-[#3D522F] rounded-xl p-3 space-y-2 transition-all"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <h4 className="font-bold text-xs text-white">{tmpl.title}</h4>
+                          <p className="text-[10px] text-[#788C6C]">By Richingness · ★ 4.7 | 8.2K uses</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyTemplate(tmpl)}
+                          className="px-3 py-1 rounded-[8px] bg-[#F2811D] hover:bg-[#FF8E2E] active:scale-95 text-[#11130E] font-bold text-xs shadow-sm transition-all cursor-pointer"
+                        >
+                          Use
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-[#7D8F72] leading-relaxed">{tmpl.description}</p>
+                      <div className="flex flex-wrap gap-1 pt-0.5">
+                        {tmpl.categories.map(c => (
+                          <span key={c.name} className="text-[10px] bg-black/40 px-2 py-0.5 rounded text-white/90">
+                            {c.name}: <span className="font-bold text-[#8EBA55]">{c.percentage}%</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>

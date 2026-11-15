@@ -10,7 +10,7 @@ import {
   X
 } from 'lucide-react';
 import { useAppStore } from '../app/store';
-import { DEFAULT_HIERARCHICAL_RULES, CategoryNodeAllocation } from './AccountCategoriesScreen';
+import { CategoryNodeAllocation } from './AccountCategoriesScreen';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 export interface CategoryNodeItem {
@@ -481,7 +481,6 @@ export function ExpandableCategoriesTree({
 }) {
   const storeCategories = useAppStore(state => state.categories);
   const storeLedger = useAppStore(state => state.ledger);
-  const addCategory = useAppStore(state => state.addCategory);
 
   // Modals matching Figma Draft / Category due payment pop... and Repay pop-up
   const [dueModalOpen, setDueModalOpen] = useState(false);
@@ -505,7 +504,7 @@ export function ExpandableCategoriesTree({
   };
 
   // Saved allocations in localStorage
-  const [savedAllocations, setSavedAllocations] = useState<CategoryNodeAllocation[] | null>(() => {
+  const [savedAllocations] = useState<CategoryNodeAllocation[] | null>(() => {
     if (typeof window !== 'undefined') {
       try {
         const cached = localStorage.getItem('richingness_category_allocations_v2');
@@ -597,46 +596,25 @@ export function ExpandableCategoriesTree({
   // If no categories configured yet, render clean empty state matching Figma
   if (!hasCategories) {
     return (
-      <div className="w-full text-center bg-[#1B1A17] border border-[#2A2824] rounded-[14px] p-6 space-y-3.5 shadow-xl select-none block">
-        <div className="w-14 h-14 rounded-full bg-[#23211C] border border-[#33302A] flex items-center justify-center mx-auto text-[#8E8A82] shadow-inner">
-          <Layers className="w-7 h-7 text-[#7A7872]" />
+      <div
+        onClick={() => onNavigateToAllocations && onNavigateToAllocations('global')}
+        className="w-full text-center bg-[#1B1A17] hover:bg-[#201E1A] border border-[#2A2824] hover:border-[#48602E] rounded-[14px] p-6 space-y-3.5 shadow-xl select-none block cursor-pointer transition-all group"
+      >
+        <div className="w-14 h-14 rounded-full bg-[#23211C] group-hover:bg-[#48602E]/20 border border-[#33302A] group-hover:border-[#6B8A44] flex items-center justify-center mx-auto text-[#8E8A82] group-hover:text-white shadow-inner transition-all">
+          <Layers className="w-7 h-7 text-[#7A7872] group-hover:text-[#A8E063] transition-colors" />
         </div>
         <div>
-          <h3 className="text-base sm:text-lg font-bold text-white">
+          <h3 className="text-base sm:text-lg font-bold text-white group-hover:text-[#A8E063] transition-colors">
             You don&apos;t have any categories yet
           </h3>
           <p className="text-xs sm:text-sm text-[#8E8A82] mt-1 max-w-xs mx-auto leading-relaxed">
-            Set up and customize your budget categories, or start with the standard 50/30/20 template.
+            Tap anywhere to set up and customize your budget categories.
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1 max-w-xs mx-auto">
-          <button
-            type="button"
-            onClick={() => onNavigateToAllocations && onNavigateToAllocations('global')}
-            className="w-full sm:flex-1 py-2.5 px-3 rounded-[10px] bg-[#4A622F] hover:bg-[#587538] text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
-          >
-            <span>+ Add Category</span>
-          </button>
-          <button
-            type="button"
-            onClick={async () => {
-              const payload = {
-                globalTree: DEFAULT_HIERARCHICAL_RULES,
-                perAccountTrees: {},
-                savedAt: new Date().toISOString()
-              };
-              localStorage.setItem('richingness_category_allocations_v2', JSON.stringify(payload));
-              setSavedAllocations(DEFAULT_HIERARCHICAL_RULES);
-              for (const c of DEFAULT_HIERARCHICAL_RULES) {
-                await addCategory(c.name, BigInt(c.percentage * 100));
-              }
-              showToast('Applied 50/30/20 Budget Template!');
-            }}
-            className="w-full sm:flex-1 py-2.5 px-3 rounded-[10px] bg-[#24221D] hover:bg-[#302D26] text-[#D8E8BA] text-xs font-semibold border border-[#3B3830] transition-all cursor-pointer active:scale-95"
-          >
-            <span>Use 50/30/20 Template</span>
-          </button>
+        <div className="pt-1 flex items-center justify-center gap-1.5 text-xs font-semibold text-[#8EBA55] group-hover:text-[#A8E063] transition-all">
+          <span>Create a category now</span>
+          <ChevronDown className="w-4 h-4 -rotate-90 group-hover:translate-x-0.5 transition-transform" />
         </div>
       </div>
     );
