@@ -244,6 +244,109 @@ export const useAppStore = create<AppState>((set, get) => ({
       accounts = [defaultAccount];
     }
 
+    // Seed default categories matching Figma Life Budget
+    if (categories.length === 0) {
+      const defaultCategories: BudgetCategory[] = [
+        {
+          id: 'cat-needs',
+          parentId: null,
+          name: 'Needs',
+          rolloverMode: 'carry',
+          budgetAmount: 600000n, // 50% = ₹6,000
+          priority: 1,
+          isIncome: false,
+          isHidden: false,
+          sortOrder: 1
+        },
+        {
+          id: 'cat-wants',
+          parentId: null,
+          name: 'Wants',
+          rolloverMode: 'carry',
+          budgetAmount: 360000n, // 30% = ₹3,600
+          priority: 2,
+          isIncome: false,
+          isHidden: false,
+          sortOrder: 2
+        },
+        {
+          id: 'cat-savings',
+          parentId: null,
+          name: 'Savings & Investments',
+          rolloverMode: 'carry',
+          budgetAmount: 240000n, // 20% = ₹2,400
+          priority: 3,
+          isIncome: false,
+          isHidden: false,
+          sortOrder: 3
+        }
+      ];
+      for (const cat of defaultCategories) {
+        await scopedRepo.saveCategory(cat);
+      }
+      categories = defaultCategories;
+    }
+
+    // Seed default transactions matching Figma Life Budget (Income ₹12,000, Expense ₹11,350)
+    if (ledger.length === 0 && accounts.length > 0) {
+      const primaryId = accounts[0].id;
+      const initialTransactions: LedgerOperation[] = [
+        {
+          id: 'op-init-income',
+          accountId: primaryId,
+          type: 'INCOME',
+          amount: 1200000n, // ₹12,000.00
+          currency: 'INR',
+          exchangeRate: 1.0,
+          date: new Date()
+        },
+        {
+          id: 'op-init-rent',
+          accountId: primaryId,
+          type: 'EXPENSE',
+          amount: 400000n, // ₹4,000.00
+          currency: 'INR',
+          exchangeRate: 1.0,
+          referenceId: 'cat-needs',
+          date: new Date()
+        },
+        {
+          id: 'op-init-groceries',
+          accountId: primaryId,
+          type: 'EXPENSE',
+          amount: 250000n, // ₹2,500.00
+          currency: 'INR',
+          exchangeRate: 1.0,
+          referenceId: 'cat-needs',
+          date: new Date()
+        },
+        {
+          id: 'op-init-dining',
+          accountId: primaryId,
+          type: 'EXPENSE',
+          amount: 150000n, // ₹1,500.00
+          currency: 'INR',
+          exchangeRate: 1.0,
+          referenceId: 'cat-wants',
+          date: new Date()
+        },
+        {
+          id: 'op-init-other',
+          accountId: primaryId,
+          type: 'EXPENSE',
+          amount: 335000n, // ₹3,350.00
+          currency: 'INR',
+          exchangeRate: 1.0,
+          referenceId: 'cat-needs',
+          date: new Date()
+        }
+      ];
+      for (const tx of initialTransactions) {
+        await scopedRepo.saveTransaction(tx);
+      }
+      ledger = await scopedRepo.getLedger();
+    }
+
     set({ accounts, categories, ledger, goals });
 
     // 5. Start background sync service only if authenticated

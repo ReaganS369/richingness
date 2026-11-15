@@ -6,10 +6,8 @@ import {
   CheckCircle2,
   ChevronsUpDown,
   Edit2,
-  Layers,
   X
 } from 'lucide-react';
-import { useAppStore } from '../app/store';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 export interface CategoryNodeItem {
@@ -434,9 +432,6 @@ export function ExpandableCategoriesTree({
   onPayDue?: (amount: number, categoryName: string) => void;
   onNavigateToAllocations?: (tab: 'global' | 'per-account' | 'currencies') => void;
 }) {
-  const categories = useAppStore(state => state.categories);
-  const addCategory = useAppStore(state => state.addCategory);
-
   // Modals matching Figma Draft / Category due payment pop... and Repay pop-up
   const [dueModalOpen, setDueModalOpen] = useState(false);
   const [repayModalOpen, setRepayModalOpen] = useState(false);
@@ -459,46 +454,6 @@ export function ExpandableCategoriesTree({
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 3000);
   };
-
-  if (categories.length === 0) {
-    return (
-      <div className="w-full text-center bg-[#1B1A17] border border-[#2A2824] rounded-[14px] p-4.5 sm:p-6 space-y-3.5 shadow-xl select-none block">
-        <div className="w-14 h-14 rounded-full bg-[#23211C] border border-[#33302A] flex items-center justify-center mx-auto text-[#8E8A82] shadow-inner">
-          <Layers className="w-7 h-7 text-[#7A7872]" />
-        </div>
-        <div>
-          <h3 className="text-base sm:text-lg font-bold text-white">
-            You don&apos;t have any categories yet
-          </h3>
-          <p className="text-xs sm:text-sm text-[#8E8A82] mt-1 max-w-xs mx-auto leading-relaxed">
-            Set up and customize your budget categories, or explore the full Figma Life Budget template.
-          </p>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1 max-w-xs mx-auto">
-          <button
-            type="button"
-            onClick={() => onNavigateToAllocations && onNavigateToAllocations('global')}
-            className="w-full sm:flex-1 py-2.5 px-3 rounded-[10px] bg-[#4A622F] hover:bg-[#587538] text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
-          >
-            <span>+ Add Category</span>
-          </button>
-          <button
-            type="button"
-            onClick={async () => {
-              for (const c of FIGMA_LIFE_BUDGET_PRESET.categories) {
-                await addCategory(c.name, BigInt(c.percentage * 100));
-              }
-              showToast('Loaded Figma Life Budget (₹12,000)!');
-            }}
-            className="w-full sm:flex-1 py-2.5 px-3 rounded-[10px] bg-[#24221D] hover:bg-[#302D26] text-[#D8E8BA] text-xs font-semibold border border-[#3B3830] transition-all cursor-pointer active:scale-95"
-          >
-            <span>Explore Figma Demo</span>
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   const toggleNode = (id: string) => {
     setExpandedNodes(prev => ({ ...prev, [id]: !prev[id] }));
@@ -831,14 +786,27 @@ export function ExpandableCategoriesTree({
               </button>
             )}
           </div>
-          <button
-            onClick={toggleExpandAll}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-2xs font-semibold text-[#A2E060] bg-[#485F2C]/20 hover:bg-[#485F2C]/35 border border-[#587437]/40 transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
-            title="Expand or collapse all categories"
-          >
-            <ChevronsUpDown className="w-3.5 h-3.5" />
-            <span>{Object.values(expandedNodes).some(Boolean) ? 'Collapse All' : 'Expand All'}</span>
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {onNavigateToAllocations && (
+              <button
+                type="button"
+                onClick={() => onNavigateToAllocations('global')}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-2xs font-semibold text-[#8EBA55] hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] transition-all cursor-pointer shadow-sm active:scale-95"
+                title="Configure allocations"
+              >
+                <span>Allocations</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={toggleExpandAll}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-2xs font-semibold text-[#A2E060] bg-[#485F2C]/20 hover:bg-[#485F2C]/35 border border-[#587437]/40 transition-all cursor-pointer shadow-sm active:scale-95"
+              title="Expand or collapse all categories"
+            >
+              <ChevronsUpDown className="w-3.5 h-3.5" />
+              <span>{Object.values(expandedNodes).some(Boolean) ? 'Collapse All' : 'Expand All'}</span>
+            </button>
+          </div>
         </div>
 
         {/* 4-Column Summary Strip directly below Title */}
@@ -932,8 +900,8 @@ export function ExpandableCategoriesTree({
 
       {/* ── Figma Due Payment Pop-up Modal (Exact Draft / Category due payment pop... from Figma) ── */}
       {dueModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs animate-fade-in p-0 sm:p-4">
-          <div className="w-full sm:max-w-md bg-[#1B1A16] border border-[#333028] rounded-t-[20px] sm:rounded-[20px] p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-6">
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-xs animate-fade-in p-0 sm:p-4">
+          <div className="w-full sm:max-w-md bg-[#1B1A16] border border-[#333028] rounded-t-[20px] sm:rounded-[20px] p-5 pb-8 sm:pb-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-6">
             <div className="flex items-center justify-between pb-1">
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-white">
@@ -994,8 +962,8 @@ export function ExpandableCategoriesTree({
 
       {/* ── Figma Category Repay Pop-up Modal (Exact Draft / Category repay pop-up from Figma) ── */}
       {repayModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs animate-fade-in p-0 sm:p-4">
-          <div className="w-full sm:max-w-md bg-[#1B1A16] border border-[#333028] rounded-t-[20px] sm:rounded-[20px] p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-6">
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-xs animate-fade-in p-0 sm:p-4">
+          <div className="w-full sm:max-w-md bg-[#1B1A16] border border-[#333028] rounded-t-[20px] sm:rounded-[20px] p-5 pb-8 sm:pb-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-6">
             <div className="flex items-center justify-between pb-1">
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-white">
