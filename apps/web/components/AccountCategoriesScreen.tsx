@@ -16,10 +16,7 @@ import {
   X,
   Wallet,
   Edit2,
-  Sliders,
-  Percent,
-  Layers,
-  CornerDownRight
+  Sliders
 } from 'lucide-react';
 import { useAppStore } from '../app/store';
 
@@ -228,10 +225,9 @@ export function AccountCategoriesScreen({
   const [renamedTitle, setRenamedTitle] = useState('');
 
   // UI Allocation Experience Version Selector:
-  // v1: Smart Steppers (Tactile ±5% & Direct Type - No 1% clutter, never breaks other categories)
+  // v1: Smart Steppers (Integrated ±5% & Direct Type - clean, tactile, no clutter)
   // v2: Safe Clamped Slider (Smooth visual slider safely clamped so it never alters previous items)
-  // v3: Quick Chips & Segmented Bar (10%, 20%, 25%, 33%, 50%, Remainder + visual breakdown bar)
-  const [uiVersion, setUiVersion] = useState<'v1' | 'v2' | 'v3'>('v1');
+  const [uiVersion, setUiVersion] = useState<'v1' | 'v2'>('v1');
 
   // Hierarchy Navigation Path: [] = Level 1 (Root), ['cat-needs'] = Level 2, ['cat-needs', 'cat-food'] = Level 3
   const [navigationPath, setNavigationPath] = useState<string[]>([]);
@@ -759,62 +755,47 @@ export function AccountCategoriesScreen({
             </div>
           )}
 
-          {/* ── Version Switcher Bar (v1: Smart Steppers, v2: Safe Slider, v3: Quick Chips) ── */}
+          {/* ── Version Switcher Bar: v1 Stepper vs v2 Slider ── */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between px-0.5">
               <span className="text-[11px] font-bold text-[#8EBA55] uppercase tracking-wider">
                 Interaction Style
               </span>
               <span className="text-[10px] text-[#7D8F72]">
-                {uiVersion === 'v1' && '±5% Steppers & Direct Type'}
-                {uiVersion === 'v2' && 'Safe Clamped Slider'}
-                {uiVersion === 'v3' && 'Quick Chips & Distribution Bar'}
+                {uiVersion === 'v1' ? 'Tactile Steppers (±5%)' : 'Smooth Precision Slider'}
               </span>
             </div>
 
-            <div className="bg-[#141B10] p-1 rounded-xl border border-[#27351F] flex items-center gap-1">
+            <div className="bg-[#141B10] p-1 rounded-xl border border-[#27351F] flex items-center gap-1 shadow-inner">
               <button
+                type="button"
                 onClick={() => {
                   setUiVersion('v1');
-                  showToast('Version 1: Tactile ±5% Steppers & Direct Type');
+                  showToast('Version 1: Tactile ±5% Stepper');
                 }}
-                className={`flex-1 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                   uiVersion === 'v1'
                     ? 'bg-[#4A622F] text-white shadow-xs'
-                    : 'text-[#7D8F72] hover:text-white hover:bg-white/[0.03]'
+                    : 'text-[#829577] hover:text-white hover:bg-white/[0.03]'
                 }`}
               >
-                <span>v1: Stepper</span>
+                <span>Version 1: Stepper</span>
               </button>
 
               <button
+                type="button"
                 onClick={() => {
                   setUiVersion('v2');
-                  showToast('Version 2: Safe Clamped Slider (Never breaks other categories)');
+                  showToast('Version 2: Precision Slider');
                 }}
-                className={`flex-1 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                   uiVersion === 'v2'
                     ? 'bg-[#4A622F] text-white shadow-xs'
-                    : 'text-[#7D8F72] hover:text-white hover:bg-white/[0.03]'
+                    : 'text-[#829577] hover:text-white hover:bg-white/[0.03]'
                 }`}
               >
-                <Sliders className="w-3 h-3" />
-                <span>v2: Safe Slider</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setUiVersion('v3');
-                  showToast('Version 3: Quick Chips & Distribution Bar');
-                }}
-                className={`flex-1 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${
-                  uiVersion === 'v3'
-                    ? 'bg-[#4A622F] text-white shadow-xs'
-                    : 'text-[#7D8F72] hover:text-white hover:bg-white/[0.03]'
-                }`}
-              >
-                <Percent className="w-3 h-3" />
-                <span>v3: Quick Chips</span>
+                <Sliders className="w-3.5 h-3.5" />
+                <span>Version 2: Slider</span>
               </button>
             </div>
           </div>
@@ -878,27 +859,29 @@ export function AccountCategoriesScreen({
             </div>
           </div>
 
-          {/* ── Breadcrumb & Hierarchy Level Bar ── */}
-          <div className="bg-[#141C10] border border-[#232F1B] rounded-[10px] px-3 py-2 flex items-center justify-between text-xs">
+          {/* ── Refined Breadcrumb & Level Path ── */}
+          <div className="bg-[#141C10] border border-[#232F1B] rounded-[12px] px-3.5 py-2 flex items-center justify-between text-xs">
             <div className="flex items-center gap-1.5 flex-wrap min-w-0">
               <button
+                type="button"
                 onClick={() => setNavigationPath([])}
-                className={`font-semibold cursor-pointer transition-colors ${
-                  navigationPath.length === 0 ? 'text-[#A8E063] font-bold' : 'text-[#7D8F72] hover:text-white'
+                className={`transition-colors cursor-pointer text-xs ${
+                  navigationPath.length === 0 ? 'text-[#A8E063] font-bold' : 'text-[#7D8F72] hover:text-white font-medium'
                 }`}
               >
-                Level 1: Root
+                All Categories
               </button>
 
               {breadcrumbChain.map((bc, idx) => {
                 const isLast = idx === breadcrumbChain.length - 1;
                 return (
                   <React.Fragment key={bc.id}>
-                    <ChevronRight className="w-3 h-3 text-[#506346] shrink-0" />
+                    <ChevronRight className="w-3.5 h-3.5 text-[#506346] shrink-0" />
                     <button
+                      type="button"
                       onClick={() => setNavigationPath(navigationPath.slice(0, idx + 1))}
-                      className={`font-semibold truncate max-w-[110px] cursor-pointer transition-colors ${
-                        isLast ? 'text-[#A8E063] font-bold' : 'text-[#7D8F72] hover:text-white'
+                      className={`truncate max-w-[120px] transition-colors cursor-pointer text-xs ${
+                        isLast ? 'text-[#A8E063] font-bold' : 'text-[#7D8F72] hover:text-white font-medium'
                       }`}
                     >
                       {bc.name}
@@ -908,10 +891,20 @@ export function AccountCategoriesScreen({
               })}
             </div>
 
-            {/* Current Level Pill */}
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#24331B] text-[#A5E265] border border-[#3A4F2C] shrink-0">
-              Level {currentLevelNumber}
-            </span>
+            {parentNode ? (
+              <button
+                type="button"
+                onClick={() => setNavigationPath(prev => prev.slice(0, -1))}
+                className="text-[11px] text-[#A8E063] hover:underline flex items-center gap-0.5 shrink-0 cursor-pointer font-medium"
+              >
+                <ChevronLeft className="w-3 h-3" />
+                <span>Up</span>
+              </button>
+            ) : (
+              <span className="text-[10px] font-medium text-[#657858] shrink-0">
+                Root Level
+              </span>
+            )}
           </div>
 
           {/* Context Note when inside a Subcategory */}
@@ -920,32 +913,26 @@ export function AccountCategoriesScreen({
               <span>
                 Subcategories inside <strong className="text-white">{parentNode.name}</strong> ({parentNode.percentage}% of parent)
               </span>
-              <button
-                onClick={() => setNavigationPath(prev => prev.slice(0, -1))}
-                className="text-[#A8E063] font-semibold hover:underline cursor-pointer flex items-center gap-0.5"
-              >
-                <ChevronLeft className="w-3 h-3" />
-                <span>Up one level</span>
-              </button>
             </div>
           )}
 
           {/* ── Category List Header & Add Button ── */}
           <div className="flex items-center justify-between px-0.5 pt-1">
             <span className="text-xs font-bold text-white tracking-tight">
-              {parentNode ? `${parentNode.name} Subcategories` : 'Main Categories'}
+              {parentNode ? `${parentNode.name} Subcategories` : 'Categories'}
             </span>
             <button
+              type="button"
               onClick={() => setShowAddCategoryModal(true)}
-              className="text-[11px] font-semibold text-[#8EBA55] hover:text-[#A8E063] flex items-center gap-1 cursor-pointer transition-colors"
+              className="text-xs font-semibold text-[#8EBA55] hover:text-[#A8E063] flex items-center gap-1 cursor-pointer transition-colors"
             >
-              <Plus className="w-3 h-3" />
+              <Plus className="w-3.5 h-3.5" />
               <span>{parentNode ? 'Add Subcategory' : 'Add Category'}</span>
             </button>
           </div>
 
           {/* ── Categories Allocation Rows ── */}
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {activeLevelNodes.map((category, index) => {
               const color = CATEGORY_COLORS[index % CATEGORY_COLORS.length];
               const childCount = category.children?.length || 0;
@@ -954,45 +941,42 @@ export function AccountCategoriesScreen({
               return (
                 <div
                   key={category.id}
-                  className="bg-[#171F13] border border-[#26331F] rounded-[14px] p-3 space-y-2.5 transition-all shadow-sm"
+                  className="bg-[#171F13] border border-[#26331F] rounded-[14px] p-3.5 space-y-3 transition-all shadow-sm"
                 >
                   
-                  {/* Category Title Row: Color Tag + Name + Level Badge + Delete */}
+                  {/* Category Title Row: Color Indicator + Name + Subcategory Link + Delete */}
                   <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <div
-                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        className="w-2 h-2 rounded-full shrink-0"
                         style={{ backgroundColor: color }}
                       />
-                      <span className="font-semibold text-white/95 text-xs sm:text-sm truncate">
+                      <span className="font-semibold text-white/95 text-sm truncate">
                         {category.name}
-                      </span>
-                      <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-[#1F291A] text-[#8EBA55] border border-[#2E3E26] shrink-0">
-                        L{category.level}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {/* Drill down button for Subcategories (Level 2, Level 3...) */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {/* Subcategory Navigation: Clean designer link instead of chunky badge */}
                       <button
+                        type="button"
                         onClick={() => handleDrillDown(category)}
-                        className={`px-2 py-1 rounded-[8px] text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                        className={`text-xs font-medium flex items-center gap-1 py-1 px-2 rounded-lg transition-colors cursor-pointer ${
                           hasChildren
-                            ? 'bg-[#2E3F21] hover:bg-[#3D532C] text-[#C5E89B] border border-[#486333]'
-                            : 'bg-[#1D2717] hover:bg-[#2B3923] text-[#7E9374] border border-[#2C3B24]'
+                            ? 'text-[#A8E063] hover:bg-white/[0.04]'
+                            : 'text-[#6C7E61] hover:text-[#A8E063] hover:bg-white/[0.03]'
                         }`}
-                        title={hasChildren ? `Manage ${childCount} subcategories` : `Add Level ${category.level + 1} subcategories`}
+                        title={hasChildren ? `View ${childCount} subcategories` : `Add subcategories`}
                       >
                         {hasChildren ? (
                           <>
-                            <Layers className="w-2.5 h-2.5 text-[#A8E063]" />
-                            <span>Level {category.level + 1} ({childCount})</span>
-                            <ChevronRight className="w-3 h-3 text-[#A8E063]" />
+                            <span>{childCount} subcategories</span>
+                            <ChevronRight className="w-3.5 h-3.5 text-[#A8E063]" />
                           </>
                         ) : (
                           <>
-                            <CornerDownRight className="w-2.5 h-2.5" />
-                            <span>+ Subcategory</span>
+                            <Plus className="w-3 h-3" />
+                            <span>Subcategory</span>
                           </>
                         )}
                       </button>
@@ -1000,8 +984,9 @@ export function AccountCategoriesScreen({
                       {/* Remove category */}
                       {activeLevelNodes.length > 1 && (
                         <button
+                          type="button"
                           onClick={() => handleRemoveCategory(category.id)}
-                          className="text-[#657858] hover:text-rose-400 p-1 rounded-lg hover:bg-white/[0.04] transition-colors cursor-pointer"
+                          className="text-[#56684E] hover:text-rose-400 p-1 rounded-lg hover:bg-white/[0.04] transition-colors cursor-pointer"
                           title="Remove category"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1011,63 +996,52 @@ export function AccountCategoriesScreen({
                   </div>
 
                   {/* ═════════════════════════════════════════════════════════════ */}
-                  {/* VERSION 1: Tactile ±5% Steppers & Direct Type                */}
+                  {/* VERSION 1: Refined Integrated Stepper                        */}
                   {/* ═════════════════════════════════════════════════════════════ */}
                   {uiVersion === 'v1' && (
-                    <div className="flex items-center gap-2">
-                      {/* Chunky Minus Button (−5%) */}
-                      <button
-                        onClick={() => updatePercentageNonDestructive(category.id, category.percentage - 5)}
-                        className="w-10 h-9 rounded-[10px] bg-[#212C1B] hover:bg-[#2E3C26] active:scale-95 text-white font-extrabold text-base border border-[#303F27] flex items-center justify-center transition-all cursor-pointer shrink-0"
-                        title="Decrease by 5%"
-                      >
-                        −
-                      </button>
-
-                      {/* Direct Numeric Input with % */}
-                      <div className="flex-1 h-9 bg-[#131A0F] border border-[#2B3822] rounded-[10px] flex items-center justify-center px-3 focus-within:border-[#8EBA55] transition-all">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={category.percentage}
-                          onChange={(e) => updatePercentageNonDestructive(category.id, Number(e.target.value))}
-                          className="no-spin w-12 bg-transparent text-white text-center outline-none num-display font-extrabold text-sm"
-                        />
-                        <span className="text-[#7E9173] text-xs font-bold">%</span>
+                    <div className="flex items-center justify-between gap-3 pt-0.5">
+                      <div className="text-xs text-[#829577] min-w-0 truncate">
+                        Allocation: <span className="text-white font-bold">{category.percentage}%</span>
                       </div>
 
-                      {/* Chunky Plus Button (+5%) */}
-                      <button
-                        onClick={() => updatePercentageNonDestructive(category.id, category.percentage + 5)}
-                        className="w-10 h-9 rounded-[10px] bg-[#212C1B] hover:bg-[#2E3C26] active:scale-95 text-white font-extrabold text-base border border-[#303F27] flex items-center justify-center transition-all cursor-pointer shrink-0"
-                        title="Increase by 5%"
-                      >
-                        +
-                      </button>
-
-                      {/* Quick "Max / Remainder" Pill */}
-                      {remainingTo100 > 0 && (
+                      {/* Integrated Stepper Pill */}
+                      <div className="flex items-center bg-[#11170D] border border-[#2B3921] rounded-[10px] overflow-hidden shadow-inner shrink-0">
                         <button
-                          onClick={() => {
-                            const newTotal = category.percentage + remainingTo100;
-                            updatePercentageNonDestructive(category.id, newTotal);
-                            showToast(`Assigned remaining ${remainingTo100}% to ${category.name}`);
-                          }}
-                          className="h-9 px-2.5 rounded-[10px] bg-[#324520] hover:bg-[#435B2B] text-[#C5E89B] text-[10px] font-extrabold border border-[#496531] active:scale-95 transition-all cursor-pointer shrink-0 flex items-center justify-center"
-                          title={`Assign remaining ${remainingTo100}% to this category`}
+                          type="button"
+                          onClick={() => updatePercentageNonDestructive(category.id, category.percentage - 5)}
+                          className="w-9 h-8 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/[0.07] active:bg-white/[0.12] text-base font-bold transition-all cursor-pointer"
+                          title="Decrease 5%"
                         >
-                          +{remainingTo100}% Rem
+                          −
                         </button>
-                      )}
+                        <div className="w-14 h-8 flex items-center justify-center border-x border-[#2B3921] bg-[#0E130B] px-1">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={category.percentage}
+                            onChange={(e) => updatePercentageNonDestructive(category.id, Number(e.target.value))}
+                            className="no-spin w-8 bg-transparent text-white text-center outline-none font-bold text-xs"
+                          />
+                          <span className="text-[#7E9173] text-[11px] font-semibold">%</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => updatePercentageNonDestructive(category.id, category.percentage + 5)}
+                          className="w-9 h-8 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/[0.07] active:bg-white/[0.12] text-base font-bold transition-all cursor-pointer"
+                          title="Increase 5%"
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
                   )}
 
                   {/* ═════════════════════════════════════════════════════════════ */}
-                  {/* VERSION 2: Safe Clamped Slider (Never breaks other items)   */}
+                  {/* VERSION 2: Safe Clamped Slider (Clean Figma Style)          */}
                   {/* ═════════════════════════════════════════════════════════════ */}
                   {uiVersion === 'v2' && (
-                    <div className="space-y-1.5">
+                    <div className="pt-0.5">
                       <div className="flex items-center gap-3">
                         <div className="flex-1 relative flex items-center">
                           <input
@@ -1077,79 +1051,22 @@ export function AccountCategoriesScreen({
                             step="1"
                             value={category.percentage}
                             onChange={(e) => updatePercentageSafeSlider(category.id, Number(e.target.value))}
-                            className="figma-allocation-slider"
+                            className="figma-allocation-slider w-full cursor-pointer"
                             style={{
                               background: `linear-gradient(to right, ${color} 0%, ${color} ${category.percentage}%, #252D1E ${category.percentage}%, #252D1E 100%)`
                             }}
                           />
                         </div>
-                        <div className="w-[68px] h-[32px] bg-[#141C10] border border-[#2D3C24] rounded-[8px] flex items-center justify-between px-2.5 focus-within:border-[#8EBA55] transition-colors shadow-inner shrink-0">
+                        <div className="w-[64px] h-[32px] bg-[#11170D] border border-[#2B3921] rounded-[8px] flex items-center justify-between px-2 focus-within:border-[#8EBA55] transition-colors shadow-inner shrink-0">
                           <input
                             type="number"
                             min="0"
                             max="100"
                             value={category.percentage}
                             onChange={(e) => updatePercentageNonDestructive(category.id, Number(e.target.value))}
-                            className="no-spin w-8 bg-transparent text-white text-right outline-none num-display font-bold text-xs"
+                            className="no-spin w-7 bg-transparent text-white text-right outline-none font-bold text-xs"
                           />
-                          <span className="text-[#7E9173] text-xs font-semibold ml-1">%</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between text-[10px] text-[#718567] px-0.5">
-                        <span>Safe: clamped to available remainder</span>
-                        {remainingTo100 > 0 && (
-                          <button
-                            onClick={() => updatePercentageNonDestructive(category.id, category.percentage + remainingTo100)}
-                            className="text-[#A8E063] font-bold hover:underline cursor-pointer"
-                          >
-                            Fill +{remainingTo100}%
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ═════════════════════════════════════════════════════════════ */}
-                  {/* VERSION 3: Quick Chips & Presets                            */}
-                  {/* ═════════════════════════════════════════════════════════════ */}
-                  {uiVersion === 'v3' && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {[10, 20, 25, 30, 40, 50].map(val => (
-                          <button
-                            key={val}
-                            onClick={() => updatePercentageNonDestructive(category.id, val)}
-                            className={`px-2.5 py-1 rounded-[8px] text-[11px] font-semibold transition-all cursor-pointer ${
-                              category.percentage === val
-                                ? 'bg-[#4A622F] text-white font-bold border border-[#6B8A44]'
-                                : 'bg-[#1E2819] text-[#8EBA55] border border-[#2A3722] hover:bg-[#283522]'
-                            }`}
-                          >
-                            {val}%
-                          </button>
-                        ))}
-                        {remainingTo100 > 0 && (
-                          <button
-                            onClick={() => updatePercentageNonDestructive(category.id, category.percentage + remainingTo100)}
-                            className="px-2.5 py-1 rounded-[8px] text-[11px] font-bold bg-[#334621] text-[#C5E89B] border border-[#496531] hover:bg-[#435C2B] transition-all cursor-pointer"
-                          >
-                            Fill Rem ({category.percentage + remainingTo100}%)
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between pt-0.5">
-                        <span className="text-[11px] text-[#7D8F72]">Custom percentage:</span>
-                        <div className="w-[70px] h-[28px] bg-[#141C10] border border-[#2B3822] rounded-[8px] flex items-center justify-between px-2">
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={category.percentage}
-                            onChange={(e) => updatePercentageNonDestructive(category.id, Number(e.target.value))}
-                            className="no-spin w-8 bg-transparent text-white text-right outline-none num-display font-bold text-xs"
-                          />
-                          <span className="text-[#7E9173] text-xs font-semibold ml-1">%</span>
+                          <span className="text-[#7E9173] text-[11px] font-semibold ml-0.5">%</span>
                         </div>
                       </div>
                     </div>
