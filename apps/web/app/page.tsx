@@ -162,26 +162,27 @@ function Modal({ title, onClose, children, icon }: {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-3.5 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-[360px] sm:max-w-md bg-[#1C1A16] border border-[#2F2C25] rounded-2xl shadow-2xl animate-scale-in flex flex-col max-h-[80vh] overflow-hidden"
+        className="relative w-full sm:max-w-md bg-[#1B1A17] border border-[#2B2923] rounded-t-[24px] sm:rounded-[20px] shadow-2xl animate-scale-in flex flex-col max-h-[85vh] overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-[#282620] shrink-0">
+        <div className="flex items-center justify-between px-5 pt-4 pb-3.5 border-b border-[#26241F] shrink-0">
           <div className="flex items-center gap-2.5">
             {icon && (
-              <div className="w-7 h-7 rounded-lg bg-[#4A622F]/20 flex items-center justify-center text-[#A6C485]">
+              <div className="w-7 h-7 rounded-lg bg-[#4A622F]/20 flex items-center justify-center text-[#A8E063]">
                 {icon}
               </div>
             )}
-            <h3 className="font-semibold text-sm sm:text-base text-white tracking-tight">{title}</h3>
+            <h3 className="font-bold text-base text-white tracking-tight">{title}</h3>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-[#8E8A82] hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+            className="w-7 h-7 rounded-full bg-white/[0.06] hover:bg-white/[0.1] flex items-center justify-center text-[#8E8A82] hover:text-white transition-all cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -197,19 +198,19 @@ function Modal({ title, onClose, children, icon }: {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="block text-2xs font-semibold text-textSecondary uppercase tracking-widest">{label}</label>
+      <label className="block text-xs font-semibold text-[#8E8A82]">{label}</label>
       {children}
     </div>
   );
 }
 
-const inputCls = "w-full bg-surfaceRaised border border-border focus:border-primary rounded-xl px-4 py-3 text-textPrimary placeholder-textMuted outline-none transition-all duration-150 text-sm focus-ring";
-const selectCls = "w-full bg-surfaceRaised border border-border focus:border-primary rounded-xl px-4 py-3 text-textPrimary outline-none transition-all duration-150 text-sm focus-ring appearance-none cursor-pointer";
+const inputCls = "w-full bg-[#211F1B] border border-[#2F2C25] focus:border-[#4A622F] rounded-xl px-4 py-3 text-white placeholder-[#6E6A62] outline-none transition-all duration-150 text-sm focus:ring-1 focus:ring-[#4A622F]";
+const selectCls = "w-full bg-[#211F1B] border border-[#2F2C25] focus:border-[#4A622F] rounded-xl px-4 py-3 text-white outline-none transition-all duration-150 text-sm focus:ring-1 focus:ring-[#4A622F] cursor-pointer";
 
 function PrimaryBtn({ children, className = '', ...p }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
-      className={`flex-1 bg-primary hover:bg-primaryLight text-white font-semibold py-3 rounded-xl transition-all duration-150 shadow-glow hover:shadow-glow-lg text-sm ${className}`}
+      className={`flex-1 bg-[#4A622F] hover:bg-[#587538] text-white font-bold py-3 rounded-xl transition-all duration-150 shadow-md shadow-[#4A622F]/30 active:scale-[0.98] text-sm cursor-pointer ${className}`}
       {...p}
     >
       {children}
@@ -220,7 +221,7 @@ function PrimaryBtn({ children, className = '', ...p }: React.ButtonHTMLAttribut
 function SecondaryBtn({ children, className = '', ...p }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
-      className={`flex-1 bg-surfaceRaised hover:bg-surfaceOverlay border border-border hover:border-borderHover text-textPrimary font-semibold py-3 rounded-xl transition-all duration-150 text-sm ${className}`}
+      className={`flex-1 bg-[#24221D] hover:bg-[#2C2A24] border border-[#33302A] text-[#8E8A82] hover:text-white font-semibold py-3 rounded-xl transition-all duration-150 text-sm active:scale-[0.98] cursor-pointer ${className}`}
       {...p}
     >
       {children}
@@ -1227,18 +1228,16 @@ export default function Home() {
             className="space-y-4"
           >
             {/* Type selector */}
-            <div className="flex rounded-xl bg-surfaceRaised border border-border p-1 gap-1">
+            <div className="flex rounded-xl bg-[#141310] border border-[#282620] p-1 gap-1">
               {(['EXPENSE', 'INCOME', 'TRANSFER_OUT'] as const).map(type => (
                 <button
                   key={type}
                   type="button"
                   onClick={() => setTxType(type)}
-                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                  className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                     txType === type
-                      ? type === 'INCOME' ? 'bg-success text-black'
-                        : type === 'EXPENSE' ? 'bg-primary text-white'
-                        : 'bg-info text-white'
-                      : 'text-textSecondary hover:text-textPrimary'
+                      ? 'bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40'
+                      : 'text-[#8E8A82] hover:text-white hover:bg-white/[0.04]'
                   }`}
                 >
                   {type === 'TRANSFER_OUT' ? 'TRANSFER' : type}
@@ -1251,27 +1250,51 @@ export default function Home() {
             </Field>
 
             <Field label="From Account">
-              <select required value={txAccountId} onChange={e => setTxAccountId(e.target.value)} className={selectCls}>
-                <option value="" disabled>Select account</option>
-                {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+              <div className="relative">
+                <select
+                  required
+                  value={txAccountId}
+                  onChange={e => setTxAccountId(e.target.value)}
+                  className="w-full bg-[#211F1B] border border-[#2F2C25] focus:border-[#4A622F] rounded-xl px-4 py-3 text-white outline-none transition-all duration-150 text-sm focus:ring-1 focus:ring-[#4A622F] appearance-none cursor-pointer pr-10"
+                >
+                  <option value="" disabled className="bg-[#211F1B] text-[#8E8A82]">Select account</option>
+                  {accounts.map(a => <option key={a.id} value={a.id} className="bg-[#211F1B] text-white">{a.name}</option>)}
+                </select>
+                <ChevronDown className="w-4 h-4 text-[#8E8A82] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+              </div>
             </Field>
 
             {txType === 'TRANSFER_OUT' ? (
               <Field label="To Account">
-                <select required value={txToAccountId} onChange={e => setTxToAccountId(e.target.value)} className={selectCls}>
-                  <option value="" disabled>Select destination</option>
-                  {accounts.filter(a => a.id !== txAccountId).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
+                <div className="relative">
+                  <select
+                    required
+                    value={txToAccountId}
+                    onChange={e => setTxToAccountId(e.target.value)}
+                    className="w-full bg-[#211F1B] border border-[#2F2C25] focus:border-[#4A622F] rounded-xl px-4 py-3 text-white outline-none transition-all duration-150 text-sm focus:ring-1 focus:ring-[#4A622F] appearance-none cursor-pointer pr-10"
+                  >
+                    <option value="" disabled className="bg-[#211F1B] text-[#8E8A82]">Select destination</option>
+                    {accounts.filter(a => a.id !== txAccountId).map(a => <option key={a.id} value={a.id} className="bg-[#211F1B] text-white">{a.name}</option>)}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-[#8E8A82] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                </div>
               </Field>
             ) : (
               <>
                 <Field label="Envelope / Goal">
-                  <select required value={txReferenceId} onChange={e => setTxReferenceId(e.target.value)} className={selectCls}>
-                    <option value="" disabled>Select category</option>
-                    {availableCategories.map(c => <option key={c.id} value={c.id}>📂 {c.name}</option>)}
-                    {goals.map(g => <option key={g.id} value={g.id}>🎯 {g.name}</option>)}
-                  </select>
+                  <div className="relative">
+                    <select
+                      required
+                      value={txReferenceId}
+                      onChange={e => setTxReferenceId(e.target.value)}
+                      className="w-full bg-[#211F1B] border border-[#2F2C25] focus:border-[#4A622F] rounded-xl px-4 py-3 text-white outline-none transition-all duration-150 text-sm focus:ring-1 focus:ring-[#4A622F] appearance-none cursor-pointer pr-10"
+                    >
+                      <option value="" disabled className="bg-[#211F1B] text-[#8E8A82]">Select category</option>
+                      {availableCategories.map(c => <option key={c.id} value={c.id} className="bg-[#211F1B] text-white">📂 {c.name}</option>)}
+                      {goals.map(g => <option key={g.id} value={g.id} className="bg-[#211F1B] text-white">🎯 {g.name}</option>)}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-[#8E8A82] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                  </div>
                 </Field>
                 <Field label="Merchant / Payee">
                   <input type="text" value={txMerchant} onChange={e => setTxMerchant(e.target.value)} placeholder="Swiggy, Amazon, Netflix…" className={inputCls} />

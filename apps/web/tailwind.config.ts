@@ -10,44 +10,44 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // ── Base surfaces ───────────────────────────────────────────────
-        bg:            '#070710',
-        bgDeep:        '#040408',
-        surface:       '#0E0E1A',
-        surfaceRaised: '#151523',
-        surfaceOverlay:'#1C1C2E',
-        surfaceHover:  '#1E1E32',
+        // ── Base surfaces (Figma Dark Palette) ──────────────────────────
+        bg:            '#11100E',
+        bgDeep:        '#0E0D0B',
+        surface:       '#161512',
+        surfaceRaised: '#1D1B17',
+        surfaceOverlay:'#24221D',
+        surfaceHover:  '#292721',
 
         // ── Borders ──────────────────────────────────────────────────────
-        border:        '#1E1E35',
-        borderSubtle:  '#141428',
-        borderFocus:   '#7C5CFC',
-        borderHover:   '#2E2E4A',
+        border:        '#2B2923',
+        borderSubtle:  '#211F1A',
+        borderFocus:   '#4A622F',
+        borderHover:   '#3D3A31',
 
-        // ── Primary / Brand ──────────────────────────────────────────────
-        primary:       '#7C5CFC',
-        primaryLight:  '#9D7DFF',
-        primaryDark:   '#5B3FD4',
-        primaryGlow:   'rgba(124,92,252,0.15)',
-        primaryFaint:  'rgba(124,92,252,0.06)',
+        // ── Primary / Brand (Figma Olive Green) ───────────────────────────
+        primary:       '#4A622F',
+        primaryLight:  '#5B783A',
+        primaryDark:   '#394C24',
+        primaryGlow:   'rgba(74,98,47,0.25)',
+        primaryFaint:  'rgba(74,98,47,0.08)',
 
         // ── Semantic ──────────────────────────────────────────────────────
-        success:       '#10D9A0',
-        successLight:  '#34EDB8',
-        successMuted:  'rgba(16,217,160,0.12)',
-        warning:       '#F5A623',
-        warningMuted:  'rgba(245,166,35,0.12)',
-        danger:        '#F04F54',
-        dangerMuted:   'rgba(240,79,84,0.12)',
-        info:          '#4F9BFF',
-        infoMuted:     'rgba(79,155,255,0.12)',
+        success:       '#729B36',
+        successLight:  '#A8E063',
+        successMuted:  'rgba(168,224,99,0.12)',
+        warning:       '#D97706',
+        warningMuted:  'rgba(217,119,6,0.12)',
+        danger:        '#DC2626',
+        dangerMuted:   'rgba(220,38,38,0.12)',
+        info:          '#4A622F',
+        infoMuted:     'rgba(74,98,47,0.12)',
 
         // ── Text ──────────────────────────────────────────────────────────
-        textPrimary:   '#F0F0FC',
-        textSecondary: '#7E7EA0',
-        textMuted:     '#3E3E5A',
-        textInverse:   '#070710',
-        textAccent:    '#9D7DFF',
+        textPrimary:   '#FFFFFF',
+        textSecondary: '#A5A198',
+        textMuted:     '#7A766E',
+        textInverse:   '#0E0D0B',
+        textAccent:    '#A8E063',
 
         // ── Accent palette (Linear/Arc inspired) ──────────────────────────
         violet:  '#8B5CF6',
