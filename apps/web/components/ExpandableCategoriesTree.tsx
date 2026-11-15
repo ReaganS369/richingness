@@ -723,7 +723,7 @@ export function ExpandableCategoriesTree({
               ))}
             </div>
 
-            {/* Right: Expand/Collapse Chevron for parent, or "+ Spend" action for lowest subcategory */}
+            {/* Right: Expand/Collapse Chevron for parent, or refined "+ SPEND" micro-pill for lowest subcategory */}
             {hasChildren ? (
               <div className="p-1 text-[#8E8A82] group-hover/category:text-white transition-colors shrink-0">
                 <div className={`transition-transform duration-220 ease-[cubic-bezier(0.25,1,0.5,1)] ${isExpanded ? 'rotate-180' : 'rotate-0'}`}>
@@ -737,10 +737,10 @@ export function ExpandableCategoriesTree({
                   e.stopPropagation();
                   if (onSpendCategory) onSpendCategory(node.id, node.name);
                 }}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-[8px] bg-[#4A622F]/25 hover:bg-[#4A622F]/45 border border-[#587437]/50 text-[#A8E063] hover:text-white text-xs font-semibold transition-all cursor-pointer shrink-0 active:scale-95 shadow-sm"
-                title={`Log transaction for ${node.name}`}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-[6px] bg-[#25231D] hover:bg-[#4A622F] border border-[#3A372E] hover:border-[#6B8A44] text-[#C2E88A] hover:text-white text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 active:scale-95 shadow-sm"
+                title={`Log spend for ${node.name}`}
               >
-                <Plus className="w-3 h-3" />
+                <Plus className="w-3 h-3 stroke-[2.5]" />
                 <span>Spend</span>
               </button>
             )}
