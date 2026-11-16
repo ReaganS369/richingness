@@ -16,10 +16,12 @@ import {
   Check,
   Shield,
   HelpCircle,
-  ArrowDownLeft,
   Layers,
   Zap,
-  Trash2
+  Trash2,
+  Wallet,
+  ChevronDown,
+  Repeat
 } from 'lucide-react';
 import { useAppStore, authService, IncomeSource, ScheduledSpend } from '../app/store';
 import { formatRupeesToPaise } from '@repo/shared';
@@ -64,7 +66,7 @@ const DEFAULT_PROFILES: UserProfileItem[] = [
   {
     id: 'prof-guest',
     name: 'Personal Budget',
-    email: 'Guest Account',
+    email: 'Offline Vault · Guest Mode',
     type: 'Guest',
     tag: 'Primary Budget',
     currency: 'INR (₹)',
@@ -103,6 +105,30 @@ const BUDGET_TEMPLATES = [
     description: 'High-velocity wealth building: live frugally on 40% and invest 60% into index funds.',
     allocations: ['Essential Living: 35%', 'Joy Spending: 5%', 'Index Investments: 50%', 'Safety Pool: 10%']
   }
+];
+
+export const INCOME_SUGGESTIONS = [
+  { label: 'Salary (Full-time)', keywords: 'salary sal job primary ctc full time work monthly company in hand' },
+  { label: 'Salary Advance / Bonus', keywords: 'salary bonus advance incentive appraisal performance perk diwali' },
+  { label: 'Side Hustle', keywords: 'side hustle gig freelancing second income hobby passive' },
+  { label: 'Freelance Project', keywords: 'freelance project client dev design gig upwork fiverr' },
+  { label: 'Consulting Retainer', keywords: 'consulting retainer advisory contract monthly professional fee' },
+  { label: 'Business Revenue', keywords: 'business sales revenue store ecommerce profit invoice client' },
+  { label: 'Rental Income', keywords: 'rental rent property house flat tenant lease pg commercial' },
+  { label: 'Stock Dividends & Gains', keywords: 'dividend stocks equity shares mutual fund sip profit capital' },
+  { label: 'Reimbursement / Claim', keywords: 'reimbursement expense claim refund medical travel food corporate' },
+  { label: 'Gift / Family Support', keywords: 'gift family support parents relative transfer pocket money' },
+  { label: 'Crypto Yield / Staking', keywords: 'crypto staking yield airdrop bitcoin eth defi rewards' },
+  { label: 'Interest Income', keywords: 'interest fd fixed deposit savings bank returns rd post office' },
+];
+
+export const POPULAR_INCOME_PILLS = [
+  'Salary',
+  'Side Hustle',
+  'Freelance',
+  'Bonus',
+  'Rental',
+  'Dividends'
 ];
 
 // ── SVG Radial Progress Gauge ───────────────────────────────────────────────
@@ -240,6 +266,9 @@ export function ProfileSection() {
   const deleteScheduledSpend = useAppStore(state => state.deleteScheduledSpend);
   const payScheduledSpendEarly = useAppStore(state => state.payScheduledSpendEarly);
   const depositFromIncomeSource = useAppStore(state => state.depositFromIncomeSource);
+  const resetMonthlyExpenses = useAppStore(state => state.resetMonthlyExpenses);
+  const resetAccountLedger = useAppStore(state => state.resetAccountLedger);
+  const resetAllData = useAppStore(state => state.resetAllData);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -298,8 +327,6 @@ export function ProfileSection() {
     }
   }, [storeSubView]);
 
-  // Selected radio items in lists
-  const [selectedCatId, setSelectedCatId] = useState<string>(categories[0]?.id || '');
   const [selectedAccountId, setSelectedAccountId] = useState<string>(accounts[0]?.id || '');
 
   // Modals
@@ -313,8 +340,13 @@ export function ProfileSection() {
   const [fundsAmount, setFundsAmount] = useState('');
   const [fundsAccountId, setFundsAccountId] = useState(accounts[0]?.id || '');
   const [fundsNote, setFundsNote] = useState('');
-  const [fundsAllocationMode, setFundsAllocationMode] = useState<'SPREAD' | 'DIRECT_CATEGORY'>('SPREAD');
-  const [fundsTargetCategoryId, setFundsTargetCategoryId] = useState('unallocated');
+  const [fundsDepositType, setFundsDepositType] = useState<'REGULAR' | 'ONE_TIME'>('REGULAR');
+  const [fundsAmountMode, setFundsAmountMode] = useState<'MONTHLY' | 'CTC'>('MONTHLY');
+  const [fundsCtcInput, setFundsCtcInput] = useState('');
+  const [fundsFrequency, setFundsFrequency] = useState<'MONTHLY' | 'BI_WEEKLY' | 'WEEKLY'>('MONTHLY');
+  const [fundsDayOfMonth, setFundsDayOfMonth] = useState('1');
+  const [fundsSaveAsRecurring, setFundsSaveAsRecurring] = useState(true);
+  const [fundsNoteFocused, setFundsNoteFocused] = useState(false);
 
   // Cash Flow & Schedules state
   const [cashFlowTab, setCashFlowTab] = useState<'income' | 'spends'>('income');
@@ -339,7 +371,7 @@ export function ProfileSection() {
   const [newSpendCategory, setNewSpendCategory] = useState('cat-needs');
 
   // Account Unallocated buffers (loaded from localStorage)
-  const [unallocatedByAccount, setUnallocatedByAccount] = useState<Record<string, number>>(() => {
+  const [unallocatedByAccount] = useState<Record<string, number>>(() => {
     if (typeof window !== 'undefined') {
       try {
         const raw = localStorage.getItem('richingness_unallocated_by_account_v1');
@@ -355,6 +387,8 @@ export function ProfileSection() {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [confirmResetType, setConfirmResetType] = useState<'MONTHLY_EXPENSES' | 'ACCOUNTS' | 'ALL_DATA' | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
 
   // Toast feedback
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
@@ -614,78 +648,40 @@ export function ProfileSection() {
 
     setIsSubmittingFunds(true);
     try {
-      const categoryRef = fundsAllocationMode === 'DIRECT_CATEGORY' ? fundsTargetCategoryId : '';
+      const finalNote = fundsNote.trim() || (fundsDepositType === 'REGULAR' ? 'Regular Salary / Income' : 'Deposit / Add Funds');
       await addTransaction(
         targetAccId,
         'INCOME',
         formatRupeesToPaise(fundsAmount),
         'INR',
-        categoryRef,
-        fundsNote.trim() || 'Deposit / Add Funds',
+        '',
+        finalNote,
         null,
-        fundsAllocationMode === 'DIRECT_CATEGORY' ? 'Direct Category Deposit' : 'Dynamic Category Spread'
+        'Dynamic Category Spread'
       );
 
-      if (fundsAllocationMode === 'DIRECT_CATEGORY' && fundsTargetCategoryId === 'unallocated') {
-        const cur = unallocatedByAccount[targetAccId] || 0;
-        const updated = { ...unallocatedByAccount, [targetAccId]: cur + amt };
-        setUnallocatedByAccount(updated);
-        try {
-          localStorage.setItem('richingness_unallocated_by_account_v1', JSON.stringify(updated));
-        } catch {
-          // ignore
-        }
+      if (fundsDepositType === 'REGULAR' && fundsSaveAsRecurring) {
+        addIncomeSource({
+          name: finalNote,
+          amount: amt,
+          frequency: fundsFrequency,
+          dayOfMonth: parseInt(fundsDayOfMonth, 10) || 1,
+          targetAccountId: targetAccId,
+          allocationMode: 'SPREAD',
+          isActive: true
+        });
       }
 
-      showToast(
-        fundsAllocationMode === 'SPREAD'
-          ? `₹${amt.toLocaleString('en-IN')} added! Funds automatically distributed to your categories.`
-          : `₹${amt.toLocaleString('en-IN')} deposited into selected envelope/buffer!`
-      );
+      showToast(`₹${amt.toLocaleString('en-IN')} added! Funds automatically distributed to your categories.`);
       setShowAddFundsModal(false);
       setFundsAmount('');
+      setFundsCtcInput('');
       setFundsNote('');
     } catch {
       showToast('Failed to add funds.');
     } finally {
       setIsSubmittingFunds(false);
     }
-  };
-
-  const handlePullToDefault = (accId: string, totalAvailable: number) => {
-    if (totalAvailable <= 0) {
-      showToast('No available unspent funds to pull.');
-      return;
-    }
-    const currentUnallocated = unallocatedByAccount[accId] || 0;
-    const updated = { ...unallocatedByAccount, [accId]: currentUnallocated + totalAvailable };
-    setUnallocatedByAccount(updated);
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('richingness_unallocated_by_account_v1', JSON.stringify(updated));
-      } catch {
-        // ignore
-      }
-    }
-    showToast(`Pulled ₹${totalAvailable.toLocaleString('en-IN')} unspent funds to Default Buffer. Past expenses preserved.`);
-  };
-
-  const handleRedistributeDefault = (accId: string) => {
-    const currentUnallocated = unallocatedByAccount[accId] || 0;
-    if (currentUnallocated <= 0) {
-      showToast('Default buffer is empty.');
-      return;
-    }
-    const updated = { ...unallocatedByAccount, [accId]: 0 };
-    setUnallocatedByAccount(updated);
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('richingness_unallocated_by_account_v1', JSON.stringify(updated));
-      } catch {
-        // ignore
-      }
-    }
-    showToast(`Redistributed ₹${currentUnallocated.toLocaleString('en-IN')} across category envelopes according to percentages!`);
   };
 
   const handleCreateIncomeSource = (e: React.FormEvent) => {
@@ -794,7 +790,7 @@ export function ProfileSection() {
             {session && !session.isGuest ? (session.name || 'My Budget') : activeProfile.name}
           </h2>
           <p className="text-white/70 text-xs sm:text-sm mt-1 truncate font-normal">
-            {session && !session.isGuest ? session.email : 'Guest Account'}
+            {session && !session.isGuest ? session.email : 'Offline Vault · Guest Mode'}
           </p>
         </div>
 
@@ -869,21 +865,21 @@ export function ProfileSection() {
               {categoriesList.length > 0 ? (
                 <div className="divide-y divide-[#2B2925]">
                   {categoriesList.map(cat => {
-                    const isSelected = cat.id === selectedCatId;
                     return (
                       <div
                         key={cat.id}
-                        onClick={() => setSelectedCatId(cat.id)}
-                        className="flex items-center justify-between py-3 cursor-pointer group"
+                        className="flex items-center justify-between py-3 group"
                       >
                         <div className="flex items-center gap-3">
-                          {isSelected ? (
-                            <div className="w-4 h-4 rounded-full border-2 border-[#6B8F3C] flex items-center justify-center shrink-0">
-                              <div className="w-2 h-2 rounded-full bg-[#6B8F3C]" />
-                            </div>
-                          ) : (
-                            <div className="w-4 h-4 rounded-full border-2 border-[#555] shrink-0 group-hover:border-[#777] transition-colors" />
-                          )}
+                          <span
+                            className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                              cat.name.toLowerCase().includes('need')
+                                ? 'bg-[#8EBA55]'
+                                : cat.name.toLowerCase().includes('want')
+                                ? 'bg-[#4A90E2]'
+                                : 'bg-[#E5A93C]'
+                            }`}
+                          />
                           <span className="text-sm font-medium text-white group-hover:text-white/95">
                             {cat.name}
                           </span>
@@ -917,7 +913,6 @@ export function ProfileSection() {
               {accountsList.length > 0 ? (
                 <div className="divide-y divide-[#2B2925]">
                   {accountsList.map(acc => {
-                    const isSelected = acc.id === selectedAccountId;
                     const unallocated = unallocatedByAccount[acc.id] || 0;
                     const pool = Math.max(0, acc.amount - unallocated);
                     const needsAlloc = Math.round((pool * 50) / 100);
@@ -940,44 +935,44 @@ export function ProfileSection() {
                     const needsAvail = Math.max(0, needsAlloc - needsSpent);
                     const wantsAvail = Math.max(0, wantsAlloc - wantsSpent);
                     const savingsAvail = Math.max(0, savingsAlloc - savingsSpent);
-                    const totalAvailEnvelopes = needsAvail + wantsAvail + savingsAvail;
+
+                    const isExpanded = acc.id === selectedAccountId;
 
                     return (
                       <div key={acc.id} className="py-2.5">
                         <div
-                          onClick={() => setSelectedAccountId(acc.id === selectedAccountId ? '' : acc.id)}
+                          onClick={() => setSelectedAccountId(isExpanded ? '' : acc.id)}
                           className="flex items-center justify-between cursor-pointer group py-1"
                         >
                           <div className="flex items-center gap-3">
-                            {isSelected ? (
-                              <div className="w-4 h-4 rounded-full border-2 border-[#6B8F3C] flex items-center justify-center shrink-0">
-                                <div className="w-2 h-2 rounded-full bg-[#6B8F3C]" />
-                              </div>
-                            ) : (
-                              <div className="w-4 h-4 rounded-full border-2 border-[#555] shrink-0 group-hover:border-[#777] transition-colors" />
-                            )}
+                            <div className="w-8 h-8 rounded-xl bg-[#242621] border border-[#333] flex items-center justify-center text-[#8EBA55] shrink-0">
+                              <Wallet className="w-4 h-4" />
+                            </div>
                             <div>
-                              <span className="text-sm font-medium text-white group-hover:text-white/95">
+                              <span className="text-sm font-medium text-white group-hover:text-white/95 block">
                                 {acc.name}
                               </span>
                               <span className="text-[10px] text-[#8E8A82] block">
-                                {isSelected ? 'Tap to collapse breakdown' : 'Tap to inspect envelopes & reallocate'}
+                                {isExpanded ? 'Tap to collapse breakdown' : 'Tap to inspect envelopes & reallocate'}
                               </span>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <span className="text-sm font-semibold text-white num-display block">
-                              ₹{acc.amount.toLocaleString('en-IN')}
-                            </span>
-                            {unallocated > 0 && (
-                              <span className="text-[10px] text-[#E8C47A] font-medium">
-                                ₹{unallocated.toLocaleString('en-IN')} in Default
+                          <div className="flex items-center gap-2">
+                            <div className="text-right">
+                              <span className="text-sm font-semibold text-white num-display block">
+                                ₹{acc.amount.toLocaleString('en-IN')}
                               </span>
-                            )}
+                              {unallocated > 0 && (
+                                <span className="text-[10px] text-[#E8C47A] font-medium">
+                                  ₹{unallocated.toLocaleString('en-IN')} in Default
+                                </span>
+                              )}
+                            </div>
+                            <ChevronDown className={`w-4 h-4 text-[#888] transition-transform duration-200 ${isExpanded ? 'rotate-180 text-[#8EBA55]' : ''}`} />
                           </div>
                         </div>
 
-                        {isSelected && (
+                        {isExpanded && (
                           <div className="mt-2.5 p-3.5 bg-[#171613] rounded-xl border border-[#2D2A24] space-y-3 animate-fade-in">
                             <div className="flex items-center justify-between border-b border-[#26241F] pb-2">
                               <div className="flex items-center gap-1.5">
@@ -1045,62 +1040,6 @@ export function ProfileSection() {
                                   <span className="text-[9px] text-[#666]">available</span>
                                 </div>
                               </div>
-
-                              {/* Default / Unallocated Buffer */}
-                              <div className="flex items-center justify-between bg-[#1B1914] p-2.5 rounded-lg border border-[#3C3627]">
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-[#E8C47A]" />
-                                    <span className="text-xs font-semibold text-white">Default / Unallocated Buffer</span>
-                                  </div>
-                                  <span className="text-[10px] text-[#8E8A82]">
-                                    Holding pool (outside category percentage rules)
-                                  </span>
-                                </div>
-                                <div className="text-right">
-                                  <span className="text-xs font-bold text-[#E8C47A] block">
-                                    ₹{unallocated.toLocaleString('en-IN')}
-                                  </span>
-                                  <span className="text-[9px] text-[#888]">unassigned</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Reallocation Action Buttons */}
-                            <div className="pt-1 flex gap-2">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handlePullToDefault(acc.id, totalAvailEnvelopes);
-                                }}
-                                disabled={totalAvailEnvelopes <= 0}
-                                className={`flex-1 py-2 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 border ${
-                                  totalAvailEnvelopes > 0
-                                    ? 'bg-[#2A2315] hover:bg-[#382F1D] text-[#E8C47A] border-[#534327] cursor-pointer'
-                                    : 'bg-[#181714] text-[#555] border-[#25231F] cursor-not-allowed'
-                                }`}
-                              >
-                                <ArrowDownLeft className="w-3.5 h-3.5" />
-                                <span>Pull to Default ({totalAvailEnvelopes > 0 ? `₹${totalAvailEnvelopes.toLocaleString('en-IN')}` : '₹0'})</span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRedistributeDefault(acc.id);
-                                }}
-                                disabled={unallocated <= 0}
-                                className={`flex-1 py-2 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 border ${
-                                  unallocated > 0
-                                    ? 'bg-[#1D2916] hover:bg-[#27381E] text-[#A8E063] border-[#3F5B25] cursor-pointer'
-                                    : 'bg-[#181714] text-[#555] border-[#25231F] cursor-not-allowed'
-                                }`}
-                              >
-                                <RotateCcw className="w-3.5 h-3.5" />
-                                <span>Redistribute Default ({unallocated > 0 ? `₹${unallocated.toLocaleString('en-IN')}` : '₹0'})</span>
-                              </button>
                             </div>
                           </div>
                         )}
@@ -1707,35 +1646,67 @@ export function ProfileSection() {
       {/* ── 4. Auth Modal ── */}
       {showAuthModal && (
         <Modal title={authMode === 'signin' ? 'Sign In' : 'Create Account'} onClose={() => setShowAuthModal(false)}>
-          {/* Mode Switch Tabs */}
-          <div className="flex bg-[#12110E] p-1 rounded-xl border border-[#282622]">
+          <div className="space-y-3.5">
+            {/* Google One-Click Sign In Button */}
             <button
               type="button"
-              onClick={() => { setAuthMode('signin'); setAuthError(null); }}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                authMode === 'signin' ? 'bg-[#2A2924] text-white' : 'text-[#888]'
-              }`}
+              disabled={authLoading}
+              onClick={async () => {
+                try {
+                  setAuthLoading(true);
+                  await authService.signInWithOAuth('google', window.location.origin);
+                } catch {
+                  showToast('Redirecting to Google Sign-In…');
+                } finally {
+                  setAuthLoading(false);
+                }
+              }}
+              className="w-full py-2.5 px-4 rounded-xl bg-[#201F1B] hover:bg-[#282622] border border-[#35332C] hover:border-[#6B8F3C] text-white font-semibold text-xs transition-all flex items-center justify-center gap-2.5 cursor-pointer shadow-sm active:scale-98"
             >
-              Sign In
+              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+              </svg>
+              <span>Continue with Google</span>
             </button>
-            <button
-              type="button"
-              onClick={() => { setAuthMode('signup'); setAuthError(null); }}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                authMode === 'signup' ? 'bg-[#2A2924] text-white' : 'text-[#888]'
-              }`}
-            >
-              Register
-            </button>
-          </div>
 
-          {authError && (
-            <div className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
-              {authError}
+            <div className="relative flex py-0.5 items-center">
+              <div className="flex-grow border-t border-[#2B2925]"></div>
+              <span className="flex-shrink mx-3 text-[10px] text-[#6E6A62] uppercase tracking-wider font-semibold">or continue with email</span>
+              <div className="flex-grow border-t border-[#2B2925]"></div>
             </div>
-          )}
 
-          <form onSubmit={handleAuthSubmit} className="space-y-3">
+            {/* Mode Switch Tabs */}
+            <div className="flex bg-[#12110E] p-1 rounded-xl border border-[#282622]">
+              <button
+                type="button"
+                onClick={() => { setAuthMode('signin'); setAuthError(null); }}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  authMode === 'signin' ? 'bg-[#2A2924] text-white' : 'text-[#888]'
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthMode('signup'); setAuthError(null); }}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  authMode === 'signup' ? 'bg-[#2A2924] text-white' : 'text-[#888]'
+                }`}
+              >
+                Register
+              </button>
+            </div>
+
+            {authError && (
+              <div className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+                {authError}
+              </div>
+            )}
+
+            <form onSubmit={handleAuthSubmit} className="space-y-3">
             {authMode === 'signup' && (
               <div>
                 <label className="block text-2xs font-semibold text-[#888] uppercase mb-1">Full Name</label>
@@ -1780,7 +1751,8 @@ export function ProfileSection() {
               <span>{authMode === 'signin' ? 'Sign In' : 'Create Account'}</span>
             </button>
           </form>
-        </Modal>
+        </div>
+      </Modal>
       )}
 
       {/* ── 5. Edit Profile Modal ── */}
@@ -1904,49 +1876,59 @@ export function ProfileSection() {
 
       {/* ── Add Funds to Account Modal ── */}
       {showAddFundsModal && (
-        <Modal title="Add Funds to Account" onClose={() => setShowAddFundsModal(false)}>
+        <Modal title="Add Funds to Account" onClose={() => {
+          setShowAddFundsModal(false);
+          setFundsNoteFocused(false);
+        }}>
           <form onSubmit={handleAddFundsSubmit} className="space-y-3.5">
             <div className="bg-[#141B10] border border-[#27351F] rounded-xl p-3 text-xs text-[#C5E89B] space-y-1">
               <p className="font-semibold text-white">💰 Dynamic Budget Allocation</p>
               <p className="text-[11px] text-[#8EA083] leading-relaxed">
-                Depositing funds into your account automatically distributes across your categories according to your allocation percentages (e.g. 50% Needs, 30% Wants, 20% Savings).
+                Depositing funds automatically distributes across your categories according to your allocation percentages (e.g. 50% Needs, 30% Wants, 20% Savings).
               </p>
             </div>
 
-            {/* Quick Pick from Saved Streams */}
-            {incomeSources.length > 0 && (
-              <div>
-                <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1.5">Quick Pick From Saved Streams</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {incomeSources.map(src => (
-                    <button
-                      key={src.id}
-                      type="button"
-                      onClick={() => {
-                        setFundsAmount(String(src.amount));
-                        setFundsNote(src.name);
-                        setFundsAllocationMode(src.allocationMode);
-                        if (src.targetCategoryId) setFundsTargetCategoryId(src.targetCategoryId);
-                        if (src.targetAccountId && src.targetAccountId !== 'GLOBAL') {
-                          setFundsAccountId(src.targetAccountId);
-                        }
-                      }}
-                      className="text-xs px-2.5 py-1.5 rounded-lg bg-[#201F1B] border border-[#312E27] text-white hover:border-[#6B8F3C] transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-98"
-                    >
-                      <Zap className="w-3 h-3 text-[#A6C485]" />
-                      <span>{src.name}</span>
-                      <span className="text-[#888] font-mono">₹{src.amount.toLocaleString('en-IN')}</span>
-                    </button>
-                  ))}
-                </div>
+            {/* Regular vs One-Time selector */}
+            <div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1.5">Deposit Type</label>
+              <div className="grid grid-cols-2 gap-2 bg-[#141310] p-1 rounded-xl border border-[#2B2925]">
+                <button
+                  type="button"
+                  onClick={() => setFundsDepositType('REGULAR')}
+                  className={`py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    fundsDepositType === 'REGULAR'
+                      ? 'bg-[#4A622F] text-white shadow-sm'
+                      : 'text-[#8E8A82] hover:text-white'
+                  }`}
+                >
+                  <Repeat className="w-3.5 h-3.5" />
+                  <span>Regular / Salary</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFundsDepositType('ONE_TIME')}
+                  className={`py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    fundsDepositType === 'ONE_TIME'
+                      ? 'bg-[#4A622F] text-white shadow-sm'
+                      : 'text-[#8E8A82] hover:text-white'
+                  }`}
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>One-Time Deposit</span>
+                </button>
               </div>
-            )}
+            </div>
 
+            {/* Target Account */}
             <div>
               <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Target Account</label>
               {accountsList.length <= 1 ? (
-                <div className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2.5 text-xs text-white font-medium">
-                  {accounts[0]?.name || 'Primary Account'} (₹{(accountsList[0]?.amount || 0).toLocaleString('en-IN')})
+                <div className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2.5 text-xs text-white font-medium flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-[#8EBA55]" />
+                    <span>{accounts[0]?.name || 'Primary Account'}</span>
+                  </div>
+                  <span className="text-[#8EBA55] font-semibold">₹{(accountsList[0]?.amount || 0).toLocaleString('en-IN')}</span>
                 </div>
               ) : (
                 <select
@@ -1961,83 +1943,191 @@ export function ProfileSection() {
               )}
             </div>
 
+            {/* Amount & Calculation Mode (Monthly vs Annual CTC) */}
             <div>
-              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Amount to Deposit (₹)</label>
-              <input
-                type="number"
-                required
-                min="1"
-                step="any"
-                value={fundsAmount}
-                onChange={e => setFundsAmount(e.target.value)}
-                placeholder="e.g. 10000"
-                className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4A622F] font-bold"
-              />
-            </div>
-
-            {/* Distribution Strategy Mode */}
-            <div>
-              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1.5">Category Distribution</label>
-              <div className="space-y-2">
-                <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-all ${
-                  fundsAllocationMode === 'SPREAD' ? 'bg-[#182312] border-[#4A622F]' : 'bg-[#141310] border-[#2A2824]'
-                }`}>
-                  <input
-                    type="radio"
-                    name="fundsAllocationMode"
-                    checked={fundsAllocationMode === 'SPREAD'}
-                    onChange={() => setFundsAllocationMode('SPREAD')}
-                    className="mt-0.5 accent-[#6B8F3C]"
-                  />
-                  <div>
-                    <p className="text-xs font-semibold text-white">Auto-Spread Across Categories (Default)</p>
-                    <p className="text-[11px] text-[#8E9089]">Distributes dynamically across Needs 50%, Wants 30%, Savings 20%.</p>
-                  </div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-2xs font-semibold text-[#8E8A82] uppercase">
+                  {fundsAmountMode === 'CTC' ? 'Annual CTC / Package (₹)' : 'Deposit Amount (₹)'}
                 </label>
-
-                <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-all ${
-                  fundsAllocationMode === 'DIRECT_CATEGORY' ? 'bg-[#182312] border-[#4A622F]' : 'bg-[#141310] border-[#2A2824]'
-                }`}>
-                  <input
-                    type="radio"
-                    name="fundsAllocationMode"
-                    checked={fundsAllocationMode === 'DIRECT_CATEGORY'}
-                    onChange={() => setFundsAllocationMode('DIRECT_CATEGORY')}
-                    className="mt-0.5 accent-[#6B8F3C]"
-                  />
-                  <div className="flex-1">
-                    <p className="text-xs font-semibold text-white">Route to Specific Category / Default Buffer</p>
-                    <p className="text-[11px] text-[#8E9089]">Assign entire deposit to a single envelope or the unallocated holding pool.</p>
-                  </div>
-                </label>
+                <div className="flex items-center gap-1 bg-[#141310] p-0.5 rounded-lg border border-[#2B2925]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFundsAmountMode('MONTHLY');
+                    }}
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded transition-all cursor-pointer ${
+                      fundsAmountMode === 'MONTHLY' ? 'bg-[#374923] text-[#A8E063]' : 'text-[#8E8A82] hover:text-white'
+                    }`}
+                  >
+                    Monthly
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFundsAmountMode('CTC');
+                      if (fundsAmount && !fundsCtcInput) {
+                        const parsed = parseFloat(fundsAmount);
+                        if (!isNaN(parsed) && parsed > 0) {
+                          setFundsCtcInput(String(Math.round(parsed * 12)));
+                        }
+                      }
+                    }}
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded transition-all cursor-pointer ${
+                      fundsAmountMode === 'CTC' ? 'bg-[#374923] text-[#A8E063]' : 'text-[#8E8A82] hover:text-white'
+                    }`}
+                  >
+                    Annual CTC (÷ 12)
+                  </button>
+                </div>
               </div>
 
-              {fundsAllocationMode === 'DIRECT_CATEGORY' && (
-                <div className="mt-2.5">
-                  <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Select Envelope or Buffer</label>
-                  <select
-                    value={fundsTargetCategoryId}
-                    onChange={e => setFundsTargetCategoryId(e.target.value)}
-                    className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#4A622F]"
-                  >
-                    <option value="unallocated">Default / Unallocated Buffer (Holding Pool)</option>
-                    {categoriesList.map(cat => (
-                      <option key={cat.id} value={cat.id}>📂 {cat.name} ({cat.percentage}%)</option>
-                    ))}
-                  </select>
+              {fundsAmountMode === 'CTC' ? (
+                <div className="space-y-1.5">
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    step="any"
+                    value={fundsCtcInput}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setFundsCtcInput(val);
+                      const parsed = parseFloat(val);
+                      if (!isNaN(parsed) && parsed > 0) {
+                        setFundsAmount(String(Math.round(parsed / 12)));
+                      } else {
+                        setFundsAmount('');
+                      }
+                    }}
+                    placeholder="e.g. 1200000 (12 LPA)"
+                    className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4A622F] font-bold"
+                  />
+                  {parseFloat(fundsCtcInput) > 0 && (
+                    <p className="text-[11px] text-[#A8E063] font-medium pl-1">
+                      ≈ ₹{Math.round(parseFloat(fundsCtcInput) / 12).toLocaleString('en-IN')} / month in-hand deposit
+                    </p>
+                  )}
                 </div>
+              ) : (
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  step="any"
+                  value={fundsAmount}
+                  onChange={e => setFundsAmount(e.target.value)}
+                  placeholder="e.g. 50000"
+                  className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4A622F] font-bold"
+                />
               )}
             </div>
 
-            <div>
+            {/* Recurring Schedule Details if Regular Deposit */}
+            {fundsDepositType === 'REGULAR' && (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Frequency</label>
+                    <select
+                      value={fundsFrequency}
+                      onChange={e => setFundsFrequency(e.target.value as 'MONTHLY' | 'BI_WEEKLY' | 'WEEKLY')}
+                      className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#4A622F]"
+                    >
+                      <option value="MONTHLY">Monthly</option>
+                      <option value="BI_WEEKLY">Bi-Weekly</option>
+                      <option value="WEEKLY">Weekly</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Payout Day</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="31"
+                      value={fundsDayOfMonth}
+                      onChange={e => setFundsDayOfMonth(e.target.value)}
+                      placeholder="1"
+                      className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#4A622F]"
+                    />
+                  </div>
+                </div>
+
+                <label className="flex items-center gap-2 cursor-pointer pt-0.5">
+                  <input
+                    type="checkbox"
+                    checked={fundsSaveAsRecurring}
+                    onChange={e => setFundsSaveAsRecurring(e.target.checked)}
+                    className="accent-[#6B8F3C] w-4 h-4 rounded cursor-pointer"
+                  />
+                  <span className="text-xs text-[#C5E89B]">Save as recurring stream in Cash Flow schedules</span>
+                </label>
+              </>
+            )}
+
+            {/* Source / Note with Interactive Autocomplete & Suggestions */}
+            <div className="relative">
               <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Source / Note (Optional)</label>
               <input
                 type="text"
                 value={fundsNote}
-                onChange={e => setFundsNote(e.target.value)}
+                onFocus={() => setFundsNoteFocused(true)}
+                onChange={e => {
+                  setFundsNote(e.target.value);
+                  setFundsNoteFocused(true);
+                }}
                 placeholder="e.g. Monthly Salary, Freelance Deposit, Client Payment"
                 className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#4A622F]"
               />
+
+              {/* Dynamic Typeahead Suggestions Dropdown */}
+              {fundsNoteFocused && fundsNote.trim().length > 0 && (() => {
+                const q = fundsNote.trim().toLowerCase();
+                const matches = INCOME_SUGGESTIONS.filter(s =>
+                  s.label.toLowerCase().includes(q) || s.keywords.includes(q)
+                );
+                if (matches.length === 0) return null;
+                return (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-[#1C1A16] border border-[#333027] rounded-xl shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 max-h-48 overflow-y-auto">
+                    <p className="text-[10px] font-semibold text-[#7E7A72] uppercase px-2 py-1">Matching Sources</p>
+                    {matches.map(s => (
+                      <button
+                        key={s.label}
+                        type="button"
+                        onClick={() => {
+                          setFundsNote(s.label);
+                          setFundsNoteFocused(false);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-white hover:bg-[#2A371F] hover:text-[#A8E063] transition-colors flex items-center justify-between cursor-pointer"
+                      >
+                        <span>{s.label}</span>
+                        <span className="text-[10px] text-[#7E7A72]">Select</span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {/* Quick Preset Pills */}
+              <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                <span className="text-[10px] text-[#7E7A72]">Presets:</span>
+                {POPULAR_INCOME_PILLS.map(pill => (
+                  <button
+                    key={pill}
+                    type="button"
+                    onClick={() => {
+                      setFundsNote(pill);
+                      setFundsNoteFocused(false);
+                    }}
+                    className={`text-[11px] px-2 py-0.5 rounded-md border transition-all cursor-pointer ${
+                      fundsNote === pill
+                        ? 'bg-[#2B3B1D] text-[#A8E063] border-[#4A622F]'
+                        : 'bg-[#181714] text-[#8E8A82] border-[#2A2824] hover:border-[#444] hover:text-white'
+                    }`}
+                  >
+                    {pill}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <button
@@ -2341,7 +2431,47 @@ export function ProfileSection() {
                 Sync Now
               </button>
             </div>
-            <div className="flex gap-2 pt-2">
+            {/* Deep Privacy & Reset Controls */}
+            <div className="pt-2 border-t border-[#282622] space-y-2">
+              <p className="font-semibold text-white text-xs">Reset & Data Controls</p>
+              <div className="space-y-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPrivacyModal(false);
+                    setConfirmResetType('MONTHLY_EXPENSES');
+                  }}
+                  className="w-full py-2 px-3 rounded-lg bg-[#24211D] hover:bg-[#2F2A23] border border-[#3A3326] text-[#E5A93C] text-xs font-semibold flex items-center justify-between cursor-pointer transition-all"
+                >
+                  <span>Reset Monthly Spends (Restore 100% Envelopes)</span>
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPrivacyModal(false);
+                    setConfirmResetType('ACCOUNTS');
+                  }}
+                  className="w-full py-2 px-3 rounded-lg bg-[#24211D] hover:bg-[#2F2A23] border border-[#3A3326] text-[#E5A93C] text-xs font-semibold flex items-center justify-between cursor-pointer transition-all"
+                >
+                  <span>Reset Account Balances to Zero</span>
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPrivacyModal(false);
+                    setConfirmResetType('ALL_DATA');
+                  }}
+                  className="w-full py-2 px-3 rounded-lg bg-[#2B1717] hover:bg-[#3B1F1F] border border-[#522929] text-[#F05A5A] text-xs font-semibold flex items-center justify-between cursor-pointer transition-all"
+                >
+                  <span>Factory Reset (Wipe All Data)</span>
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-1">
               <button
                 onClick={handleExportBackup}
                 className="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
@@ -2349,12 +2479,69 @@ export function ProfileSection() {
                 <Download className="w-4 h-4" />
                 <span>Export JSON</span>
               </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Confirmation Modal for Data Resets ── */}
+      {confirmResetType && (
+        <Modal
+          title={
+            confirmResetType === 'MONTHLY_EXPENSES'
+              ? 'Reset Monthly Spends?'
+              : confirmResetType === 'ACCOUNTS'
+              ? 'Reset Account Balances?'
+              : 'Factory Reset All Data?'
+          }
+          onClose={() => setConfirmResetType(null)}
+        >
+          <div className="space-y-4">
+            <div className="bg-[#241F14] border border-[#4D3F20] rounded-xl p-3 text-xs text-[#E5A93C]">
+              <p className="font-semibold text-white">⚠️ Please confirm this action</p>
+              <p className="text-[11px] text-[#C4B79D] mt-1 leading-relaxed">
+                {confirmResetType === 'MONTHLY_EXPENSES'
+                  ? 'This will clear all expense transactions for the active user. Your account allocations and category percentages will remain intact, with available envelope funds restored to 100%.'
+                  : confirmResetType === 'ACCOUNTS'
+                  ? 'This will wipe all ledger records and reset all account balances back to ₹0.'
+                  : 'This will permanently wipe all local database records, custom categories, goals, income schedules, and reset the app back to initial defaults.'}
+              </p>
+            </div>
+
+            <div className="flex gap-2.5 pt-1">
               <button
-                onClick={handleResetDefaults}
-                className="py-2.5 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                type="button"
+                onClick={() => setConfirmResetType(null)}
+                className="flex-1 py-2.5 rounded-xl bg-[#211F1B] border border-[#2F2C25] text-[#8E8A82] hover:text-white font-semibold text-xs transition-all cursor-pointer"
               >
-                <RotateCcw className="w-4 h-4" />
-                <span>Reset Defaults</span>
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isResetting}
+                onClick={async () => {
+                  setIsResetting(true);
+                  try {
+                    if (confirmResetType === 'MONTHLY_EXPENSES') {
+                      await resetMonthlyExpenses();
+                      showToast('Monthly spends reset! Category envelopes restored to 100%.');
+                    } else if (confirmResetType === 'ACCOUNTS') {
+                      await resetAccountLedger();
+                      showToast('Account balances reset to zero.');
+                    } else if (confirmResetType === 'ALL_DATA') {
+                      await resetAllData();
+                      showToast('All local data wiped. Factory defaults restored.');
+                    }
+                  } catch {
+                    showToast('Reset failed.');
+                  } finally {
+                    setIsResetting(false);
+                    setConfirmResetType(null);
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-[#E5484D] hover:bg-[#F2555A] text-white font-bold text-xs transition-all cursor-pointer shadow-md"
+              >
+                {isResetting ? 'Resetting…' : 'Confirm Reset'}
               </button>
             </div>
           </div>

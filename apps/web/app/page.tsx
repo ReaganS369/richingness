@@ -34,7 +34,8 @@ import {
   Activity,
   CreditCard,
   Search,
-  Settings
+  Settings,
+  Home as HomeIcon
 } from 'lucide-react';
 import {
   CategoryNode,
@@ -237,6 +238,7 @@ export default function Home() {
     session, activeTab, syncStatus, accounts, goals, ledger, categories,
     initAuth, logout, setActiveTab, openSettingsAllocations, setSettingsSubView,
     addAccount, addCategory, addTransaction, updateAllocation, addGoal,
+    borrowFromCategory,
     triggerRecovery, getBalances, getNetWorth, getBudgetTree,
     getGoalsProgress, getSpendingSummary, getBudgetHealth, triggerSyncPass
   } = useAppStore();
@@ -268,6 +270,7 @@ export default function Home() {
   const [txReferenceId, setTxReferenceId] = useState('');
   const [txMerchant,    setTxMerchant]    = useState('');
   const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
+  const [borrowSourceCatId, setBorrowSourceCatId] = useState<string>('');
 
   const [acctName,     setAcctName]     = useState('');
   const [acctType,     setAcctType]     = useState<Account['type']>('checking');
@@ -305,23 +308,24 @@ export default function Home() {
   const now = new Date();
   const monthLabel = now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 
-  // Flattens store categories and hierarchical allocation categories for easy spending assignment
-  const availableCategories = useMemo(() => {
-    const list: { id: string; name: string }[] = categories.map(c => ({ id: c.id, name: c.name }));
+  // Live calculation of each envelope's assigned, spent, adjustments and available balance
+  const categoryFunds = useMemo(() => {
+    const poolTotal = Math.max(0, Number(netWorth) / 100);
+    const nodesList: Array<{ id: string; name: string; percentage: number }> = [];
+
     if (typeof window !== 'undefined') {
       try {
         const cached = localStorage.getItem('richingness_category_allocations_v2');
         if (cached) {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed.globalTree)) {
-            const recurse = (nodes: Array<{ id: string; name: string; children?: unknown[] }>, prefix = '') => {
+            const recurse = (nodes: Array<{ id: string; name: string; percentage?: number; children?: unknown[] }>) => {
               nodes.forEach(n => {
-                const fullName = prefix ? `${prefix} › ${n.name}` : n.name;
-                if (!list.some(item => item.id === n.id)) {
-                  list.push({ id: n.id, name: fullName });
+                if (!nodesList.some(item => item.id === n.id)) {
+                  nodesList.push({ id: n.id, name: n.name, percentage: n.percentage || 0 });
                 }
                 if (Array.isArray(n.children) && n.children.length > 0) {
-                  recurse(n.children as Array<{ id: string; name: string; children?: unknown[] }>, fullName);
+                  recurse(n.children as Array<{ id: string; name: string; percentage?: number; children?: unknown[] }>);
                 }
               });
             };
@@ -332,8 +336,40 @@ export default function Home() {
         // Ignored
       }
     }
-    return list;
-  }, [categories]);
+
+    if (nodesList.length === 0) {
+      categories.forEach(c => {
+        nodesList.push({
+          id: c.id,
+          name: c.name,
+          percentage: Number(c.budgetAmount) > 0 ? Math.min(100, Math.round(Number(c.budgetAmount) / 100)) : 33
+        });
+      });
+    }
+
+    return nodesList.map(node => {
+      const allocated = Math.round((poolTotal * node.percentage) / 100);
+      const spent = Number(
+        ledger
+          .filter(op => op.type === 'EXPENSE' && op.referenceId === node.id)
+          .reduce((sum, op) => sum + op.amount, 0n)
+      ) / 100;
+      const adjustments = Number(
+        ledger
+          .filter(op => op.type === 'ADJUSTMENT' && op.referenceId === node.id)
+          .reduce((sum, op) => sum + op.amount, 0n)
+      ) / 100;
+      const effectiveAllocated = Math.max(0, allocated + adjustments);
+      const available = Math.max(0, effectiveAllocated - spent);
+      return {
+        id: node.id,
+        name: node.name,
+        allocated: effectiveAllocated,
+        spent,
+        available
+      };
+    });
+  }, [netWorth, categories, ledger]);
 
   // ── Shell ────────────────────────────────────────────────────────────────
   return (
@@ -809,62 +845,111 @@ export default function Home() {
                       <p className="text-textMuted text-sm">Use Quick Actions to seed your ledger</p>
                     </div>
                   ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-border bg-surfaceRaised text-2xs text-textMuted uppercase tracking-widest font-bold">
-                            <th className="text-left px-5 py-3.5">Transaction</th>
-                            <th className="text-left px-4 py-3.5">Date</th>
-                            <th className="text-left px-4 py-3.5">Account</th>
-                            <th className="text-left px-4 py-3.5">Type</th>
-                            <th className="text-right px-5 py-3.5">Amount</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border/30">
-                          {[...ledger].reverse().map(op => {
-                            const acct = accounts.find(a => a.id === op.accountId);
-                            const cat  = categories.find(c => c.id === op.referenceId);
-                            const isIncome = op.type === 'INCOME';
-                            const merchant = cat?.name || (op.type === 'TRANSFER_OUT' ? 'Transfer' : op.type === 'INCOME' ? 'Income' : 'Expense');
-                            return (
-                              <tr key={op.id} className="hover:bg-surfaceHover/40 transition-all">
-                                <td className="px-5 py-3.5">
-                                  <div className="flex items-center gap-3">
-                                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${
-                                      isIncome ? 'bg-success/10 text-success' : 'bg-primaryFaint text-primary'
-                                    }`}>
-                                      {merchant.slice(0, 2).toUpperCase()}
-                                    </div>
-                                    <div>
-                                      <p className="font-medium text-textPrimary">{merchant}</p>
-                                      <p className="text-2xs text-textMuted font-mono">{op.id.slice(0, 12)}…</p>
-                                    </div>
+                    <>
+                      {/* Mobile View: Clean Vertical List (Zero Horizontal Scroll) */}
+                      <div className="md:hidden divide-y divide-[#26241F]">
+                        {[...ledger].reverse().map(op => {
+                          const acct = accounts.find(a => a.id === op.accountId);
+                          const cat = categories.find(c => c.id === op.referenceId);
+                          const isIncome = op.type === 'INCOME';
+                          const isTransfer = op.type === 'TRANSFER_OUT' || op.type === 'TRANSFER_IN';
+                          const merchant = cat?.name || (isTransfer ? 'Transfer' : isIncome ? 'Deposit / Income' : 'Expense');
+                          return (
+                            <div key={op.id} className="p-3.5 flex items-center justify-between gap-3 hover:bg-white/[0.02] transition-colors">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${
+                                  isIncome
+                                    ? 'bg-[#182312] text-[#A8E063] border border-[#354823]'
+                                    : isTransfer
+                                    ? 'bg-[#1B222E] text-[#60A5FA] border border-[#2B394E]'
+                                    : 'bg-[#211F1B] text-[#D4CFBF] border border-[#333029]'
+                                }`}>
+                                  {merchant.slice(0, 2).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-white text-xs sm:text-sm truncate">{merchant}</p>
+                                  <div className="flex items-center gap-1.5 text-[11px] text-[#8E8A82] mt-0.5">
+                                    <span>{fmtDate(op.date)}</span>
+                                    <span>·</span>
+                                    <span className="truncate">{acct?.name || 'Account'}</span>
                                   </div>
-                                </td>
-                                <td className="px-4 py-3.5 text-textSecondary text-xs whitespace-nowrap">{fmtDate(op.date)}</td>
-                                <td className="px-4 py-3.5 text-textSecondary text-xs">{acct?.name || 'Unknown'}</td>
-                                <td className="px-4 py-3.5">
-                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-2xs font-bold ${
-                                    isIncome
-                                      ? 'bg-success/10 text-success'
-                                      : op.type === 'TRANSFER_OUT'
-                                      ? 'bg-info/10 text-info'
-                                      : 'bg-primaryFaint text-primaryLight'
-                                  }`}>
-                                    {op.type}
-                                  </span>
-                                </td>
-                                <td className={`px-5 py-3.5 text-right font-bold num-display ${
-                                  isIncome ? 'text-success' : 'text-textPrimary'
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className={`font-bold text-xs sm:text-sm num-display ${
+                                  isIncome ? 'text-[#A8E063]' : isTransfer ? 'text-[#60A5FA]' : 'text-white'
                                 }`}>
                                   {isIncome ? '+' : '-'}₹{formatPaiseToRupees(op.amount)}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                                </p>
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                                  isIncome ? 'bg-[#182312] text-[#A8E063]' : isTransfer ? 'bg-[#1A222E] text-[#60A5FA]' : 'bg-[#211F1B] text-[#8E8A82]'
+                                }`}>
+                                  {op.type}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Desktop Table View */}
+                      <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-border bg-surfaceRaised text-2xs text-textMuted uppercase tracking-widest font-bold">
+                              <th className="text-left px-5 py-3.5">Transaction</th>
+                              <th className="text-left px-4 py-3.5">Date</th>
+                              <th className="text-left px-4 py-3.5">Account</th>
+                              <th className="text-left px-4 py-3.5">Type</th>
+                              <th className="text-right px-5 py-3.5">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/30">
+                            {[...ledger].reverse().map(op => {
+                              const acct = accounts.find(a => a.id === op.accountId);
+                              const cat = categories.find(c => c.id === op.referenceId);
+                              const isIncome = op.type === 'INCOME';
+                              const merchant = cat?.name || (op.type === 'TRANSFER_OUT' ? 'Transfer' : op.type === 'INCOME' ? 'Income' : 'Expense');
+                              return (
+                                <tr key={op.id} className="hover:bg-surfaceHover/40 transition-all">
+                                  <td className="px-5 py-3.5">
+                                    <div className="flex items-center gap-3">
+                                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${
+                                        isIncome ? 'bg-success/10 text-success' : 'bg-primaryFaint text-primary'
+                                      }`}>
+                                        {merchant.slice(0, 2).toUpperCase()}
+                                      </div>
+                                      <div>
+                                        <p className="font-medium text-textPrimary">{merchant}</p>
+                                        <p className="text-2xs text-textMuted font-mono">{op.id.slice(0, 12)}…</p>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3.5 text-textSecondary text-xs whitespace-nowrap">{fmtDate(op.date)}</td>
+                                  <td className="px-4 py-3.5 text-textSecondary text-xs">{acct?.name || 'Unknown'}</td>
+                                  <td className="px-4 py-3.5">
+                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-2xs font-bold ${
+                                      isIncome
+                                        ? 'bg-success/10 text-success'
+                                        : op.type === 'TRANSFER_OUT'
+                                        ? 'bg-info/10 text-info'
+                                        : 'bg-primaryFaint text-primaryLight'
+                                    }`}>
+                                      {op.type}
+                                    </span>
+                                  </td>
+                                  <td className={`px-5 py-3.5 text-right font-bold num-display ${
+                                    isIncome ? 'text-success' : 'text-textPrimary'
+                                  }`}>
+                                    {isIncome ? '+' : '-'}₹{formatPaiseToRupees(op.amount)}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
@@ -1100,7 +1185,7 @@ export default function Home() {
           </div>
         </main>
 
-        {/* ── 3-ITEM FIGMA BOTTOM NAVIGATION BAR (Left: History | Middle: Home | Right: Settings) ────── */}
+        {/* ── 3-ITEM BALANCED FIGMA BOTTOM NAVIGATION BAR (Left: History | Middle: Home | Right: Settings) ────── */}
         {(() => {
           const isHistoryActive = activeTab === 'transactions';
           const isSettingsActive = activeTab === 'settings';
@@ -1109,99 +1194,76 @@ export default function Home() {
           return (
             <nav
               aria-label="Bottom Navigation"
-              className="md:hidden app-bottom-nav py-2 px-3 sm:px-6 flex justify-center shadow-2xl backdrop-blur-md"
+              className="md:hidden app-bottom-nav py-2 px-3 sm:px-6 flex justify-center bg-[#141310]/95 border-t border-[#26241F] backdrop-blur-xl shadow-2xl"
             >
-              <div className="flex items-center justify-between w-full max-w-md px-1 gap-2.5">
+              <div className="grid grid-cols-3 w-full max-w-sm gap-1">
                 {/* ── 1. Left: History (Transactions) ── */}
                 <button
+                  type="button"
                   onClick={() => setActiveTab('transactions')}
                   title="History"
                   aria-label="History"
-                  className={`transition-all duration-300 ease-out cursor-pointer flex items-center justify-center ${
-                    isHistoryActive
-                      ? 'flex-1 h-12 bg-[#4A622F] text-white rounded-2xl shadow-lg shadow-[#4A622F]/40 gap-2.5 px-4 scale-105'
-                      : 'w-12 h-12 shrink-0 rounded-2xl text-[#8E8A82] hover:text-white hover:bg-white/5 active:scale-95'
-                  }`}
+                  className="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer group"
                 >
-                  <svg
-                    className="w-5 h-5 shrink-0"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="12" cy="12" r="9" />
-                    <polyline points="12 7 12 12 15 14" />
-                  </svg>
-                  {isHistoryActive && (
-                    <span className="font-bold text-xs sm:text-sm tracking-wide whitespace-nowrap animate-fade-in">
-                      History
-                    </span>
-                  )}
+                  <div className={`px-4 py-1.5 rounded-full flex items-center justify-center transition-all ${
+                    isHistoryActive
+                      ? 'bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40'
+                      : 'text-[#8E8A82] group-hover:text-white group-hover:bg-white/[0.04]'
+                  }`}>
+                    <History className="w-5 h-5 shrink-0" />
+                  </div>
+                  <span className={`text-[11px] mt-1 transition-colors ${
+                    isHistoryActive ? 'text-white font-bold' : 'text-[#8E8A82] font-medium'
+                  }`}>
+                    History
+                  </span>
                 </button>
 
                 {/* ── 2. Middle: Home (Dashboard) ── */}
                 <button
+                  type="button"
                   onClick={() => setActiveTab('dashboard')}
                   title="Home"
                   aria-label="Home"
-                  className={`transition-all duration-300 ease-out cursor-pointer flex items-center justify-center ${
-                    isHomeActive
-                      ? 'flex-1 h-12 bg-[#4A622F] text-white rounded-2xl shadow-lg shadow-[#4A622F]/40 gap-2.5 px-4 scale-105'
-                      : 'w-12 h-12 shrink-0 rounded-2xl text-[#8E8A82] hover:text-white hover:bg-white/5 active:scale-95'
-                  }`}
+                  className="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer group"
                 >
-                  <svg
-                    className="w-5 h-5 shrink-0"
-                    viewBox="0 0 24 24"
-                    fill={isHomeActive ? 'currentColor' : 'none'}
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
-                  </svg>
-                  {isHomeActive && (
-                    <span className="font-bold text-xs sm:text-sm tracking-wide whitespace-nowrap animate-fade-in">
-                      Home
-                    </span>
-                  )}
+                  <div className={`px-4 py-1.5 rounded-full flex items-center justify-center transition-all ${
+                    isHomeActive
+                      ? 'bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40'
+                      : 'text-[#8E8A82] group-hover:text-white group-hover:bg-white/[0.04]'
+                  }`}>
+                    <HomeIcon className="w-5 h-5 shrink-0" />
+                  </div>
+                  <span className={`text-[11px] mt-1 transition-colors ${
+                    isHomeActive ? 'text-white font-bold' : 'text-[#8E8A82] font-medium'
+                  }`}>
+                    Home
+                  </span>
                 </button>
 
                 {/* ── 3. Right: Settings ── */}
                 <button
+                  type="button"
                   onClick={() => {
                     setSettingsSubView('overview');
                     setActiveTab('settings');
                   }}
                   title="Settings"
                   aria-label="Settings"
-                  className={`transition-all duration-300 ease-out cursor-pointer flex items-center justify-center ${
-                    isSettingsActive
-                      ? 'flex-1 h-12 bg-[#4A622F] text-white rounded-2xl shadow-lg shadow-[#4A622F]/40 gap-2.5 px-4 scale-105'
-                      : 'w-12 h-12 shrink-0 rounded-2xl text-[#8E8A82] hover:text-white hover:bg-white/5 active:scale-95'
-                  }`}
+                  className="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer group"
                 >
-                  <svg
-                    className="w-5 h-5 shrink-0"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polygon points="12 2 21 7 21 17 12 22 3 17 3 7" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" fill="none" />
-                    <circle cx="12" cy="12" r="2.6" stroke="currentColor" strokeWidth="2" fill="none" />
-                  </svg>
-                  {isSettingsActive && (
-                    <span className="font-bold text-xs sm:text-sm tracking-wide whitespace-nowrap animate-fade-in">
-                      Settings
-                    </span>
-                  )}
+                  <div className={`px-4 py-1.5 rounded-full flex items-center justify-center transition-all ${
+                    isSettingsActive
+                      ? 'bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40'
+                      : 'text-[#8E8A82] group-hover:text-white group-hover:bg-white/[0.04]'
+                  }`}>
+                    <Settings className="w-5 h-5 shrink-0" />
+                  </div>
+                  <span className={`text-[11px] mt-1 transition-colors ${
+                    isSettingsActive ? 'text-white font-bold' : 'text-[#8E8A82] font-medium'
+                  }`}>
+                    Settings
+                  </span>
                 </button>
               </div>
             </nav>
@@ -1212,100 +1274,150 @@ export default function Home() {
       {/* ═══ MODALS ═══════════════════════════════════════════════════════ */}
 
       {/* Add Transaction */}
-      {showAddTxModal && (
-        <Modal
-          title={selectedCategoryName ? `Add Spend · ${selectedCategoryName}` : 'New Transaction'}
-          onClose={() => {
-            setShowAddTxModal(false);
-            setSelectedCategoryName(null);
-          }}
-          icon={<Plus className="w-4 h-4" />}
-        >
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (txAccountId && txAmount) {
-                addTransaction(txAccountId, txType, formatRupeesToPaise(txAmount), 'INR', txReferenceId, txMerchant || undefined, txType === 'TRANSFER_OUT' ? txToAccountId : null);
-                setShowAddTxModal(false);
-                setSelectedCategoryName(null);
-              }
+      {showAddTxModal && (() => {
+        const targetCat = categoryFunds.find(c => c.id === txReferenceId)
+          || (selectedCategoryName ? categoryFunds.find(c => c.name.toLowerCase().includes(selectedCategoryName.toLowerCase())) : null)
+          || categoryFunds[0];
+        const targetAvail = targetCat ? targetCat.available : 0;
+        const enteredAmt = parseFloat(txAmount) || 0;
+        const deficit = txType === 'EXPENSE' && enteredAmt > 0 ? Math.max(0, enteredAmt - targetAvail) : 0;
+        const surplusCategories = categoryFunds.filter(c => c.id !== targetCat?.id && c.available > 0);
+        const activeBorrowSourceId = borrowSourceCatId || (surplusCategories[0]?.id || '');
+        const activeBorrowSourceCat = categoryFunds.find(c => c.id === activeBorrowSourceId) || surplusCategories[0];
+        const isBlockedByZeroBalance = txType === 'EXPENSE' && deficit > 0 && surplusCategories.length === 0;
+
+        return (
+          <Modal
+            title={selectedCategoryName ? `Add Spend · ${selectedCategoryName}` : 'New Transaction'}
+            onClose={() => {
+              setShowAddTxModal(false);
+              setSelectedCategoryName(null);
+              setBorrowSourceCatId('');
             }}
-            className="space-y-4"
+            icon={<Plus className="w-4 h-4" />}
           >
-            {/* Type selector */}
-            <div className="flex rounded-xl bg-[#141310] border border-[#282620] p-1 gap-1">
-              {(['EXPENSE', 'INCOME', 'TRANSFER_OUT'] as const).map(type => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => setTxType(type)}
-                  className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                    txType === type
-                      ? 'bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40'
-                      : 'text-[#8E8A82] hover:text-white hover:bg-white/[0.04]'
-                  }`}
-                >
-                  {type === 'TRANSFER_OUT' ? 'TRANSFER' : type}
-                </button>
-              ))}
-            </div>
-
-            <Field label="Amount (₹)">
-              <input type="text" required value={txAmount} onChange={e => setTxAmount(e.target.value)} placeholder="500.00" className={inputCls} />
-            </Field>
-
-            <Field label="From Account">
-              {accounts.length <= 1 ? (
-                <div className="flex items-center justify-between bg-[#211F1B] border border-[#2F2C25] rounded-xl px-4 py-3 text-white text-sm">
-                  <div className="flex items-center gap-2.5">
-                    <Wallet className="w-4 h-4 text-[#8EBA55]" />
-                    <span className="font-medium">{accounts[0]?.name || 'Primary Account'}</span>
-                  </div>
-                  <span className="text-[11px] text-[#8E8A82] bg-white/[0.04] px-2 py-0.5 rounded">Default</span>
-                </div>
-              ) : (
-                <div className="relative">
-                  <select
-                    required
-                    value={txAccountId}
-                    onChange={e => setTxAccountId(e.target.value)}
-                    className="w-full bg-[#211F1B] border border-[#2F2C25] focus:border-[#4A622F] rounded-xl px-4 py-3 text-white outline-none transition-all duration-150 text-sm focus:ring-1 focus:ring-[#4A622F] appearance-none cursor-pointer pr-10"
-                  >
-                    <option value="" disabled className="bg-[#211F1B] text-[#8E8A82]">Select account</option>
-                    {accounts.map(a => <option key={a.id} value={a.id} className="bg-[#211F1B] text-white">{a.name}</option>)}
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-[#8E8A82] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (isBlockedByZeroBalance) return;
+                if (txAccountId && txAmount) {
+                  const catRef = txReferenceId || targetCat?.id || '';
+                  if (txType === 'EXPENSE' && deficit > 0 && activeBorrowSourceCat && targetCat) {
+                    await borrowFromCategory(
+                      activeBorrowSourceCat.id,
+                      targetCat.id,
+                      formatRupeesToPaise(String(deficit)),
+                      txAccountId
+                    );
+                  }
+                  await addTransaction(
+                    txAccountId,
+                    txType,
+                    formatRupeesToPaise(txAmount),
+                    'INR',
+                    catRef,
+                    txMerchant || undefined,
+                    txType === 'TRANSFER_OUT' ? txToAccountId : null
+                  );
+                  setShowAddTxModal(false);
+                  setSelectedCategoryName(null);
+                  setBorrowSourceCatId('');
+                }
+              }}
+              className="space-y-4"
+            >
+              {/* Type selector (Only when adding general transaction; hidden when directly spending on a category) */}
+              {!selectedCategoryName && (
+                <div className="flex rounded-xl bg-[#141310] border border-[#282620] p-1 gap-1">
+                  {(['EXPENSE', 'INCOME', 'TRANSFER_OUT'] as const).map(type => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setTxType(type)}
+                      className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                        txType === type
+                          ? 'bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40'
+                          : 'text-[#8E8A82] hover:text-white hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      {type === 'TRANSFER_OUT' ? 'TRANSFER' : type}
+                    </button>
+                  ))}
                 </div>
               )}
-            </Field>
 
-            {txType === 'TRANSFER_OUT' ? (
-              <Field label="To Account">
-                <div className="relative">
-                  <select
-                    required
-                    value={txToAccountId}
-                    onChange={e => setTxToAccountId(e.target.value)}
-                    className="w-full bg-[#211F1B] border border-[#2F2C25] focus:border-[#4A622F] rounded-xl px-4 py-3 text-white outline-none transition-all duration-150 text-sm focus:ring-1 focus:ring-[#4A622F] appearance-none cursor-pointer pr-10"
-                  >
-                    <option value="" disabled className="bg-[#211F1B] text-[#8E8A82]">Select destination</option>
-                    {accounts.filter(a => a.id !== txAccountId).map(a => <option key={a.id} value={a.id} className="bg-[#211F1B] text-white">{a.name}</option>)}
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-[#8E8A82] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
-                </div>
+              <Field label="Amount (₹)">
+                <input
+                  type="text"
+                  required
+                  value={txAmount}
+                  onChange={e => setTxAmount(e.target.value)}
+                  placeholder="500.00"
+                  className={inputCls}
+                />
               </Field>
-            ) : selectedCategoryName ? (
-              <Field label="Category">
-                <div className="flex items-center justify-between bg-[#141310] border border-[#2B2923] rounded-xl px-4 py-3 text-sm font-semibold text-white">
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#A8E063] shadow-[0_0_6px_rgba(168,224,99,0.5)]" />
-                    <span>{selectedCategoryName}</span>
+
+              <Field label="From Account">
+                {accounts.length <= 1 ? (
+                  <div className="flex items-center justify-between bg-[#211F1B] border border-[#2F2C25] rounded-xl px-4 py-3 text-white text-sm">
+                    <div className="flex items-center gap-2.5">
+                      <Wallet className="w-4 h-4 text-[#8EBA55]" />
+                      <span className="font-medium">{accounts[0]?.name || 'Primary Account'}</span>
+                    </div>
+                    <span className="text-[11px] text-[#8EBA55] font-semibold">
+                      ₹{formatPaiseToRupees(balances.get(accounts[0]?.id || '')?.clearedBalance || 0n)}
+                    </span>
                   </div>
-                  <span className="text-[11px] text-[#A8E063] font-medium bg-[#4A622F]/20 px-2 py-0.5 rounded border border-[#587437]/30">Direct Spend</span>
-                </div>
+                ) : (
+                  <div className="relative">
+                    <select
+                      required
+                      value={txAccountId}
+                      onChange={e => setTxAccountId(e.target.value)}
+                      className="w-full bg-[#211F1B] border border-[#2F2C25] focus:border-[#4A622F] rounded-xl px-4 py-3 text-white outline-none transition-all duration-150 text-sm focus:ring-1 focus:ring-[#4A622F] appearance-none cursor-pointer pr-10"
+                    >
+                      <option value="" disabled className="bg-[#211F1B] text-[#8E8A82]">Select account</option>
+                      {accounts.map(a => (
+                        <option key={a.id} value={a.id} className="bg-[#211F1B] text-white">
+                          {a.name} (₹{formatPaiseToRupees(balances.get(a.id)?.clearedBalance || 0n)})
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-[#8E8A82] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                  </div>
+                )}
               </Field>
-            ) : (
-              <>
+
+              {txType === 'TRANSFER_OUT' ? (
+                <Field label="To Account">
+                  <div className="relative">
+                    <select
+                      required
+                      value={txToAccountId}
+                      onChange={e => setTxToAccountId(e.target.value)}
+                      className="w-full bg-[#211F1B] border border-[#2F2C25] focus:border-[#4A622F] rounded-xl px-4 py-3 text-white outline-none transition-all duration-150 text-sm focus:ring-1 focus:ring-[#4A622F] appearance-none cursor-pointer pr-10"
+                    >
+                      <option value="" disabled className="bg-[#211F1B] text-[#8E8A82]">Select destination</option>
+                      {accounts.filter(a => a.id !== txAccountId).map(a => (
+                        <option key={a.id} value={a.id} className="bg-[#211F1B] text-white">{a.name}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-[#8E8A82] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                  </div>
+                </Field>
+              ) : selectedCategoryName ? (
+                <Field label="Category">
+                  <div className="flex items-center justify-between bg-[#141310] border border-[#2B2923] rounded-xl px-4 py-3 text-sm font-semibold text-white">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#A8E063] shadow-[0_0_6px_rgba(168,224,99,0.5)]" />
+                      <span>{selectedCategoryName}</span>
+                    </div>
+                    <span className="text-[11px] text-[#A8E063] font-medium bg-[#4A622F]/20 px-2 py-0.5 rounded border border-[#587437]/30">
+                      ₹{targetAvail.toLocaleString('en-IN')} Available
+                    </span>
+                  </div>
+                </Field>
+              ) : (
                 <Field label="Category / Envelope">
                   <div className="relative">
                     <select
@@ -1315,34 +1427,127 @@ export default function Home() {
                       className="w-full bg-[#211F1B] border border-[#2F2C25] focus:border-[#4A622F] rounded-xl px-4 py-3 text-white outline-none transition-all duration-150 text-sm focus:ring-1 focus:ring-[#4A622F] appearance-none cursor-pointer pr-10"
                     >
                       <option value="" disabled className="bg-[#211F1B] text-[#8E8A82]">Select category</option>
-                      {availableCategories.map(c => <option key={c.id} value={c.id} className="bg-[#211F1B] text-white">📂 {c.name}</option>)}
-                      {goals.map(g => <option key={g.id} value={g.id} className="bg-[#211F1B] text-white">🎯 {g.name}</option>)}
+                      {categoryFunds.map(c => (
+                        <option key={c.id} value={c.id} className="bg-[#211F1B] text-white">
+                          📂 {c.name} (₹{c.available.toLocaleString('en-IN')} available)
+                        </option>
+                      ))}
+                      {goals.map(g => (
+                        <option key={g.id} value={g.id} className="bg-[#211F1B] text-white">
+                          🎯 {g.name}
+                        </option>
+                      ))}
                     </select>
                     <ChevronDown className="w-4 h-4 text-[#8E8A82] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
                   </div>
                 </Field>
-              </>
-            )}
+              )}
 
-            <Field label="Merchant / Payee">
-              <input type="text" value={txMerchant} onChange={e => setTxMerchant(e.target.value)} placeholder="Swiggy, Amazon, Netflix…" className={inputCls} />
-            </Field>
+              {/* Borrow Option / Zero Balance Safeguard Banner */}
+              {txType === 'EXPENSE' && enteredAmt > 0 && deficit > 0 && (
+                surplusCategories.length > 0 ? (
+                  <div className="bg-[#241F14] border border-[#4D3F20] rounded-xl p-3 space-y-2">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-[#E5A93C] shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-bold text-[#E5A93C]">
+                          Category Deficit: ₹{deficit.toLocaleString('en-IN')}
+                        </p>
+                        <p className="text-[11px] text-[#A69C85] mt-0.5 leading-relaxed">
+                          {targetCat?.name || 'Selected category'} has ₹{targetAvail.toLocaleString('en-IN')} available. Automatically borrow ₹{deficit.toLocaleString('en-IN')} from another envelope:
+                        </p>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Borrow Surplus From</label>
+                      <div className="relative">
+                        <select
+                          value={activeBorrowSourceId}
+                          onChange={e => setBorrowSourceCatId(e.target.value)}
+                          className="w-full bg-[#1A1813] border border-[#3A3322] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#E5A93C] appearance-none cursor-pointer pr-8"
+                        >
+                          {surplusCategories.map(c => (
+                            <option key={c.id} value={c.id}>
+                              📂 {c.name} (₹{c.available.toLocaleString('en-IN')} available)
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="w-4 h-4 text-[#8E8A82] pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-[#261515] border border-[#522525] rounded-xl p-3 space-y-2.5">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-[#F05A5A] shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-bold text-[#F05A5A]">
+                          🚫 Insufficient Balance (₹0 Available)
+                        </p>
+                        <p className="text-[11px] text-[#C48C8C] mt-0.5 leading-relaxed">
+                          You cannot spend without balance. No other envelope has surplus funds to borrow from. Please add funds first.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddTxModal(false);
+                        setSelectedCategoryName(null);
+                        setSettingsSubView('overview');
+                        setActiveTab('settings');
+                      }}
+                      className="w-full py-2 px-3 rounded-lg bg-[#3D1E1E] hover:bg-[#4E2727] text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-[#682B2B]"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Add Funds to Account</span>
+                    </button>
+                  </div>
+                )
+              )}
 
-            <div className="flex gap-3 pt-1">
-              <SecondaryBtn
-                type="button"
-                onClick={() => {
-                  setShowAddTxModal(false);
-                  setSelectedCategoryName(null);
-                }}
-              >
-                Cancel
-              </SecondaryBtn>
-              <PrimaryBtn type="submit">Confirm Entry</PrimaryBtn>
-            </div>
-          </form>
-        </Modal>
-      )}
+              <Field label="Merchant / Payee">
+                <input
+                  type="text"
+                  value={txMerchant}
+                  onChange={e => setTxMerchant(e.target.value)}
+                  placeholder="Swiggy, Amazon, Netflix…"
+                  className={inputCls}
+                />
+              </Field>
+
+              <div className="flex gap-3 pt-1">
+                <SecondaryBtn
+                  type="button"
+                  onClick={() => {
+                    setShowAddTxModal(false);
+                    setSelectedCategoryName(null);
+                    setBorrowSourceCatId('');
+                  }}
+                >
+                  Cancel
+                </SecondaryBtn>
+
+                {isBlockedByZeroBalance ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="flex-1 bg-[#24221D] border border-[#33302A] text-[#666] font-bold py-3 rounded-xl text-sm cursor-not-allowed opacity-50"
+                  >
+                    Insufficient Balance
+                  </button>
+                ) : (
+                  <PrimaryBtn type="submit">
+                    {deficit > 0 && activeBorrowSourceCat
+                      ? `Confirm & Borrow ₹${deficit.toLocaleString('en-IN')}`
+                      : 'Confirm Entry'}
+                  </PrimaryBtn>
+                )}
+              </div>
+            </form>
+          </Modal>
+        );
+      })()}
 
       {/* Add Account */}
       {showAddAcctModal && (

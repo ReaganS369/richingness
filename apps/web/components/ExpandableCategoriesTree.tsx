@@ -432,20 +432,26 @@ function convertAllocationsToItems(
 ): CategoryNodeItem[] {
   return nodes.map(node => {
     const allocated = Math.round((parentAmount * (node.percentage || 0)) / 100);
+    const adjustments = Number(
+      ledgerOps
+        .filter(op => op.type === 'ADJUSTMENT' && op.referenceId === node.id)
+        .reduce((sum, op) => sum + op.amount, 0n)
+    ) / 100;
+    const effectiveAllocated = Math.max(0, allocated + adjustments);
     const spent = Number(
       ledgerOps
         .filter(op => op.type === 'EXPENSE' && op.referenceId === node.id)
         .reduce((sum, op) => sum + op.amount, 0n)
     ) / 100;
 
-    const isDue = spent > allocated && allocated > 0;
-    const isRepay = allocated > spent && spent > 0;
+    const isDue = spent > effectiveAllocated && effectiveAllocated > 0;
+    const isRepay = effectiveAllocated > spent && spent > 0;
     const badges: string[] = [];
     if (isDue) badges.push('Due');
     else if (isRepay && node.name.toLowerCase().includes('hobbies')) badges.push('Repay');
 
     const children = node.children && node.children.length > 0
-      ? convertAllocationsToItems(node.children, allocated || parentAmount, ledgerOps, level + 1)
+      ? convertAllocationsToItems(node.children, effectiveAllocated || parentAmount, ledgerOps, level + 1)
       : undefined;
 
     return {
@@ -453,13 +459,13 @@ function convertAllocationsToItems(
       name: node.name,
       percentage: node.percentage,
       level,
-      displayTotal: allocated,
+      displayTotal: effectiveAllocated,
       income: 0,
       expense: spent,
       badges: badges.length > 0 ? badges : undefined,
       dueNotice: isDue ? {
-        text: `Due: ₹${spent - allocated}`,
-        amount: spent - allocated,
+        text: `Due: ₹${spent - effectiveAllocated}`,
+        amount: spent - effectiveAllocated,
         buttonText: 'Pay'
       } : undefined,
       children

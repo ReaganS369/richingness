@@ -871,7 +871,7 @@ export function AccountCategoriesScreen({
           </div>
 
           {/* ── Quick-Switch Category Segmented Bar (Single Tap between Root and Top Categories) ── */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar pt-0.5">
+          <div className="flex flex-wrap items-center gap-1.5 pb-1 pt-0.5">
             <button
               type="button"
               onClick={() => setNavigationPath([])}

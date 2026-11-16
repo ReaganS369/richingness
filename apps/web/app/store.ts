@@ -148,6 +148,15 @@ interface AppState {
   deleteScheduledSpend: (id: string) => void;
   payScheduledSpendEarly: (id: string) => Promise<void>;
   depositFromIncomeSource: (sourceId: string, customAmount?: number) => Promise<void>;
+  borrowFromCategory: (
+    fromCategoryId: string,
+    toCategoryId: string,
+    amountPaise: bigint,
+    accountId: string
+  ) => Promise<void>;
+  resetMonthlyExpenses: () => Promise<void>;
+  resetAccountLedger: () => Promise<void>;
+  resetAllData: () => Promise<void>;
   
   // Computed Selectors (Derived logic without UI calculations)
   getBalances: () => Map<string, AccountBalance>;
@@ -963,6 +972,102 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     }
     set({ incomeSources: updated });
+  },
+
+  borrowFromCategory: async (fromCategoryId, toCategoryId, amountPaise, accountId) => {
+    const session = get().session;
+    if (!globalRepository || !session) return;
+    const scopedRepo = globalRepository.forUser(getUserKey(session));
+    const timestamp = Date.now();
+    const debitOp: LedgerOperation = {
+      id: `op-borrow-debit-${timestamp}`,
+      accountId,
+      type: 'ADJUSTMENT',
+      amount: -amountPaise,
+      currency: 'INR',
+      exchangeRate: 1.0,
+      date: new Date(),
+      referenceId: fromCategoryId
+    };
+    const creditOp: LedgerOperation = {
+      id: `op-borrow-credit-${timestamp}`,
+      accountId,
+      type: 'ADJUSTMENT',
+      amount: amountPaise,
+      currency: 'INR',
+      exchangeRate: 1.0,
+      date: new Date(),
+      referenceId: toCategoryId
+    };
+    await scopedRepo.runInTransaction(async (txn) => {
+      await txn.saveTransaction(debitOp);
+      await txn.saveTransaction(creditOp);
+    });
+    set(state => {
+      const existingIds = new Set(state.ledger.map(l => l.id));
+      const newOps = [debitOp, creditOp].filter(op => !existingIds.has(op.id));
+      return { ledger: [...state.ledger, ...newOps] };
+    });
+  },
+
+  resetMonthlyExpenses: async () => {
+    const session = get().session;
+    if (!globalRepository || !session) return;
+    const scopedRepo = globalRepository.forUser(getUserKey(session));
+    const currentLedger = get().ledger;
+    const expenses = currentLedger.filter(op => op.type === 'EXPENSE');
+    await scopedRepo.runInTransaction(async (txn) => {
+      for (const op of expenses) {
+        await txn.saveTransaction({ ...op, deletedAt: new Date().toISOString() } as unknown as LedgerOperation);
+      }
+    });
+    set({ ledger: currentLedger.filter(op => op.type !== 'EXPENSE') });
+  },
+
+  resetAccountLedger: async () => {
+    const session = get().session;
+    if (!globalRepository || !session) return;
+    const scopedRepo = globalRepository.forUser(getUserKey(session));
+    const currentLedger = get().ledger;
+    await scopedRepo.runInTransaction(async (txn) => {
+      for (const op of currentLedger) {
+        await txn.saveTransaction({ ...op, deletedAt: new Date().toISOString() } as unknown as LedgerOperation);
+      }
+    });
+    set({ ledger: [] });
+  },
+
+  resetAllData: async () => {
+    const session = get().session;
+    if (!globalRepository || !session) return;
+    const scopedRepo = globalRepository.forUser(getUserKey(session));
+    const currentLedger = get().ledger;
+    const currentGoals = get().goals;
+    await scopedRepo.runInTransaction(async (txn) => {
+      for (const op of currentLedger) {
+        await txn.saveTransaction({ ...op, deletedAt: new Date().toISOString() } as unknown as LedgerOperation);
+      }
+      for (const g of currentGoals) {
+        await txn.saveGoal({ ...g, deletedAt: new Date().toISOString() } as unknown as SavingGoal);
+      }
+    });
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('richingness_category_allocations_v2');
+        localStorage.removeItem('richingness_unallocated_by_account_v1');
+        localStorage.removeItem('richingness_income_sources_v1');
+        localStorage.removeItem('richingness_scheduled_spends_v1');
+        localStorage.removeItem('richingness_custom_profiles_v1');
+      } catch {
+        // ignore
+      }
+    }
+    set({
+      ledger: [],
+      goals: [],
+      incomeSources: [],
+      scheduledSpends: []
+    });
   },
 
   getBalances: () => {
