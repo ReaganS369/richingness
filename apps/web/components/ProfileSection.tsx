@@ -282,6 +282,7 @@ export function ProfileSection() {
   const navigateToAccountHistory = useAppStore(state => state.navigateToAccountHistory);
   const theme = useAppStore(state => state.theme);
   const setTheme = useAppStore(state => state.setTheme);
+  const setActiveTab = useAppStore(state => state.setActiveTab);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -784,6 +785,7 @@ export function ProfileSection() {
   const handleResetDefaults = async () => {
     if (window.confirm('Reset database to default Figma starter data?')) {
       if (typeof window !== 'undefined') {
+        localStorage.removeItem('richingness_live_tour');
         localStorage.removeItem('richingness_onboarding_completed');
         localStorage.removeItem('richingness_onboarding_guide');
       }
@@ -1543,6 +1545,20 @@ export function ProfileSection() {
                   Enable Persistence
                 </button>
               )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    localStorage.removeItem('richingness_live_tour');
+                    setActiveTab('dashboard');
+                    window.dispatchEvent(new CustomEvent('richingness:replay-tour'));
+                  }
+                }}
+                className="text-[11px] font-semibold text-[#A8E063] hover:underline cursor-pointer"
+                title="Replay the live interactive tour on the dashboard"
+              >
+                Replay Tutorial
+              </button>
               <button
                 type="button"
                 onClick={handleResetDefaults}

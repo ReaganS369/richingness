@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import {
   useAppStore,
@@ -48,6 +47,7 @@ import {
 import { Account, aggregateMonthlyCashFlow } from '@repo/module-finance';
 import { ProfileSection } from '../components/ProfileSection';
 import { ExpandableCategoriesTree } from '../components/ExpandableCategoriesTree';
+import { LiveInteractiveTour } from '../components/LiveInteractiveTour';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 const NAV_LINKS = [
@@ -260,8 +260,6 @@ export default function Home() {
     }
   }, [theme]);
 
-  const router = useRouter();
-
   useEffect(() => {
     initAuth();
     if (typeof window !== 'undefined') {
@@ -270,12 +268,8 @@ export default function Home() {
       if (tabParam && ['dashboard', 'accounts', 'budget', 'transactions', 'goals', 'reports', 'settings'].includes(tabParam)) {
         setActiveTab(tabParam as TabId);
       }
-      const isCompleted = localStorage.getItem('richingness_onboarding_completed');
-      if (!isCompleted && accounts.length === 0) {
-        router.push('/onboarding');
-      }
     }
-  }, [accounts.length, router]);
+  }, []);
 
   // ── Local state ──────────────────────────────────────────────────────────
   const [showAddTxModal,    setShowAddTxModal]    = useState(false);
@@ -1878,6 +1872,31 @@ export default function Home() {
           </div>
         </Modal>
       )}
+
+      {/* Live Interactive In-App Tour */}
+      <LiveInteractiveTour
+        accountsCount={accounts.length}
+        totalBalanceRupees={totalBalanceRupees}
+        primaryAccountName={accounts[0]?.name}
+        isAddAcctModalOpen={showAddAcctModal}
+        isAddTxModalOpen={showAddTxModal}
+        onOpenAddAccount={() => {
+          setAcctName('');
+          setShowAddAcctModal(true);
+        }}
+        onOpenAddFunds={() => {
+          setTxType('INCOME');
+          setTxAmount('');
+          setTxMerchant('Opening Balance');
+          setTxReferenceId('');
+          setSelectedCategoryName(null);
+          if (accounts.length > 0) setTxAccountId(accounts[0].id);
+          setShowAddTxModal(true);
+        }}
+        onOpenSignIn={() => {
+          setActiveTab('settings');
+        }}
+      />
     </div>
   );
 }
