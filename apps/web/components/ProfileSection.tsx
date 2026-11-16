@@ -783,6 +783,9 @@ export function ProfileSection() {
 
   const handleResetDefaults = async () => {
     if (window.confirm('Reset database to default Figma starter data?')) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('richingness_onboarding_guide');
+      }
       await resetDatabaseToDefaults();
       setProfiles(DEFAULT_PROFILES);
       setActiveProfileId('prof-guest');
@@ -1539,6 +1542,19 @@ export function ProfileSection() {
                   Enable Persistence
                 </button>
               )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    localStorage.removeItem('richingness_onboarding_guide');
+                    window.location.href = '/?tab=dashboard';
+                  }
+                }}
+                className="text-[11px] font-semibold text-[#A8E063] hover:underline cursor-pointer"
+                title="Launch the interactive onboarding tour"
+              >
+                Replay Guide
+              </button>
               <button
                 type="button"
                 onClick={handleResetDefaults}

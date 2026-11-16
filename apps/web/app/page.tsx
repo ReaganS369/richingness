@@ -22,6 +22,7 @@ import {
   CloudOff,
   AlertTriangle,
   Plus,
+  ArrowDownLeft,
   LogOut,
   ArrowRightLeft,
   ChevronDown,
@@ -35,6 +36,8 @@ import {
   CreditCard,
   Search,
   Settings,
+  HelpCircle,
+  Sparkles,
   Home as HomeIcon
 } from 'lucide-react';
 import {
@@ -47,6 +50,7 @@ import {
 import { Account, aggregateMonthlyCashFlow } from '@repo/module-finance';
 import { ProfileSection } from '../components/ProfileSection';
 import { ExpandableCategoriesTree } from '../components/ExpandableCategoriesTree';
+import { FirstTimeGuideModal } from '../components/FirstTimeGuideModal';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 const NAV_LINKS = [
@@ -259,6 +263,8 @@ export default function Home() {
     }
   }, [theme]);
 
+  const [showGuideModal, setShowGuideModal] = useState(false);
+
   useEffect(() => {
     initAuth();
     if (typeof window !== 'undefined') {
@@ -266,6 +272,10 @@ export default function Home() {
       const tabParam = params.get('tab');
       if (tabParam && ['dashboard', 'accounts', 'budget', 'transactions', 'goals', 'reports', 'settings'].includes(tabParam)) {
         setActiveTab(tabParam as TabId);
+      }
+      const guideStatus = localStorage.getItem('richingness_onboarding_guide');
+      if (!guideStatus) {
+        setShowGuideModal(true);
       }
     }
   }, []);
@@ -539,6 +549,14 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowGuideModal(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-[#A09C94] hover:text-white hover:bg-white/5 border border-transparent hover:border-[#2D2A24] transition-all cursor-pointer"
+              title="Interactive App Guide & Tutorial"
+            >
+              <HelpCircle className="w-4 h-4 text-[#A8E063]" />
+              <span className="hidden sm:inline">Guide</span>
+            </button>
             {activeTab !== 'settings' && (
               <>
                 <button
@@ -611,110 +629,208 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* ── Search & Filter Bar (Figma Search Height 40px, Radius 12px, Filter 38x38 Radius 12px, Color #211F1B) ── */}
-                <div className="w-full flex items-center gap-2 shrink-0">
-                  <div className="flex-1 bg-[#211F1B] rounded-[12px] h-[40px] px-3.5 flex items-center gap-2.5 border border-[#2D2A24]/60">
-                    <Search className="w-4 h-4 text-[#8E8A82] shrink-0" />
-                    <input
-                      type="text"
-                      placeholder="Search"
-                      value={categorySearch}
-                      onChange={(e) => setCategorySearch(e.target.value)}
-                      className="bg-transparent text-xs sm:text-sm text-white placeholder-[#8E8A82] outline-none w-full font-medium"
-                    />
-                    {categorySearch && (
-                      <button
-                        onClick={() => setCategorySearch('')}
-                        className="text-[#8E8A82] hover:text-white transition-colors cursor-pointer"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Filter Button (Figma Width 38px, Height 38px, Radius 12px, Color #211F1B) */}
-                  <div className="relative">
-                    <button
-                      onClick={() => setFilterDropdownOpen(!filterDropdownOpen)}
-                      className={`w-[38px] h-[38px] sm:w-[40px] sm:h-[40px] rounded-[12px] bg-[#211F1B] border border-[#2D2A24]/60 flex items-center justify-center shrink-0 hover:bg-[#2C2924] active:scale-95 transition-all cursor-pointer ${
-                        filterDropdownOpen || categoryFilter !== 'ALL' ? 'ring-2 ring-[#4A622F]' : ''
-                      }`}
-                      title="Filter categories"
-                    >
-                      <svg className="w-4 h-4 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                        <line x1="4" y1="7" x2="20" y2="7"/>
-                        <line x1="7" y1="12" x2="17" y2="12"/>
-                        <line x1="10" y1="17" x2="14" y2="17"/>
-                      </svg>
-                    </button>
-
-                    {filterDropdownOpen && (
-                      <div className="absolute right-0 top-11 w-44 bg-[#211F1B] border border-[#33302A] rounded-[12px] shadow-2xl py-1.5 z-30 animate-in fade-in zoom-in-95">
-                        <button
-                          onClick={() => { setCategoryFilter('ALL'); setFilterDropdownOpen(false); }}
-                          className={`w-full px-4 py-2 text-left text-xs font-semibold flex items-center justify-between cursor-pointer ${
-                            categoryFilter === 'ALL' ? 'text-white bg-[#4A622F]' : 'text-[#A09C94] hover:bg-white/5'
-                          }`}
-                        >
-                          <span>All Categories</span>
-                          {categoryFilter === 'ALL' && <CheckCircle2 className="w-3.5 h-3.5" />}
-                        </button>
-                        <button
-                          onClick={() => { setCategoryFilter('DUE'); setFilterDropdownOpen(false); }}
-                          className={`w-full px-4 py-2 text-left text-xs font-semibold flex items-center justify-between cursor-pointer ${
-                            categoryFilter === 'DUE' ? 'text-white bg-[#4A622F]' : 'text-[#A09C94] hover:bg-white/5'
-                          }`}
-                        >
-                          <span>Due Only</span>
-                          {categoryFilter === 'DUE' && <CheckCircle2 className="w-3.5 h-3.5" />}
-                        </button>
-                        <button
-                          onClick={() => { setCategoryFilter('REPAY'); setFilterDropdownOpen(false); }}
-                          className={`w-full px-4 py-2 text-left text-xs font-semibold flex items-center justify-between cursor-pointer ${
-                            categoryFilter === 'REPAY' ? 'text-white bg-[#4A622F]' : 'text-[#A09C94] hover:bg-white/5'
-                          }`}
-                        >
-                          <span>Repay Only</span>
-                          {categoryFilter === 'REPAY' && <CheckCircle2 className="w-3.5 h-3.5" />}
-                        </button>
+                {/* ── Progressive Onboarding for New Users ── */}
+                {/* Stage 1: No accounts yet */}
+                {accounts.length === 0 && (
+                  <div className="w-full bg-[#1A1815] border border-[#2D2A24] rounded-[16px] p-5 sm:p-6 text-white shadow-xl flex flex-col items-center text-center space-y-4 my-2">
+                    <div className="w-14 h-14 rounded-2xl bg-[#4A622F]/20 border border-[#587437]/40 flex items-center justify-center text-[#A8E063] shadow-inner">
+                      <Wallet className="w-7 h-7" />
+                    </div>
+                    <div className="max-w-md space-y-1.5">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#4A622F]/20 border border-[#587437]/40 text-[#A8E063] text-2xs font-bold uppercase tracking-wider">
+                        Step 1 of 2 · Account Setup
                       </div>
-                    )}
+                      <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight">Create Your First Account</h3>
+                      <p className="text-xs sm:text-sm text-[#A09C94] leading-relaxed">
+                        Welcome to Richingness! Add your bank account, cash wallet, or savings account to start managing your money.
+                      </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row items-center gap-2.5">
+                      <button
+                        onClick={() => {
+                          setAcctName('');
+                          setShowAddAcctModal(true);
+                        }}
+                        className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-sm font-bold shadow-lg shadow-[#4A622F]/30 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Create Account</span>
+                      </button>
+                      <button
+                        onClick={() => setShowGuideModal(true)}
+                        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-[#2D2A24] bg-[#211F1B] hover:bg-[#282622] text-[#A8E063] hover:text-white text-xs font-semibold transition-all cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>How it works (1-min tour)</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* ── Section Title: Categories (Clean overview, no editing on Home page) ── */}
-                <div className="w-full flex items-center justify-between pt-1 pb-0 shrink-0">
-                  <h2 className="text-base sm:text-lg md:text-xl font-bold text-white tracking-tight">Categories</h2>
-                </div>
+                {/* Stage 2: Account created, but initial funds not added */}
+                {accounts.length > 0 && totalBalanceRupees <= 0 && (
+                  <div className="w-full bg-[#1A1815] border border-[#2D2A24] rounded-[16px] p-5 sm:p-6 text-white shadow-xl flex flex-col items-center text-center space-y-4 my-2">
+                    <div className="w-14 h-14 rounded-2xl bg-[#4A622F]/20 border border-[#587437]/40 flex items-center justify-center text-[#A8E063] shadow-inner">
+                      <ArrowDownLeft className="w-7 h-7" />
+                    </div>
+                    <div className="max-w-md space-y-1.5">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#4A622F]/20 border border-[#587437]/40 text-[#A8E063] text-2xs font-bold uppercase tracking-wider">
+                        Step 2 of 2 · Fund Your Account
+                      </div>
+                      <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+                        Add Initial Funds to {accounts[0]?.name || 'Account'}
+                      </h3>
+                      <p className="text-xs sm:text-sm text-[#A09C94] leading-relaxed">
+                        Deposit your opening balance, salary, or cash to fund your budget and unlock category allocation.
+                      </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row items-center gap-2.5">
+                      <button
+                        onClick={() => {
+                          setTxType('INCOME');
+                          setTxAmount('');
+                          setTxMerchant('Opening Balance');
+                          setTxReferenceId('');
+                          setSelectedCategoryName(null);
+                          if (accounts.length > 0) setTxAccountId(accounts[0].id);
+                          setShowAddTxModal(true);
+                        }}
+                        className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-sm font-bold shadow-lg shadow-[#4A622F]/30 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Add Funds</span>
+                      </button>
+                      <button
+                        onClick={() => setShowGuideModal(true)}
+                        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-[#2D2A24] bg-[#211F1B] hover:bg-[#282622] text-[#A8E063] hover:text-white text-xs font-semibold transition-all cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Learn Envelope Budgeting</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-                {/* ── Expandable Categories Hierarchical Tree (Exact Image 5 Design) ── */}
-                <div className="w-full pb-4">
-                  <ExpandableCategoriesTree
-                    searchQuery={categorySearch}
-                    filter={categoryFilter}
-                    realAccountBalance={totalBalanceRupees}
-                    onNavigateToAllocations={(targetTab) => {
-                      openSettingsAllocations(targetTab);
-                    }}
-                    onPayDue={(amount, catName) => {
-                      setTxType('EXPENSE');
-                      setTxAmount(amount.toString());
-                      setTxMerchant(catName);
-                      setSelectedCategoryName(catName);
-                      if (accounts.length > 0) setTxAccountId(accounts[0].id);
-                      setShowAddTxModal(true);
-                    }}
-                    onSpendCategory={(catId, catName) => {
-                      setTxType('EXPENSE');
-                      setTxAmount('');
-                      setTxMerchant('');
-                      setTxReferenceId(catId);
-                      setSelectedCategoryName(catName);
-                      if (accounts.length > 0) setTxAccountId(accounts[0].id);
-                      setShowAddTxModal(true);
-                    }}
-                  />
-                </div>
+                {/* Stage 3: Account created AND funds added: Onboarding gone, Search/Filter, Categories section with "+ Create Category", and Tree visible */}
+                {accounts.length > 0 && totalBalanceRupees > 0 && (
+                  <>
+                    {/* ── Search & Filter Bar (Figma Search Height 40px, Radius 12px, Filter 38x38 Radius 12px, Color #211F1B) ── */}
+                    <div className="w-full flex items-center gap-2 shrink-0">
+                      <div className="flex-1 bg-[#211F1B] rounded-[12px] h-[40px] px-3.5 flex items-center gap-2.5 border border-[#2D2A24]/60">
+                        <Search className="w-4 h-4 text-[#8E8A82] shrink-0" />
+                        <input
+                          type="text"
+                          placeholder="Search"
+                          value={categorySearch}
+                          onChange={(e) => setCategorySearch(e.target.value)}
+                          className="bg-transparent text-xs sm:text-sm text-white placeholder-[#8E8A82] outline-none w-full font-medium"
+                        />
+                        {categorySearch && (
+                          <button
+                            onClick={() => setCategorySearch('')}
+                            className="text-[#8E8A82] hover:text-white transition-colors cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Filter Button (Figma Width 38px, Height 38px, Radius 12px, Color #211F1B) */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setFilterDropdownOpen(!filterDropdownOpen)}
+                          className={`w-[38px] h-[38px] sm:w-[40px] sm:h-[40px] rounded-[12px] bg-[#211F1B] border border-[#2D2A24]/60 flex items-center justify-center shrink-0 hover:bg-[#2C2924] active:scale-95 transition-all cursor-pointer ${
+                            filterDropdownOpen || categoryFilter !== 'ALL' ? 'ring-2 ring-[#4A622F]' : ''
+                          }`}
+                          title="Filter categories"
+                        >
+                          <svg className="w-4 h-4 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                            <line x1="4" y1="7" x2="20" y2="7"/>
+                            <line x1="7" y1="12" x2="17" y2="12"/>
+                            <line x1="10" y1="17" x2="14" y2="17"/>
+                          </svg>
+                        </button>
+
+                        {filterDropdownOpen && (
+                          <div className="absolute right-0 top-11 w-44 bg-[#211F1B] border border-[#33302A] rounded-[12px] shadow-2xl py-1.5 z-30 animate-in fade-in zoom-in-95">
+                            <button
+                              onClick={() => { setCategoryFilter('ALL'); setFilterDropdownOpen(false); }}
+                              className={`w-full px-4 py-2 text-left text-xs font-semibold flex items-center justify-between cursor-pointer ${
+                                categoryFilter === 'ALL' ? 'text-white bg-[#4A622F]' : 'text-[#A09C94] hover:bg-white/5'
+                              }`}
+                            >
+                              <span>All Categories</span>
+                              {categoryFilter === 'ALL' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                            </button>
+                            <button
+                              onClick={() => { setCategoryFilter('DUE'); setFilterDropdownOpen(false); }}
+                              className={`w-full px-4 py-2 text-left text-xs font-semibold flex items-center justify-between cursor-pointer ${
+                                categoryFilter === 'DUE' ? 'text-white bg-[#4A622F]' : 'text-[#A09C94] hover:bg-white/5'
+                              }`}
+                            >
+                              <span>Due Only</span>
+                              {categoryFilter === 'DUE' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                            </button>
+                            <button
+                              onClick={() => { setCategoryFilter('REPAY'); setFilterDropdownOpen(false); }}
+                              className={`w-full px-4 py-2 text-left text-xs font-semibold flex items-center justify-between cursor-pointer ${
+                                categoryFilter === 'REPAY' ? 'text-white bg-[#4A622F]' : 'text-[#A09C94] hover:bg-white/5'
+                              }`}
+                            >
+                              <span>Repay Only</span>
+                              {categoryFilter === 'REPAY' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* ── Section Title: Categories with Create Category button ── */}
+                    <div className="w-full flex items-center justify-between pt-1 pb-0 shrink-0">
+                      <h2 className="text-base sm:text-lg md:text-xl font-bold text-white tracking-tight">Categories</h2>
+                      <button
+                        onClick={() => {
+                          setCategoryNameInput('');
+                          setCategoryBudgetInput('');
+                          setShowAddCategoryModal(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#211F1B] hover:bg-[#2C2924] border border-[#2D2A24] text-xs font-semibold text-[#A8E063] hover:text-white transition-all cursor-pointer active:scale-95 shadow-sm"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Create Category</span>
+                      </button>
+                    </div>
+
+                    {/* ── Expandable Categories Hierarchical Tree (Exact Image 5 Design) ── */}
+                    <div className="w-full pb-4">
+                      <ExpandableCategoriesTree
+                        searchQuery={categorySearch}
+                        filter={categoryFilter}
+                        realAccountBalance={totalBalanceRupees}
+                        onNavigateToAllocations={(targetTab) => {
+                          openSettingsAllocations(targetTab);
+                        }}
+                        onPayDue={(amount, catName) => {
+                          setTxType('EXPENSE');
+                          setTxAmount(amount.toString());
+                          setTxMerchant(catName);
+                          setSelectedCategoryName(catName);
+                          if (accounts.length > 0) setTxAccountId(accounts[0].id);
+                          setShowAddTxModal(true);
+                        }}
+                        onSpendCategory={(catId, catName) => {
+                          setTxType('EXPENSE');
+                          setTxAmount('');
+                          setTxMerchant('');
+                          setTxReferenceId(catId);
+                          setSelectedCategoryName(catName);
+                          if (accounts.length > 0) setTxAccountId(accounts[0].id);
+                          setShowAddTxModal(true);
+                        }}
+                      />
+                    </div>
+                  </>
+                )}
 
               </div>
             )}
@@ -1408,7 +1524,7 @@ export default function Home() {
 
         return (
           <Modal
-            title={selectedCategoryName ? `Add Spend · ${selectedCategoryName}` : 'New Transaction'}
+            title={txType === 'INCOME' ? 'Add Funds' : selectedCategoryName ? `Add Spend · ${selectedCategoryName}` : 'New Transaction'}
             onClose={() => {
               setShowAddTxModal(false);
               setSelectedCategoryName(null);
@@ -1421,7 +1537,7 @@ export default function Home() {
                 e.preventDefault();
                 if (isBlockedByZeroBalance) return;
                 if (txAccountId && txAmount) {
-                  const catRef = txReferenceId || targetCat?.id || '';
+                  const catRef = txType === 'INCOME' ? (txReferenceId || 'cat-default-buffer') : (txReferenceId || targetCat?.id || '');
                   if (txType === 'EXPENSE' && deficit > 0 && activeBorrowSourceCat && targetCat) {
                     await borrowFromCategory(
                       activeBorrowSourceCat.id,
@@ -1477,7 +1593,7 @@ export default function Home() {
                 />
               </Field>
 
-              <Field label="From Account">
+              <Field label={txType === 'INCOME' ? 'Deposit Into Account' : 'From Account'}>
                 {accounts.length <= 1 ? (
                   <div className="flex items-center justify-between bg-[#211F1B] border border-[#2F2C25] rounded-xl px-4 py-3 text-white text-sm">
                     <div className="flex items-center gap-2.5">
@@ -1523,6 +1639,18 @@ export default function Home() {
                       ))}
                     </select>
                     <ChevronDown className="w-4 h-4 text-[#8E8A82] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                  </div>
+                </Field>
+              ) : txType === 'INCOME' ? (
+                <Field label="Destination">
+                  <div className="flex items-center justify-between bg-[#141310] border border-[#2B2923] rounded-xl px-4 py-3 text-sm font-semibold text-white">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#A8E063] shadow-[0_0_6px_rgba(168,224,99,0.5)]" />
+                      <span>General Funds / Unallocated Pool</span>
+                    </div>
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded border text-[#A8E063] bg-[#4A622F]/20 border-[#587437]/30">
+                      Ready to Budget
+                    </span>
                   </div>
                 </Field>
               ) : selectedCategoryName ? (
@@ -1664,7 +1792,9 @@ export default function Home() {
                   </button>
                 ) : (
                   <PrimaryBtn type="submit">
-                    {deficit > 0 && activeBorrowSourceCat
+                    {txType === 'INCOME'
+                      ? 'Deposit Funds'
+                      : deficit > 0 && activeBorrowSourceCat
                       ? `Confirm & Borrow ₹${deficit.toLocaleString('en-IN')}`
                       : 'Confirm Entry'}
                   </PrimaryBtn>
@@ -1846,6 +1976,22 @@ export default function Home() {
           </div>
         </Modal>
       )}
+
+      {/* Interactive First-Time Onboarding Guide & Walkthrough Modal */}
+      <FirstTimeGuideModal
+        isOpen={showGuideModal}
+        onClose={() => setShowGuideModal(false)}
+        onStartCreateAccount={() => {
+          setShowGuideModal(false);
+          setAcctName('');
+          setShowAddAcctModal(true);
+        }}
+        onOpenSignIn={() => {
+          setShowGuideModal(false);
+          setActiveTab('settings');
+        }}
+        accountsCount={accounts.length}
+      />
     </div>
   );
 }

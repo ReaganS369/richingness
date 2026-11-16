@@ -379,17 +379,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     }
 
-    // Ensure there is always a clean default primary account
-    if (accounts.length === 0) {
-      const defaultAccount: Account = {
-        id: 'acc-primary',
-        name: 'Primary Account',
-        type: 'savings',
-        currency: 'INR'
-      };
-      await scopedRepo.saveAccount(defaultAccount);
-      accounts = [defaultAccount];
-    }
+    // New users start with 0 accounts so progressive onboarding is shown.
+    // accounts will be populated when the user creates their first account.
 
     // Deduplicate existing categories in the local database by normalized lowercase name
     const rawRepo = scopedRepo as unknown as { saveCategory: (record: unknown) => Promise<void> };
@@ -476,6 +467,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Clear localStorage allocation templates and settings
     if (typeof window !== 'undefined') {
       localStorage.removeItem('richingness_category_allocations_v2');
+      localStorage.removeItem('richingness_unallocated_by_account_v1');
     }
 
     // Re-initialize with pristine seed
@@ -755,7 +747,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
 
       // If it is a contribution to a Saving Goal, update the Goal balance atomically
-      if (categoryOrTargetId.startsWith('goal-') && type === 'EXPENSE') {
+      if (categoryOrTargetId && typeof categoryOrTargetId === 'string' && categoryOrTargetId.startsWith('goal-') && type === 'EXPENSE') {
         const goal = get().goals.find(g => g.id === categoryOrTargetId);
         if (goal) {
           const updatedGoal = { ...goal, currentAmount: goal.currentAmount + amount };
@@ -771,7 +763,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const exists = state.ledger.some(l => l.id === newOp.id);
       return {
         ledger: exists ? state.ledger : [...state.ledger, newOp],
-        goals: categoryOrTargetId.startsWith('goal-') && type === 'EXPENSE'
+        goals: (categoryOrTargetId && typeof categoryOrTargetId === 'string' && categoryOrTargetId.startsWith('goal-') && type === 'EXPENSE')
           ? state.goals.map(g => g.id === categoryOrTargetId ? { ...g, currentAmount: g.currentAmount + amount } : g)
           : state.goals
       };
