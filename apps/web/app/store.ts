@@ -89,6 +89,9 @@ interface AppState {
   activeTab: TabId;
   settingsSubView?: 'overview' | 'account-categories';
   settingsInitialTab?: 'global' | 'per-account' | 'currencies';
+  historyAccountFilter: string | null;
+  setHistoryAccountFilter: (accountId: string | null) => void;
+  navigateToAccountHistory: (accountId: string) => void;
   // Ledger Databases
   accounts: Account[];
   categories: BudgetCategory[];
@@ -118,6 +121,7 @@ interface AppState {
   // Accounts Actions
   addAccount: (name: string, type: Account['type'], currency: string) => Promise<void>;
   updateAccountName: (accountId: string, newName: string) => Promise<void>;
+  deleteAccount: (accountId: string) => Promise<void>;
   // Transactions Actions
   addTransaction: (
     accountId: string,
@@ -280,6 +284,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   syncStatus: 'offline',
   theme: typeof window !== 'undefined' && localStorage.getItem('richingness_theme') === 'light' ? 'light' : 'dark',
   activeTab: 'dashboard',
+  historyAccountFilter: null,
   accounts: [],
   categories: [],
   ledger: [],
@@ -613,6 +618,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     settingsSubView: 'account-categories',
     settingsInitialTab: initialTab
   }),
+  setHistoryAccountFilter: (historyAccountFilter) => set({ historyAccountFilter }),
+  navigateToAccountHistory: (accountId) => set({
+    activeTab: 'transactions',
+    historyAccountFilter: accountId
+  }),
   setSyncStatus: (syncStatus) => set({ syncStatus }),
 
   addAccount: async (name, type, currency) => {
@@ -648,6 +658,29 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (activeSyncEngine) {
       await activeSyncEngine.enqueueOperation('accounts', 'update', updated as unknown as Record<string, unknown>);
     }
+  },
+
+  deleteAccount: async (accountId: string) => {
+    const session = get().session;
+    if (!globalRepository || !session) return;
+    const scopedRepo = globalRepository.forUser(getUserKey(session));
+    const rawRepo = scopedRepo as unknown as { saveAccount: (a: unknown) => Promise<void> };
+
+    const acct = get().accounts.find(a => a.id === accountId);
+    if (!acct) return;
+
+    await rawRepo.saveAccount({
+      ...acct,
+      deletedAt: new Date()
+    });
+
+    if (activeSyncEngine) {
+      await activeSyncEngine.enqueueOperation('accounts', 'delete', { id: accountId } as unknown as Record<string, unknown>);
+    }
+
+    set(state => ({
+      accounts: state.accounts.filter(a => a.id !== accountId)
+    }));
   },
 
   addTransaction: async (accountId, type, amount, currency, categoryOrTargetId, _merchantName = 'Merchant', toAccountId = null, _purpose) => {

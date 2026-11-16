@@ -265,6 +265,8 @@ export function AccountCategoriesScreen({
   const [newAccountName, setNewAccountName] = useState('');
   const [newAccountType, setNewAccountType] = useState<'checking' | 'savings' | 'credit' | 'cash'>('savings');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showDiscardExitConfirm, setShowDiscardExitConfirm] = useState(false);
 
   // Currency Tab State
   const [currencyFilter, setCurrencyFilter] = useState<'all' | 'fiat' | 'crypto'>('all');
@@ -275,8 +277,17 @@ export function AccountCategoriesScreen({
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  const handleBackOrCancel = () => {
+    if (hasUnsavedChanges) {
+      setShowDiscardExitConfirm(true);
+    } else {
+      const targetSegment = activeTab === 'per-account' ? 'my-account' : 'all-categories';
+      onBack?.(targetSegment);
+    }
+  };
+
   // Lock background scrolling when any modal in AccountCategoriesScreen is open
-  const isAnyModalOpen = showTemplateModal || showAddCategoryModal || showAddAccountModal;
+  const isAnyModalOpen = showTemplateModal || showAddCategoryModal || showAddAccountModal || showDiscardExitConfirm;
   useEffect(() => {
     if (typeof document !== 'undefined') {
       if (isAnyModalOpen) {
@@ -350,6 +361,7 @@ export function AccountCategoriesScreen({
   // ── Non-Destructive Update of a Category's Percentage ─────────────────────
   // Editing one category NEVER alters or breaks previous categories!
   const updatePercentageNonDestructive = (id: string, newPercentage: number) => {
+    setHasUnsavedChanges(true);
     const clampedVal = Math.max(0, Math.min(100, Math.round(newPercentage)));
 
     const recursiveUpdate = (nodes: CategoryNodeAllocation[], currentDepth = 0): CategoryNodeAllocation[] => {
@@ -435,6 +447,7 @@ export function AccountCategoriesScreen({
   // Add category or subcategory at current level
   const handleAddCategoryAtCurrentLevel = () => {
     if (!newCategoryName.trim()) return;
+    setHasUnsavedChanges(true);
 
     const newId = `cat-${Date.now()}`;
     const newCat: CategoryNodeAllocation = {
@@ -596,6 +609,7 @@ export function AccountCategoriesScreen({
 
       const targetTree = activeTab === 'global' ? globalTree : (perAccountTrees[selectedAccountId] || globalTree);
       await syncCategoryAllocations(targetTree.map(node => ({ name: node.name, percentage: node.percentage })));
+      setHasUnsavedChanges(false);
       showToast(`Allocations saved successfully!`);
 
       // Return to settings preview tab: 'my-account' for Per Account, 'all-categories' for Global
@@ -641,68 +655,98 @@ export function AccountCategoriesScreen({
         </div>
       )}
 
-      {/* ── Top Header: < back | Account & Categories ── */}
+      {/* ── Top Header: < Back | Account & Categories | 🌐 Currency | Cancel ── */}
       <div className="flex items-center justify-between py-2 mb-2">
         <button
-          onClick={() => {
-            const targetSegment = activeTab === 'per-account' ? 'my-account' : 'all-categories';
-            onBack?.(targetSegment);
-          }}
+          type="button"
+          onClick={handleBackOrCancel}
           className="flex items-center gap-1 text-xs text-[#8F9E82] hover:text-white transition-colors cursor-pointer active:scale-95 py-1 px-1 -ml-1 font-medium"
         >
           <ChevronLeft className="w-4 h-4" />
-          <span>back</span>
+          <span>Back</span>
         </button>
-        <h1 className="font-semibold text-sm text-white tracking-tight">
-          {activeTab === 'currencies' ? 'Manage Currencies' : 'Account & Categories'}
-        </h1>
-        <div className="w-10" />
+        <div className="flex items-center gap-2">
+          <h1 className="font-semibold text-sm text-white tracking-tight">
+            {activeTab === 'currencies' ? 'Manage Currencies' : 'Account & Categories'}
+          </h1>
+          <button
+            type="button"
+            onClick={() => setActiveTab(activeTab === 'currencies' ? 'global' : 'currencies')}
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+              activeTab === 'currencies' ? 'bg-[#4A622F] text-white shadow-sm' : 'text-[#8F9E82] hover:text-white hover:bg-white/[0.06]'
+            }`}
+            title="Manage Currencies"
+          >
+            <Globe className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={handleBackOrCancel}
+          className="text-xs font-semibold text-[#8F9E82] hover:text-white transition-colors cursor-pointer active:scale-95 py-1 px-2 rounded-lg hover:bg-white/[0.05]"
+          title="Cancel and return to Settings"
+        >
+          Cancel
+        </button>
       </div>
 
-      {/* ── Top Navigation Tabs (Global | Per Account | 🌐 Currency) ── */}
-      <div className="bg-[#182114] p-1 rounded-[14px] border border-[#27351F] flex items-center gap-1 mb-3.5 shadow-sm">
-        <button
-          onClick={() => setActiveTab('global')}
-          className={`flex-1 py-2 px-3 rounded-[10px] text-xs font-semibold transition-all cursor-pointer text-center ${
-            activeTab === 'global'
-              ? 'bg-[#4A622F] text-white shadow-sm'
-              : 'text-[#829577] hover:text-white hover:bg-white/[0.04]'
-          }`}
-        >
-          Global
-        </button>
-        <button
-          onClick={() => {
-            if (accounts.length > 1) {
-              setActiveTab('per-account');
-            } else {
-              showToast('Per-account allocation requires at least 2 accounts.');
-            }
-          }}
-          disabled={accounts.length <= 1}
-          className={`flex-1 py-2 px-3 rounded-[10px] text-xs font-semibold transition-all text-center ${
-            accounts.length <= 1
-              ? 'text-[#505F48] opacity-50 cursor-not-allowed'
-              : activeTab === 'per-account'
-              ? 'bg-[#4A622F] text-white shadow-sm cursor-pointer'
-              : 'text-[#829577] hover:text-white hover:bg-white/[0.04] cursor-pointer'
-          }`}
-          title={accounts.length <= 1 ? "Add another account to customize per-account allocations" : "Per Account Allocations"}
-        >
-          Per Account {accounts.length <= 1 && '(2+ Accts)'}
-        </button>
-        <button
-          onClick={() => setActiveTab('currencies')}
-          className={`w-9 h-8 flex items-center justify-center rounded-[10px] transition-all cursor-pointer ${
-            activeTab === 'currencies'
-              ? 'bg-[#4A622F] text-white shadow-sm'
-              : 'text-[#829577] hover:text-white hover:bg-white/[0.04]'
-          }`}
-          title="Manage Currencies"
-        >
-          <Globe className="w-3.5 h-3.5" />
-        </button>
-      </div>
+      {/* ── Allocation Scope Header Card (Global Default + Optional Per-Account Checkbox) ── */}
+      {activeTab !== 'currencies' && (
+        <div className="bg-[#151D11] border border-[#27351F] rounded-[14px] p-3 mb-3.5 space-y-2.5 shadow-sm">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                activeTab === 'per-account' ? 'bg-[#E87A24]/20 text-[#E87A24]' : 'bg-[#4A622F]/20 text-[#8EBA55]'
+              }`}>
+                {activeTab === 'per-account' ? <Wallet className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+              </div>
+              <div className="min-w-0">
+                <span className="text-xs font-bold text-white block truncate">
+                  {activeTab === 'per-account' ? 'Custom Per-Account Rules' : 'Globally Allocated'}
+                </span>
+                <span className="text-[10px] text-[#7E9173] block truncate">
+                  {activeTab === 'per-account' ? `Configuring custom split for ${activeAccountObj.name}` : 'By default, allocation applies across all accounts'}
+                </span>
+              </div>
+            </div>
+
+            <label className="flex items-center gap-1.5 cursor-pointer select-none bg-[#10160D] border border-[#26331E] px-2.5 py-1.5 rounded-xl hover:border-[#3E4F32] transition-colors shrink-0">
+              <input
+                type="checkbox"
+                checked={activeTab === 'per-account'}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    if (accounts.length <= 1) {
+                      showToast('Add another account to configure different per-account rules.');
+                      return;
+                    }
+                    setActiveTab('per-account');
+                  } else {
+                    setActiveTab('global');
+                  }
+                }}
+                className="accent-[#6B8F3C] w-3.5 h-3.5 rounded cursor-pointer"
+              />
+              <span className="text-[11px] font-semibold text-[#C5E89B]">Per-Account</span>
+            </label>
+          </div>
+
+          {activeTab === 'per-account' && (
+            <div className="pt-2 border-t border-[#232F1B] flex items-center justify-between gap-2 animate-fade-in">
+              <span className="text-[11px] text-[#7E9173] font-medium">Select Account:</span>
+              <select
+                value={selectedAccountId}
+                onChange={(e) => setSelectedAccountId(e.target.value)}
+                className="bg-[#1B2315] border border-[#2B3921] rounded-lg px-2.5 py-1 text-xs text-white outline-none cursor-pointer font-medium"
+              >
+                {accounts.map(a => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ═════════════════════════════════════════════════════════════════════════ */}
       {/* TAB 1 & 2: GLOBAL & PER ACCOUNT HIERARCHICAL ALLOCATION RULES          */}
@@ -1185,17 +1229,27 @@ export function AccountCategoriesScreen({
             </div>
           )}
 
-          {/* ── Action Buttons (Save & Default Allocation) ── */}
+          {/* ── Action Buttons (Cancel, Save & Default Allocation) ── */}
           <div className="space-y-2 pt-1">
-            <button
-              onClick={handleSaveAllocation}
-              disabled={isSavingAllocation}
-              className={`w-full py-3.5 rounded-[12px] bg-[#F2811D] hover:bg-[#FF8E2E] active:scale-[0.99] text-[#11130E] font-bold text-sm shadow-md transition-all cursor-pointer text-center ${
-                isSavingAllocation ? 'opacity-60 cursor-not-allowed' : ''
-              }`}
-            >
-              {isSavingAllocation ? 'Saving...' : 'Save allocation'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleBackOrCancel}
+                className="flex-1 py-3.5 rounded-[12px] bg-[#1B2317] hover:bg-[#253020] text-[#8E9E82] hover:text-white font-semibold text-xs border border-[#2B3921] transition-all cursor-pointer text-center"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAllocation}
+                disabled={isSavingAllocation}
+                className={`flex-[2] py-3.5 rounded-[12px] bg-[#F2811D] hover:bg-[#FF8E2E] active:scale-[0.99] text-[#11130E] font-bold text-sm shadow-md transition-all cursor-pointer text-center ${
+                  isSavingAllocation ? 'opacity-60 cursor-not-allowed' : ''
+                }`}
+              >
+                {isSavingAllocation ? 'Saving...' : 'Save allocation'}
+              </button>
+            </div>
 
             <div className="space-y-1">
               <button
@@ -1481,7 +1535,17 @@ export function AccountCategoriesScreen({
               <h3 className="font-bold text-sm text-white">
                 {parentNode ? `Add Subcategory inside ${parentNode.name}` : 'Add Category Rule'}
               </h3>
-              <button onClick={() => setShowAddCategoryModal(false)} className="text-[#888] hover:text-white p-1 cursor-pointer">
+              <button
+                type="button"
+                onClick={() => {
+                  if (newCategoryName.trim()) {
+                    setShowDiscardExitConfirm(true);
+                  } else {
+                    setShowAddCategoryModal(false);
+                  }
+                }}
+                className="text-[#888] hover:text-white p-1 cursor-pointer"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1501,7 +1565,14 @@ export function AccountCategoriesScreen({
             </div>
             <div className="flex gap-2 pt-2">
               <button
-                onClick={() => setShowAddCategoryModal(false)}
+                type="button"
+                onClick={() => {
+                  if (newCategoryName.trim()) {
+                    setShowDiscardExitConfirm(true);
+                  } else {
+                    setShowAddCategoryModal(false);
+                  }
+                }}
                 className="flex-1 py-2 rounded-xl bg-[#20271A] text-xs font-semibold text-[#888] hover:text-white cursor-pointer"
               >
                 Cancel
@@ -1574,6 +1645,47 @@ export function AccountCategoriesScreen({
                 className="flex-1 py-2 rounded-xl bg-[#4A622F] hover:bg-[#587538] disabled:opacity-50 text-xs font-bold text-white cursor-pointer"
               >
                 Create Account
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 4. Unsaved Changes Exit Confirmation Modal ── */}
+      {showDiscardExitConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-sm bg-[#181F13] border border-[#2D3B23] rounded-2xl p-5 shadow-2xl space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[#F2811D]/15 text-[#F2811D] flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-bold text-sm text-white">Discard Unsaved Changes?</h3>
+                <p className="text-xs text-[#9DAE93] leading-relaxed">
+                  You have made changes to the category allocations that have not been saved yet. Leaving now will discard these changes.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDiscardExitConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl bg-[#232C1B] hover:bg-[#2C3822] text-xs font-semibold text-white cursor-pointer"
+              >
+                Keep Editing
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDiscardExitConfirm(false);
+                  setHasUnsavedChanges(false);
+                  const targetSegment = activeTab === 'per-account' ? 'my-account' : 'all-categories';
+                  onBack?.(targetSegment);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-[#F2811D] hover:bg-[#FF8E2E] text-xs font-bold text-black shadow-md transition-all cursor-pointer"
+              >
+                Discard Changes
               </button>
             </div>
           </div>

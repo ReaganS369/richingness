@@ -238,6 +238,7 @@ function SecondaryBtn({ children, className = '', ...p }: React.ButtonHTMLAttrib
 export default function Home() {
   const {
     session, activeTab, syncStatus, accounts, goals, ledger, categories,
+    historyAccountFilter, setHistoryAccountFilter,
     initAuth, logout, setActiveTab, openSettingsAllocations, setSettingsSubView,
     addAccount, addCategory, addTransaction, updateAllocation, addGoal,
     borrowFromCategory,
@@ -841,29 +842,83 @@ export default function Home() {
             )}
 
             {/* ═══ TAB: TRANSACTIONS ════════════════════════════════════ */}
-            {activeTab === 'transactions' && (
-              <div className="space-y-6">
+            {activeTab === 'transactions' && (() => {
+              const displayLedger = historyAccountFilter
+                ? ledger.filter(op => op.accountId === historyAccountFilter || op.toAccountId === historyAccountFilter)
+                : ledger;
+              const activeFilterAccount = accounts.find(a => a.id === historyAccountFilter);
+
+              return (
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="font-display font-bold text-textPrimary text-lg">Transaction Ledger</h2>
-                    <p className="text-textSecondary text-sm mt-0.5">{ledger.length} immutable operations</p>
+                    <p className="text-textSecondary text-xs mt-0.5">
+                      {historyAccountFilter && activeFilterAccount ? (
+                        <span className="text-[#8EBA55] font-semibold">Filtered by {activeFilterAccount.name} · </span>
+                      ) : null}
+                      {displayLedger.length} immutable operations
+                    </p>
                   </div>
+                  {historyAccountFilter && (
+                    <button
+                      type="button"
+                      onClick={() => setHistoryAccountFilter(null)}
+                      className="text-xs font-semibold text-[#8EBA55] hover:text-[#A8E063] px-2.5 py-1 rounded-lg bg-[#242621] border border-[#3E4A30] transition-all cursor-pointer flex items-center gap-1"
+                    >
+                      <X className="w-3 h-3" />
+                      <span>All Accounts</span>
+                    </button>
+                  )}
                 </div>
 
+                {/* Account Filter Pills */}
+                {accounts.length > 1 && (
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                    <button
+                      type="button"
+                      onClick={() => setHistoryAccountFilter(null)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 cursor-pointer transition-all ${
+                        !historyAccountFilter
+                          ? 'bg-[#4A622F] text-white shadow-sm'
+                          : 'bg-[#242621] text-[#8E9089] hover:text-white border border-[#30332B]'
+                      }`}
+                    >
+                      All Accounts
+                    </button>
+                    {accounts.map(acc => (
+                      <button
+                        key={acc.id}
+                        type="button"
+                        onClick={() => setHistoryAccountFilter(acc.id)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 cursor-pointer transition-all ${
+                          historyAccountFilter === acc.id
+                            ? 'bg-[#4A622F] text-white shadow-sm'
+                            : 'bg-[#242621] text-[#8E9089] hover:text-white border border-[#30332B]'
+                        }`}
+                      >
+                        {acc.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 <div className="bg-surface rounded-2xl border border-border shadow-card overflow-hidden">
-                  {ledger.length === 0 ? (
+                  {displayLedger.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 gap-3">
                       <div className="w-14 h-14 rounded-2xl bg-surfaceRaised flex items-center justify-center">
                         <History className="w-6 h-6 text-textMuted" />
                       </div>
-                      <p className="text-textSecondary font-medium">No transactions yet</p>
-                      <p className="text-textMuted text-sm">Use Quick Actions to seed your ledger</p>
+                      <p className="text-textSecondary font-medium">No transactions found</p>
+                      <p className="text-textMuted text-sm">
+                        {historyAccountFilter ? `No records for ${activeFilterAccount?.name || 'this account'} yet` : 'Use Quick Actions to seed your ledger'}
+                      </p>
                     </div>
                   ) : (
                     <>
                       {/* Mobile View: Clean Vertical List (Zero Horizontal Scroll) */}
                       <div className="md:hidden divide-y divide-[#26241F]">
-                        {[...ledger].reverse().map(op => {
+                        {[...displayLedger].reverse().map(op => {
                           const acct = accounts.find(a => a.id === op.accountId);
                           const cat = categories.find(c => c.id === op.referenceId);
                           const isIncome = op.type === 'INCOME';
@@ -920,7 +975,7 @@ export default function Home() {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-border/30">
-                            {[...ledger].reverse().map(op => {
+                            {[...displayLedger].reverse().map(op => {
                               const acct = accounts.find(a => a.id === op.accountId);
                               const cat = categories.find(c => c.id === op.referenceId);
                               const isIncome = op.type === 'INCOME';
@@ -968,7 +1023,8 @@ export default function Home() {
                   )}
                 </div>
               </div>
-            )}
+              );
+            })()}
 
             {/* ═══ TAB: GOALS ═══════════════════════════════════════════ */}
             {activeTab === 'goals' && (
@@ -1209,9 +1265,9 @@ export default function Home() {
           return (
             <nav
               aria-label="Bottom Navigation"
-              className="md:hidden app-bottom-nav pt-1.5 pb-1 px-3 flex justify-center bg-[#141310] border-t border-[#26241F] rounded-t-2xl rounded-b-none shadow-2xl"
+              className="md:hidden app-bottom-nav w-full pt-1.5 pb-1 px-1.5 flex bg-[#141310] border-t border-[#26241F] rounded-t-2xl rounded-b-none shadow-2xl"
             >
-              <div className="flex items-center justify-between w-full max-w-sm gap-1.5 bg-[#1B1A17] p-1.5 rounded-t-xl rounded-b-none border-t border-x border-b-0 border-[#2B2923] shadow-lg">
+              <div className="flex items-center justify-between w-full gap-1.5 bg-[#1B1A17] p-1.5 rounded-t-xl rounded-b-none border-t border-x border-b-0 border-[#2B2923] shadow-lg">
                 {/* ── 1. Left: History (Transactions) ── */}
                 <button
                   type="button"
