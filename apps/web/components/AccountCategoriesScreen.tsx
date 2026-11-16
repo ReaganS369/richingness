@@ -203,7 +203,7 @@ const CATEGORY_COLORS = [
 ];
 
 interface AccountCategoriesScreenProps {
-  onBack?: () => void;
+  onBack?: (targetSegment?: 'my-account' | 'all-categories') => void;
   initialTab?: 'global' | 'per-account' | 'currencies';
 }
 
@@ -211,7 +211,9 @@ export function AccountCategoriesScreen({
   onBack,
   initialTab = 'global'
 }: AccountCategoriesScreenProps) {
-  const { accounts, addAccount, updateAccountName, addCategory } = useAppStore();
+  const { accounts, addAccount, updateAccountName, syncCategoryAllocations } = useAppStore();
+
+  const [isSavingAllocation, setIsSavingAllocation] = useState(false);
 
   // Active top navigation tab (Global | Per Account | Currencies)
   const [activeTab, setActiveTab] = useState<'global' | 'per-account' | 'currencies'>(() => {
@@ -272,6 +274,23 @@ export function AccountCategoriesScreen({
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
+
+  // Lock background scrolling when any modal in AccountCategoriesScreen is open
+  const isAnyModalOpen = showTemplateModal || showAddCategoryModal || showAddAccountModal;
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      if (isAnyModalOpen) {
+        document.body.classList.add('modal-open');
+      } else {
+        document.body.classList.remove('modal-open');
+      }
+    }
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.body.classList.remove('modal-open');
+      }
+    };
+  }, [isAnyModalOpen]);
 
   // Active hierarchical tree based on tab
   const activeTree = activeTab === 'global'
@@ -526,10 +545,7 @@ export function AccountCategoriesScreen({
         savedAt: new Date().toISOString()
       };
       localStorage.setItem('richingness_category_allocations_v2', JSON.stringify(payload));
-
-      for (const node of DEFAULT_HIERARCHICAL_RULES) {
-        await addCategory(node.name, BigInt(node.percentage * 100));
-      }
+      await syncCategoryAllocations(DEFAULT_HIERARCHICAL_RULES.map(node => ({ name: node.name, percentage: node.percentage })));
     } catch {
       // Ignored
     }
@@ -555,9 +571,7 @@ export function AccountCategoriesScreen({
         savedAt: new Date().toISOString()
       };
       localStorage.setItem('richingness_category_allocations_v2', JSON.stringify(payload));
-      for (const node of mapped) {
-        await addCategory(node.name, BigInt(node.percentage * 100));
-      }
+      await syncCategoryAllocations(mapped.map(node => ({ name: node.name, percentage: node.percentage })));
     } catch {
       // Ignored
     }
@@ -566,6 +580,9 @@ export function AccountCategoriesScreen({
 
   // Save allocations to local storage and sync categories
   const handleSaveAllocation = async () => {
+    if (isSavingAllocation) return;
+    setIsSavingAllocation(true);
+
     if (!isTotal100) {
       showToast(`Notice: Current level total is ${totalPercentage}%. Recommended to balance to 100%.`);
     }
@@ -577,13 +594,19 @@ export function AccountCategoriesScreen({
       };
       localStorage.setItem('richingness_category_allocations_v2', JSON.stringify(payload));
 
-      for (const node of globalTree) {
-        await addCategory(node.name, BigInt(node.percentage * 100));
-      }
+      const targetTree = activeTab === 'global' ? globalTree : (perAccountTrees[selectedAccountId] || globalTree);
+      await syncCategoryAllocations(targetTree.map(node => ({ name: node.name, percentage: node.percentage })));
+      showToast(`Allocations saved successfully!`);
+
+      // Return to settings preview tab: 'my-account' for Per Account, 'all-categories' for Global
+      setTimeout(() => {
+        const targetSegment = activeTab === 'per-account' ? 'my-account' : 'all-categories';
+        onBack?.(targetSegment);
+      }, 400);
     } catch {
-      // Ignored
+      showToast('Failed to save allocations.');
+      setIsSavingAllocation(false);
     }
-    showToast(`Allocations saved successfully!`);
   };
 
   useEffect(() => {
@@ -621,7 +644,10 @@ export function AccountCategoriesScreen({
       {/* ── Top Header: < back | Account & Categories ── */}
       <div className="flex items-center justify-between py-2 mb-2">
         <button
-          onClick={onBack}
+          onClick={() => {
+            const targetSegment = activeTab === 'per-account' ? 'my-account' : 'all-categories';
+            onBack?.(targetSegment);
+          }}
           className="flex items-center gap-1 text-xs text-[#8F9E82] hover:text-white transition-colors cursor-pointer active:scale-95 py-1 px-1 -ml-1 font-medium"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -1163,9 +1189,12 @@ export function AccountCategoriesScreen({
           <div className="space-y-2 pt-1">
             <button
               onClick={handleSaveAllocation}
-              className="w-full py-3.5 rounded-[12px] bg-[#F2811D] hover:bg-[#FF8E2E] active:scale-[0.99] text-[#11130E] font-bold text-sm shadow-md transition-all cursor-pointer text-center"
+              disabled={isSavingAllocation}
+              className={`w-full py-3.5 rounded-[12px] bg-[#F2811D] hover:bg-[#FF8E2E] active:scale-[0.99] text-[#11130E] font-bold text-sm shadow-md transition-all cursor-pointer text-center ${
+                isSavingAllocation ? 'opacity-60 cursor-not-allowed' : ''
+              }`}
             >
-              Save allocation
+              {isSavingAllocation ? 'Saving...' : 'Save allocation'}
             </button>
 
             <div className="space-y-1">

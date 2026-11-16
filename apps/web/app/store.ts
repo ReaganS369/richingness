@@ -133,6 +133,7 @@ interface AppState {
   // Budget Actions
   addCategory: (name: string, budgetAmount?: bigint, parentId?: string | null) => Promise<void>;
   updateAllocation: (categoryId: string, amount: bigint) => Promise<void>;
+  syncCategoryAllocations: (allocations: { name: string; percentage: number }[]) => Promise<void>;
   triggerRecovery: (targetCategoryId: string, deficitAmount: bigint) => Promise<void>;
 
   // Goals Actions
@@ -731,10 +732,26 @@ export const useAppStore = create<AppState>((set, get) => ({
     const scopedRepo = globalRepository.forUser(getUserKey(session));
 
     const existingCats = get().categories;
+    const cleanName = name.trim();
+    const existing = existingCats.find(c => c.name.toLowerCase() === cleanName.toLowerCase());
+
+    if (existing) {
+      const updated: BudgetCategory = {
+        ...existing,
+        budgetAmount: budgetAmount > 0n ? budgetAmount : existing.budgetAmount,
+        parentId: parentId !== undefined ? parentId : existing.parentId
+      };
+      await scopedRepo.saveCategory(updated);
+      if (activeSyncEngine) {
+        await activeSyncEngine.enqueueOperation('categories', 'update', updated as unknown as Record<string, unknown>);
+      }
+      return;
+    }
+
     const newCategory: BudgetCategory = {
-      id: `cat-${Date.now()}`,
+      id: `cat-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       parentId: parentId || null,
-      name: name.trim(),
+      name: cleanName,
       rolloverMode: 'carry',
       budgetAmount,
       priority: 3,
@@ -748,6 +765,66 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (activeSyncEngine) {
       await activeSyncEngine.enqueueOperation('categories', 'insert', newCategory as unknown as Record<string, unknown>);
     }
+  },
+
+  syncCategoryAllocations: async (allocations: { name: string; percentage: number }[]) => {
+    const session = get().session;
+    if (!globalRepository || !session) return;
+    const scopedRepo = globalRepository.forUser(getUserKey(session));
+
+    const rawRepo = scopedRepo as unknown as { saveCategory: (c: unknown) => Promise<void> };
+    const currentCats = await scopedRepo.getCategories();
+
+    // 1. Deduplicate existing categories by lowercased name: keep first occurrence, soft-delete duplicates
+    const seenNames = new Set<string>();
+    for (const cat of currentCats) {
+      const anyCat = cat as unknown as { deletedAt?: Date; isHidden?: boolean };
+      if (anyCat.deletedAt || anyCat.isHidden) continue;
+      const lower = cat.name.toLowerCase().trim();
+      if (seenNames.has(lower)) {
+        await rawRepo.saveCategory({
+          ...cat,
+          isHidden: true,
+          deletedAt: new Date()
+        });
+      } else {
+        seenNames.add(lower);
+      }
+    }
+
+    // Refresh after cleanup
+    const dedupedCats = (await scopedRepo.getCategories()).filter(c => {
+      const anyC = c as unknown as { deletedAt?: Date; isHidden?: boolean };
+      return !anyC.deletedAt && !anyC.isHidden;
+    });
+
+    // 2. Upsert each allocation
+    for (const alloc of allocations) {
+      const cleanName = alloc.name.trim();
+      const existing = dedupedCats.find(c => c.name.toLowerCase() === cleanName.toLowerCase());
+      const budgetAmount = BigInt(Math.round(alloc.percentage * 100));
+
+      if (existing) {
+        const updated = { ...existing, budgetAmount };
+        await rawRepo.saveCategory(updated);
+      } else {
+        const newCat: BudgetCategory = {
+          id: `cat-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          parentId: null,
+          name: cleanName,
+          rolloverMode: 'carry',
+          budgetAmount,
+          priority: 3,
+          isIncome: false,
+          isHidden: false,
+          sortOrder: dedupedCats.length + 1
+        };
+        await rawRepo.saveCategory(newCat);
+      }
+    }
+
+    // Refresh store tables
+    await get().initializeStore(getUserKey(session));
   },
 
   updateAllocation: async (categoryId, amount) => {

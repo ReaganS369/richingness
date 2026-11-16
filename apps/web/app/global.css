@@ -180,6 +180,16 @@ html, body {
   overscroll-behavior: contain !important;
 }
 
+/* ── Modal Open Freeze Background Scroll ── */
+body.modal-open,
+body.modal-open .app-root-shell,
+body.modal-open .app-workspace-shell,
+body.modal-open .app-main-scroll {
+  overflow: hidden !important;
+  touch-action: none !important;
+  overscroll-behavior: none !important;
+}
+
 .app-main-no-scroll {
   flex: 1 1 0% !important;
   min-height: 0 !important;
@@ -422,6 +432,16 @@ select option {
 }
 .no-spin {
   -moz-appearance: textfield;
+}
+
+/* Prevent background scrolling when modal is open */
+body.modal-open,
+body.modal-open .app-root-shell,
+body.modal-open .app-workspace-shell,
+body.modal-open .app-main-scroll {
+  overflow: hidden !important;
+  touch-action: none !important;
+  overscroll-behavior: none !important;
 }
 
 /* ── Two-Color Palette System (Green Primary + Orange Secondary) ─────────── */

@@ -413,6 +413,42 @@ export function ProfileSection() {
     setTimeout(() => setFeedbackMsg(null), 3000);
   };
 
+  // Lock background scroll when any modal in Settings is open
+  const isAnyProfileModalOpen = Boolean(
+    showProfilesModal ||
+    showAddProfileModal ||
+    showAuthModal ||
+    showProfileEditModal ||
+    showTransferModal ||
+    showAddFundsModal ||
+    showAddIncomeModal ||
+    showAddSpendModal ||
+    showAddGoalModal ||
+    showTemplatesModal ||
+    showPrivacyModal ||
+    showHelpModal ||
+    showSignOutConfirm ||
+    confirmResetType ||
+    showAddAccountModal ||
+    showEditAccountModal ||
+    showAccountOptionsModal
+  );
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      if (isAnyProfileModalOpen) {
+        document.body.classList.add('modal-open');
+      } else {
+        document.body.classList.remove('modal-open');
+      }
+    }
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.body.classList.remove('modal-open');
+      }
+    };
+  }, [isAnyProfileModalOpen]);
+
   // Auth Modal State
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [authEmail, setAuthEmail] = useState('');
@@ -767,10 +803,12 @@ export function ProfileSection() {
   if (subView === 'account-categories') {
     return (
       <AccountCategoriesScreen
-        onBack={() => {
+        onBack={(targetSegment) => {
           setSubView('overview');
           setSettingsSubView('overview');
-          setActiveSegment('my-account');
+          if (targetSegment) {
+            setActiveSegment(targetSegment);
+          }
         }}
         initialTab={storeInitialTab || (activeSegment === 'my-account' ? 'per-account' : 'global')}
       />

@@ -151,10 +151,12 @@ function Modal({ title, onClose, children, icon }: {
     setMounted(true);
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    document.body.classList.add('modal-open');
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', h);
     return () => {
       document.body.style.overflow = prevOverflow;
+      document.body.classList.remove('modal-open');
       window.removeEventListener('keydown', h);
     };
   }, [onClose]);
