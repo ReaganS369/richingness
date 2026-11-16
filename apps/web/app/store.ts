@@ -51,6 +51,32 @@ export interface UserSession {
   isGuest?: boolean;
 }
 
+export interface IncomeSource {
+  id: string;
+  name: string;
+  amount: number; // in Rupees
+  frequency: 'ONE_TIME' | 'MONTHLY' | 'BI_WEEKLY' | 'WEEKLY';
+  dayOfMonth?: number; // 1-31
+  targetAccountId: string | 'GLOBAL';
+  allocationMode: 'SPREAD' | 'DIRECT_CATEGORY';
+  targetCategoryId?: string;
+  isActive: boolean;
+  lastProcessedDate?: string;
+}
+
+export interface ScheduledSpend {
+  id: string;
+  name: string;
+  amount: number; // in Rupees
+  frequency: 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'ONE_TIME';
+  dueDay: number; // 1-31
+  accountId: string;
+  categoryId: string;
+  status: 'ACTIVE' | 'PAID' | 'PAID_EARLY';
+  lastPaidDate?: string;
+  nextDueDate: string;
+}
+
 interface AppState {
   // Auth
   session: UserSession | null;
@@ -65,6 +91,8 @@ interface AppState {
   categories: BudgetCategory[];
   ledger: LedgerOperation[];
   goals: SavingGoal[];
+  incomeSources: IncomeSource[];
+  scheduledSpends: ScheduledSpend[];
   
   // Storage & Sync Controllers
   initializeStore: (userId: string) => Promise<void>;
@@ -112,6 +140,14 @@ interface AppState {
     targetDate?: Date | null,
     linkedCategoryId?: string | null
   ) => Promise<void>;
+
+  // Income Sources & Scheduled Spends Actions
+  addIncomeSource: (source: Omit<IncomeSource, 'id'>) => void;
+  deleteIncomeSource: (id: string) => void;
+  addScheduledSpend: (spend: Omit<ScheduledSpend, 'id' | 'status'>) => void;
+  deleteScheduledSpend: (id: string) => void;
+  payScheduledSpendEarly: (id: string) => Promise<void>;
+  depositFromIncomeSource: (sourceId: string, customAmount?: number) => Promise<void>;
   
   // Computed Selectors (Derived logic without UI calculations)
   getBalances: () => Map<string, AccountBalance>;
@@ -153,6 +189,79 @@ let globalRepository: IRepository | null = null;
 let activeSyncEngine: SyncEngine | null = null;
 let activeSyncWorker: BackgroundSyncWorker | null = null;
 
+const STORAGE_INCOME_KEY = 'richingness_income_sources_v1';
+const STORAGE_SPENDS_KEY = 'richingness_scheduled_spends_v1';
+
+export const DEFAULT_INCOME_SOURCES: IncomeSource[] = [
+  {
+    id: 'inc-salary',
+    name: 'Primary Salary',
+    amount: 50000,
+    frequency: 'MONTHLY',
+    dayOfMonth: 1,
+    targetAccountId: 'GLOBAL',
+    allocationMode: 'SPREAD',
+    isActive: true
+  },
+  {
+    id: 'inc-freelance',
+    name: 'Freelance & Consulting',
+    amount: 15000,
+    frequency: 'MONTHLY',
+    dayOfMonth: 15,
+    targetAccountId: 'GLOBAL',
+    allocationMode: 'SPREAD',
+    isActive: true
+  }
+];
+
+export const DEFAULT_SCHEDULED_SPENDS: ScheduledSpend[] = [
+  {
+    id: 'spend-rent-emi',
+    name: 'Home Rent / Housing EMI',
+    amount: 15000,
+    frequency: 'MONTHLY',
+    dueDay: 5,
+    accountId: '',
+    categoryId: 'cat-needs',
+    status: 'ACTIVE',
+    nextDueDate: '5th of each month'
+  },
+  {
+    id: 'spend-vehicle-emi',
+    name: 'Vehicle Loan EMI',
+    amount: 6500,
+    frequency: 'MONTHLY',
+    dueDay: 10,
+    accountId: '',
+    categoryId: 'cat-needs',
+    status: 'ACTIVE',
+    nextDueDate: '10th of each month'
+  }
+];
+
+function loadStoredIncomeSources(): IncomeSource[] {
+  if (typeof window === 'undefined') return DEFAULT_INCOME_SOURCES;
+  try {
+    const raw = localStorage.getItem(STORAGE_INCOME_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {
+    // ignore
+  }
+  return DEFAULT_INCOME_SOURCES;
+}
+
+function loadStoredScheduledSpends(): ScheduledSpend[] {
+  if (typeof window === 'undefined') return DEFAULT_SCHEDULED_SPENDS;
+  try {
+    const raw = localStorage.getItem(STORAGE_SPENDS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {
+    // ignore
+  }
+  return DEFAULT_SCHEDULED_SPENDS;
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
   session: DEFAULT_GUEST_SESSION,
   syncStatus: 'offline',
@@ -161,6 +270,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   categories: [],
   ledger: [],
   goals: [],
+  incomeSources: loadStoredIncomeSources(),
+  scheduledSpends: loadStoredScheduledSpends(),
 
   initializeStore: async (userId: string) => {
     if (typeof window === 'undefined') return;
@@ -710,6 +821,148 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (activeSyncEngine) {
       await activeSyncEngine.enqueueOperation('goals', 'insert', newGoal as unknown as Record<string, unknown>);
     }
+  },
+
+  addIncomeSource: (source) => {
+    const newSource: IncomeSource = {
+      ...source,
+      id: `inc-${Date.now()}`
+    };
+    const updated = [...get().incomeSources, newSource];
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_INCOME_KEY, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+    }
+    set({ incomeSources: updated });
+  },
+
+  deleteIncomeSource: (id) => {
+    const updated = get().incomeSources.filter(s => s.id !== id);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_INCOME_KEY, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+    }
+    set({ incomeSources: updated });
+  },
+
+  addScheduledSpend: (spend) => {
+    const newSpend: ScheduledSpend = {
+      ...spend,
+      id: `spend-${Date.now()}`,
+      status: 'ACTIVE'
+    };
+    const updated = [...get().scheduledSpends, newSpend];
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_SPENDS_KEY, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+    }
+    set({ scheduledSpends: updated });
+  },
+
+  deleteScheduledSpend: (id) => {
+    const updated = get().scheduledSpends.filter(s => s.id !== id);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_SPENDS_KEY, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+    }
+    set({ scheduledSpends: updated });
+  },
+
+  payScheduledSpendEarly: async (id) => {
+    const spends = get().scheduledSpends;
+    const target = spends.find(s => s.id === id);
+    if (!target) return;
+
+    const accounts = get().accounts;
+    const targetAccountId = target.accountId || (accounts[0] ? accounts[0].id : '');
+    if (!targetAccountId) return;
+
+    const amountPaise = BigInt(Math.round(target.amount * 100));
+
+    await get().addTransaction(
+      targetAccountId,
+      'EXPENSE',
+      amountPaise,
+      'INR',
+      target.categoryId || '',
+      target.name,
+      null,
+      'EMI / Scheduled Bill (Paid Early)'
+    );
+
+    const updated = spends.map(s => {
+      if (s.id === id) {
+        return {
+          ...s,
+          status: 'PAID_EARLY' as const,
+          lastPaidDate: new Date().toISOString()
+        };
+      }
+      return s;
+    });
+
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_SPENDS_KEY, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+    }
+    set({ scheduledSpends: updated });
+  },
+
+  depositFromIncomeSource: async (sourceId, customAmount) => {
+    const sources = get().incomeSources;
+    const src = sources.find(s => s.id === sourceId);
+    if (!src) return;
+
+    const accounts = get().accounts;
+    const targetAccountId = (src.targetAccountId && src.targetAccountId !== 'GLOBAL')
+      ? src.targetAccountId
+      : (accounts[0] ? accounts[0].id : '');
+    if (!targetAccountId) return;
+
+    const finalAmount = customAmount !== undefined && customAmount > 0 ? customAmount : src.amount;
+    const amountPaise = BigInt(Math.round(finalAmount * 100));
+
+    await get().addTransaction(
+      targetAccountId,
+      'INCOME',
+      amountPaise,
+      'INR',
+      src.allocationMode === 'DIRECT_CATEGORY' ? (src.targetCategoryId || '') : '',
+      src.name,
+      null,
+      src.allocationMode === 'DIRECT_CATEGORY' ? 'Direct Category Deposit' : 'Dynamic Category Spread'
+    );
+
+    const updated = sources.map(s => {
+      if (s.id === sourceId) {
+        return { ...s, lastProcessedDate: new Date().toISOString() };
+      }
+      return s;
+    });
+
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_INCOME_KEY, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+    }
+    set({ incomeSources: updated });
   },
 
   getBalances: () => {

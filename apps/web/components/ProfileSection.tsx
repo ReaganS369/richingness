@@ -15,9 +15,13 @@ import {
   Loader2,
   Check,
   Shield,
-  HelpCircle
+  HelpCircle,
+  ArrowDownLeft,
+  Layers,
+  Zap,
+  Trash2
 } from 'lucide-react';
-import { useAppStore, authService } from '../app/store';
+import { useAppStore, authService, IncomeSource, ScheduledSpend } from '../app/store';
 import { formatRupeesToPaise } from '@repo/shared';
 import { AccountCategoriesScreen } from './AccountCategoriesScreen';
 import { getStorageInfo, requestStoragePersistence, StorageInfo } from '../app/storageService';
@@ -228,6 +232,14 @@ export function ProfileSection() {
   const storeSubView = useAppStore(state => state.settingsSubView);
   const setSettingsSubView = useAppStore(state => state.setSettingsSubView);
   const storeInitialTab = useAppStore(state => state.settingsInitialTab);
+  const incomeSources = useAppStore(state => state.incomeSources);
+  const scheduledSpends = useAppStore(state => state.scheduledSpends);
+  const addIncomeSource = useAppStore(state => state.addIncomeSource);
+  const deleteIncomeSource = useAppStore(state => state.deleteIncomeSource);
+  const addScheduledSpend = useAppStore(state => state.addScheduledSpend);
+  const deleteScheduledSpend = useAppStore(state => state.deleteScheduledSpend);
+  const payScheduledSpendEarly = useAppStore(state => state.payScheduledSpendEarly);
+  const depositFromIncomeSource = useAppStore(state => state.depositFromIncomeSource);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -301,6 +313,43 @@ export function ProfileSection() {
   const [fundsAmount, setFundsAmount] = useState('');
   const [fundsAccountId, setFundsAccountId] = useState(accounts[0]?.id || '');
   const [fundsNote, setFundsNote] = useState('');
+  const [fundsAllocationMode, setFundsAllocationMode] = useState<'SPREAD' | 'DIRECT_CATEGORY'>('SPREAD');
+  const [fundsTargetCategoryId, setFundsTargetCategoryId] = useState('unallocated');
+
+  // Cash Flow & Schedules state
+  const [cashFlowTab, setCashFlowTab] = useState<'income' | 'spends'>('income');
+  const [showAddIncomeModal, setShowAddIncomeModal] = useState(false);
+  const [showAddSpendModal, setShowAddSpendModal] = useState(false);
+
+  // New Income Source form state
+  const [newIncName, setNewIncName] = useState('');
+  const [newIncAmount, setNewIncAmount] = useState('');
+  const [newIncFrequency, setNewIncFrequency] = useState<'ONE_TIME' | 'MONTHLY' | 'BI_WEEKLY' | 'WEEKLY'>('MONTHLY');
+  const [newIncDay, setNewIncDay] = useState('1');
+  const [newIncTargetAccount, setNewIncTargetAccount] = useState<'GLOBAL' | string>('GLOBAL');
+  const [newIncAllocationMode, setNewIncAllocationMode] = useState<'SPREAD' | 'DIRECT_CATEGORY'>('SPREAD');
+  const [newIncTargetCategory, setNewIncTargetCategory] = useState('cat-needs');
+
+  // New Scheduled Spend form state
+  const [newSpendName, setNewSpendName] = useState('');
+  const [newSpendAmount, setNewSpendAmount] = useState('');
+  const [newSpendFrequency, setNewSpendFrequency] = useState<'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'ONE_TIME'>('MONTHLY');
+  const [newSpendDueDay, setNewSpendDueDay] = useState('5');
+  const [newSpendAccount, setNewSpendAccount] = useState('');
+  const [newSpendCategory, setNewSpendCategory] = useState('cat-needs');
+
+  // Account Unallocated buffers (loaded from localStorage)
+  const [unallocatedByAccount, setUnallocatedByAccount] = useState<Record<string, number>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('richingness_unallocated_by_account_v1');
+        if (raw) return JSON.parse(raw);
+      } catch {
+        // ignore
+      }
+    }
+    return {};
+  });
   const [showAddGoalModal, setShowAddGoalModal] = useState(false);
   const [showTemplatesModal, setShowTemplatesModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -565,21 +614,141 @@ export function ProfileSection() {
 
     setIsSubmittingFunds(true);
     try {
+      const categoryRef = fundsAllocationMode === 'DIRECT_CATEGORY' ? fundsTargetCategoryId : '';
       await addTransaction(
         targetAccId,
         'INCOME',
         formatRupeesToPaise(fundsAmount),
         'INR',
-        '',
-        fundsNote.trim() || 'Deposit / Add Funds'
+        categoryRef,
+        fundsNote.trim() || 'Deposit / Add Funds',
+        null,
+        fundsAllocationMode === 'DIRECT_CATEGORY' ? 'Direct Category Deposit' : 'Dynamic Category Spread'
       );
 
-      showToast(`₹${amt.toLocaleString('en-IN')} added! Funds automatically distributed to your categories.`);
+      if (fundsAllocationMode === 'DIRECT_CATEGORY' && fundsTargetCategoryId === 'unallocated') {
+        const cur = unallocatedByAccount[targetAccId] || 0;
+        const updated = { ...unallocatedByAccount, [targetAccId]: cur + amt };
+        setUnallocatedByAccount(updated);
+        try {
+          localStorage.setItem('richingness_unallocated_by_account_v1', JSON.stringify(updated));
+        } catch {
+          // ignore
+        }
+      }
+
+      showToast(
+        fundsAllocationMode === 'SPREAD'
+          ? `₹${amt.toLocaleString('en-IN')} added! Funds automatically distributed to your categories.`
+          : `₹${amt.toLocaleString('en-IN')} deposited into selected envelope/buffer!`
+      );
       setShowAddFundsModal(false);
       setFundsAmount('');
       setFundsNote('');
+    } catch {
+      showToast('Failed to add funds.');
     } finally {
       setIsSubmittingFunds(false);
+    }
+  };
+
+  const handlePullToDefault = (accId: string, totalAvailable: number) => {
+    if (totalAvailable <= 0) {
+      showToast('No available unspent funds to pull.');
+      return;
+    }
+    const currentUnallocated = unallocatedByAccount[accId] || 0;
+    const updated = { ...unallocatedByAccount, [accId]: currentUnallocated + totalAvailable };
+    setUnallocatedByAccount(updated);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('richingness_unallocated_by_account_v1', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+    }
+    showToast(`Pulled ₹${totalAvailable.toLocaleString('en-IN')} unspent funds to Default Buffer. Past expenses preserved.`);
+  };
+
+  const handleRedistributeDefault = (accId: string) => {
+    const currentUnallocated = unallocatedByAccount[accId] || 0;
+    if (currentUnallocated <= 0) {
+      showToast('Default buffer is empty.');
+      return;
+    }
+    const updated = { ...unallocatedByAccount, [accId]: 0 };
+    setUnallocatedByAccount(updated);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('richingness_unallocated_by_account_v1', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+    }
+    showToast(`Redistributed ₹${currentUnallocated.toLocaleString('en-IN')} across category envelopes according to percentages!`);
+  };
+
+  const handleCreateIncomeSource = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = parseFloat(newIncAmount);
+    if (!newIncName.trim() || isNaN(amt) || amt <= 0) {
+      showToast('Please enter a valid stream name and amount.');
+      return;
+    }
+    addIncomeSource({
+      name: newIncName.trim(),
+      amount: amt,
+      frequency: newIncFrequency,
+      dayOfMonth: parseInt(newIncDay, 10) || 1,
+      targetAccountId: newIncTargetAccount,
+      allocationMode: newIncAllocationMode,
+      targetCategoryId: newIncAllocationMode === 'DIRECT_CATEGORY' ? newIncTargetCategory : undefined,
+      isActive: true
+    });
+    setShowAddIncomeModal(false);
+    setNewIncName('');
+    setNewIncAmount('');
+    showToast(`Income stream "${newIncName}" added!`);
+  };
+
+  const handleCreateScheduledSpend = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = parseFloat(newSpendAmount);
+    if (!newSpendName.trim() || isNaN(amt) || amt <= 0) {
+      showToast('Please enter a valid bill name and amount.');
+      return;
+    }
+    const targetAccId = newSpendAccount || accounts[0]?.id || '';
+    addScheduledSpend({
+      name: newSpendName.trim(),
+      amount: amt,
+      frequency: newSpendFrequency,
+      dueDay: parseInt(newSpendDueDay, 10) || 5,
+      accountId: targetAccId,
+      categoryId: newSpendCategory,
+      nextDueDate: `${newSpendDueDay}th of each month`
+    });
+    setShowAddSpendModal(false);
+    setNewSpendName('');
+    setNewSpendAmount('');
+    showToast(`Scheduled spend / EMI "${newSpendName}" created!`);
+  };
+
+  const handleDepositFromStream = async (src: IncomeSource) => {
+    try {
+      await depositFromIncomeSource(src.id);
+      showToast(`Deposited ₹${src.amount.toLocaleString('en-IN')} from "${src.name}"!`);
+    } catch {
+      showToast('Failed to execute stream deposit.');
+    }
+  };
+
+  const handlePayEarly = async (spend: ScheduledSpend) => {
+    try {
+      await payScheduledSpendEarly(spend.id);
+      showToast(`Paid early: ₹${spend.amount.toLocaleString('en-IN')} for "${spend.name}". Envelope updated!`);
+    } catch {
+      showToast('Failed to process payment.');
     }
   };
 
@@ -749,27 +918,192 @@ export function ProfileSection() {
                 <div className="divide-y divide-[#2B2925]">
                   {accountsList.map(acc => {
                     const isSelected = acc.id === selectedAccountId;
+                    const unallocated = unallocatedByAccount[acc.id] || 0;
+                    const pool = Math.max(0, acc.amount - unallocated);
+                    const needsAlloc = Math.round((pool * 50) / 100);
+                    const wantsAlloc = Math.round((pool * 30) / 100);
+                    const savingsAlloc = Math.round((pool * 20) / 100);
+
+                    const accExpenses = ledger.filter(op => op.type === 'EXPENSE' && op.accountId === acc.id);
+                    const needsSpent = accExpenses
+                      .filter(op => !op.referenceId || op.referenceId.toLowerCase().includes('need') || op.referenceId.toLowerCase().includes('rent') || op.referenceId.toLowerCase().includes('food') || op.referenceId.toLowerCase().includes('grocery'))
+                      .reduce((sum, op) => sum + Number(op.amount) / 100, 0);
+
+                    const wantsSpent = accExpenses
+                      .filter(op => op.referenceId && (op.referenceId.toLowerCase().includes('want') || op.referenceId.toLowerCase().includes('dining') || op.referenceId.toLowerCase().includes('hobbi')))
+                      .reduce((sum, op) => sum + Number(op.amount) / 100, 0);
+
+                    const savingsSpent = accExpenses
+                      .filter(op => op.referenceId && (op.referenceId.toLowerCase().includes('saving') || op.referenceId.toLowerCase().includes('invest')))
+                      .reduce((sum, op) => sum + Number(op.amount) / 100, 0);
+
+                    const needsAvail = Math.max(0, needsAlloc - needsSpent);
+                    const wantsAvail = Math.max(0, wantsAlloc - wantsSpent);
+                    const savingsAvail = Math.max(0, savingsAlloc - savingsSpent);
+                    const totalAvailEnvelopes = needsAvail + wantsAvail + savingsAvail;
+
                     return (
-                      <div
-                        key={acc.id}
-                        onClick={() => setSelectedAccountId(acc.id)}
-                        className="flex items-center justify-between py-3 cursor-pointer group"
-                      >
-                        <div className="flex items-center gap-3">
-                          {isSelected ? (
-                            <div className="w-4 h-4 rounded-full border-2 border-[#6B8F3C] flex items-center justify-center shrink-0">
-                              <div className="w-2 h-2 rounded-full bg-[#6B8F3C]" />
+                      <div key={acc.id} className="py-2.5">
+                        <div
+                          onClick={() => setSelectedAccountId(acc.id === selectedAccountId ? '' : acc.id)}
+                          className="flex items-center justify-between cursor-pointer group py-1"
+                        >
+                          <div className="flex items-center gap-3">
+                            {isSelected ? (
+                              <div className="w-4 h-4 rounded-full border-2 border-[#6B8F3C] flex items-center justify-center shrink-0">
+                                <div className="w-2 h-2 rounded-full bg-[#6B8F3C]" />
+                              </div>
+                            ) : (
+                              <div className="w-4 h-4 rounded-full border-2 border-[#555] shrink-0 group-hover:border-[#777] transition-colors" />
+                            )}
+                            <div>
+                              <span className="text-sm font-medium text-white group-hover:text-white/95">
+                                {acc.name}
+                              </span>
+                              <span className="text-[10px] text-[#8E8A82] block">
+                                {isSelected ? 'Tap to collapse breakdown' : 'Tap to inspect envelopes & reallocate'}
+                              </span>
                             </div>
-                          ) : (
-                            <div className="w-4 h-4 rounded-full border-2 border-[#555] shrink-0 group-hover:border-[#777] transition-colors" />
-                          )}
-                          <span className="text-sm font-medium text-white group-hover:text-white/95">
-                            {acc.name}
-                          </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-sm font-semibold text-white num-display block">
+                              ₹{acc.amount.toLocaleString('en-IN')}
+                            </span>
+                            {unallocated > 0 && (
+                              <span className="text-[10px] text-[#E8C47A] font-medium">
+                                ₹{unallocated.toLocaleString('en-IN')} in Default
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <span className="text-sm font-semibold text-white num-display">
-                          ₹{acc.amount.toLocaleString('en-IN')}
-                        </span>
+
+                        {isSelected && (
+                          <div className="mt-2.5 p-3.5 bg-[#171613] rounded-xl border border-[#2D2A24] space-y-3 animate-fade-in">
+                            <div className="flex items-center justify-between border-b border-[#26241F] pb-2">
+                              <div className="flex items-center gap-1.5">
+                                <Layers className="w-3.5 h-3.5 text-[#8EBA55]" />
+                                <span className="text-xs font-bold text-white uppercase tracking-wider">Account Envelopes</span>
+                              </div>
+                              <span className="text-[11px] text-[#8E8A82]">Net Available Funds</span>
+                            </div>
+
+                            {/* Envelopes Table with Net Math */}
+                            <div className="space-y-1.5">
+                              {/* Needs */}
+                              <div className="flex items-center justify-between bg-[#12110E] p-2.5 rounded-lg border border-[#222]">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-[#8EBA55]" />
+                                    <span className="text-xs font-semibold text-white">Needs (50%)</span>
+                                  </div>
+                                  <span className="text-[10px] text-[#777]">
+                                    Alloc: ₹{needsAlloc.toLocaleString('en-IN')} · Spent: ₹{needsSpent.toLocaleString('en-IN')}
+                                  </span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-xs font-bold text-[#A8E063] block">
+                                    ₹{needsAvail.toLocaleString('en-IN')}
+                                  </span>
+                                  <span className="text-[9px] text-[#666]">available</span>
+                                </div>
+                              </div>
+
+                              {/* Wants */}
+                              <div className="flex items-center justify-between bg-[#12110E] p-2.5 rounded-lg border border-[#222]">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-[#4A90E2]" />
+                                    <span className="text-xs font-semibold text-white">Wants (30%)</span>
+                                  </div>
+                                  <span className="text-[10px] text-[#777]">
+                                    Alloc: ₹{wantsAlloc.toLocaleString('en-IN')} · Spent: ₹{wantsSpent.toLocaleString('en-IN')}
+                                  </span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-xs font-bold text-[#A8E063] block">
+                                    ₹{wantsAvail.toLocaleString('en-IN')}
+                                  </span>
+                                  <span className="text-[9px] text-[#666]">available</span>
+                                </div>
+                              </div>
+
+                              {/* Savings */}
+                              <div className="flex items-center justify-between bg-[#12110E] p-2.5 rounded-lg border border-[#222]">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-[#E5A93C]" />
+                                    <span className="text-xs font-semibold text-white">Savings (20%)</span>
+                                  </div>
+                                  <span className="text-[10px] text-[#777]">
+                                    Alloc: ₹{savingsAlloc.toLocaleString('en-IN')} · Spent: ₹{savingsSpent.toLocaleString('en-IN')}
+                                  </span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-xs font-bold text-[#A8E063] block">
+                                    ₹{savingsAvail.toLocaleString('en-IN')}
+                                  </span>
+                                  <span className="text-[9px] text-[#666]">available</span>
+                                </div>
+                              </div>
+
+                              {/* Default / Unallocated Buffer */}
+                              <div className="flex items-center justify-between bg-[#1B1914] p-2.5 rounded-lg border border-[#3C3627]">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-[#E8C47A]" />
+                                    <span className="text-xs font-semibold text-white">Default / Unallocated Buffer</span>
+                                  </div>
+                                  <span className="text-[10px] text-[#8E8A82]">
+                                    Holding pool (outside category percentage rules)
+                                  </span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-xs font-bold text-[#E8C47A] block">
+                                    ₹{unallocated.toLocaleString('en-IN')}
+                                  </span>
+                                  <span className="text-[9px] text-[#888]">unassigned</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Reallocation Action Buttons */}
+                            <div className="pt-1 flex gap-2">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePullToDefault(acc.id, totalAvailEnvelopes);
+                                }}
+                                disabled={totalAvailEnvelopes <= 0}
+                                className={`flex-1 py-2 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 border ${
+                                  totalAvailEnvelopes > 0
+                                    ? 'bg-[#2A2315] hover:bg-[#382F1D] text-[#E8C47A] border-[#534327] cursor-pointer'
+                                    : 'bg-[#181714] text-[#555] border-[#25231F] cursor-not-allowed'
+                                }`}
+                              >
+                                <ArrowDownLeft className="w-3.5 h-3.5" />
+                                <span>Pull to Default ({totalAvailEnvelopes > 0 ? `₹${totalAvailEnvelopes.toLocaleString('en-IN')}` : '₹0'})</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRedistributeDefault(acc.id);
+                                }}
+                                disabled={unallocated <= 0}
+                                className={`flex-1 py-2 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 border ${
+                                  unallocated > 0
+                                    ? 'bg-[#1D2916] hover:bg-[#27381E] text-[#A8E063] border-[#3F5B25] cursor-pointer'
+                                    : 'bg-[#181714] text-[#555] border-[#25231F] cursor-not-allowed'
+                                }`}
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                <span>Redistribute Default ({unallocated > 0 ? `₹${unallocated.toLocaleString('en-IN')}` : '₹0'})</span>
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -855,6 +1189,184 @@ export function ProfileSection() {
             No savings goals set yet. Tap + to create your first goal.
           </div>
         )}
+      </div>
+
+      {/* ── Cash Flow & Schedules Section (Income Streams & EMI Spends) ── */}
+      <div className="pt-1 space-y-2.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h3 className="font-bold text-base text-white">Cash Flow & Schedules</h3>
+            <span className="text-[10px] font-bold text-[#A6C485] bg-[#4A622F]/20 px-2 py-0.5 rounded-full border border-[#587437]/30">
+              Auto-Rules
+            </span>
+          </div>
+
+          <button
+            onClick={() => {
+              if (cashFlowTab === 'income') {
+                setShowAddIncomeModal(true);
+              } else {
+                setShowAddSpendModal(true);
+              }
+            }}
+            className="px-2.5 py-1 rounded-lg bg-[#201F1B] border border-[#2E2C27] text-white hover:border-[#6B8F3C] flex items-center gap-1.5 text-xs font-semibold transition-all cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5 text-[#8EBA55]" />
+            <span>{cashFlowTab === 'income' ? 'Add Income Stream' : 'Add EMI / Bill'}</span>
+          </button>
+        </div>
+
+        <div className="bg-[#1C1A16] rounded-2xl border border-[#282622] p-3.5 space-y-3 shadow-md">
+          {/* Segment switch */}
+          <div className="bg-[#12110E] p-1 rounded-xl flex items-center gap-1">
+            <button
+              onClick={() => setCashFlowTab('income')}
+              className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer text-center ${
+                cashFlowTab === 'income'
+                  ? 'bg-[#4A622F] text-white shadow-sm'
+                  : 'text-[#8E9089] hover:text-white'
+              }`}
+            >
+              Income Streams ({incomeSources.length})
+            </button>
+            <button
+              onClick={() => setCashFlowTab('spends')}
+              className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer text-center ${
+                cashFlowTab === 'spends'
+                  ? 'bg-[#4A622F] text-white shadow-sm'
+                  : 'text-[#8E9089] hover:text-white'
+              }`}
+            >
+              Recurring Spends & EMIs ({scheduledSpends.length})
+            </button>
+          </div>
+
+          {/* Tab 1: Income Streams */}
+          {cashFlowTab === 'income' && (
+            <div className="space-y-2">
+              {incomeSources.length > 0 ? (
+                incomeSources.map(src => (
+                  <div
+                    key={src.id}
+                    className="p-3 bg-[#141310] rounded-xl border border-[#282622] flex items-center justify-between gap-2.5"
+                  >
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-xs sm:text-sm text-white truncate">
+                          {src.name}
+                        </span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#25281E] border border-[#3A4526] text-[#A6C485] shrink-0">
+                          {src.frequency === 'MONTHLY' ? `Monthly (${src.dayOfMonth || 1}st)` : src.frequency}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px] text-[#8E8A82]">
+                        <span className="font-mono text-white font-bold">
+                          ₹{src.amount.toLocaleString('en-IN')}
+                        </span>
+                        <span>·</span>
+                        <span>
+                          {src.allocationMode === 'SPREAD' ? 'Auto-Spread 50/30/20' : 'Direct Category'}
+                        </span>
+                        <span>·</span>
+                        <span>
+                          {src.targetAccountId === 'GLOBAL' ? 'All Accounts' : 'Primary Account'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => handleDepositFromStream(src)}
+                        className="px-2.5 py-1.5 rounded-lg bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm"
+                        title="Deposit Now"
+                      >
+                        <Zap className="w-3 h-3 text-[#C5E89B]" />
+                        <span>Deposit</span>
+                      </button>
+                      <button
+                        onClick={() => deleteIncomeSource(src.id)}
+                        className="p-1.5 text-[#666] hover:text-[#E85D5D] transition-colors cursor-pointer"
+                        title="Delete Stream"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-4 text-center text-[#888] text-xs">
+                  No income streams configured yet.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tab 2: Recurring Spends & EMIs */}
+          {cashFlowTab === 'spends' && (
+            <div className="space-y-2">
+              {scheduledSpends.length > 0 ? (
+                scheduledSpends.map(spend => {
+                  const isPaidEarly = spend.status === 'PAID_EARLY';
+                  return (
+                    <div
+                      key={spend.id}
+                      className="p-3 bg-[#141310] rounded-xl border border-[#282622] flex items-center justify-between gap-2.5"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-xs sm:text-sm text-white truncate">
+                            {spend.name}
+                          </span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#2D2419] border border-[#4E3E26] text-[#E8C47A] shrink-0">
+                            Due {spend.dueDay}th
+                          </span>
+                          {isPaidEarly && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#1B2915] border border-[#3E5C2A] text-[#A6C485] shrink-0">
+                              Paid Early
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px] text-[#8E8A82]">
+                          <span className="font-mono text-white font-bold">
+                            ₹{spend.amount.toLocaleString('en-IN')}
+                          </span>
+                          <span>·</span>
+                          <span>{spend.frequency}</span>
+                          <span>·</span>
+                          <span className="text-[#8EBA55]">Deducts from Needs</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {!isPaidEarly && (
+                          <button
+                            onClick={() => handlePayEarly(spend)}
+                            className="px-2.5 py-1.5 rounded-lg bg-[#E87A24] hover:bg-[#F38936] text-[#141310] text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm"
+                            title="Pay Early"
+                          >
+                            <Zap className="w-3 h-3 text-[#141310]" />
+                            <span>Pay Early</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => deleteScheduledSpend(spend.id)}
+                          className="p-1.5 text-[#666] hover:text-[#E85D5D] transition-colors cursor-pointer"
+                          title="Delete EMI"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="py-4 text-center text-[#888] text-xs">
+                  No recurring spends or EMIs scheduled yet.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Data & Backups Section ── */}
@@ -1401,6 +1913,35 @@ export function ProfileSection() {
               </p>
             </div>
 
+            {/* Quick Pick from Saved Streams */}
+            {incomeSources.length > 0 && (
+              <div>
+                <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1.5">Quick Pick From Saved Streams</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {incomeSources.map(src => (
+                    <button
+                      key={src.id}
+                      type="button"
+                      onClick={() => {
+                        setFundsAmount(String(src.amount));
+                        setFundsNote(src.name);
+                        setFundsAllocationMode(src.allocationMode);
+                        if (src.targetCategoryId) setFundsTargetCategoryId(src.targetCategoryId);
+                        if (src.targetAccountId && src.targetAccountId !== 'GLOBAL') {
+                          setFundsAccountId(src.targetAccountId);
+                        }
+                      }}
+                      className="text-xs px-2.5 py-1.5 rounded-lg bg-[#201F1B] border border-[#312E27] text-white hover:border-[#6B8F3C] transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-98"
+                    >
+                      <Zap className="w-3 h-3 text-[#A6C485]" />
+                      <span>{src.name}</span>
+                      <span className="text-[#888] font-mono">₹{src.amount.toLocaleString('en-IN')}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Target Account</label>
               {accountsList.length <= 1 ? (
@@ -1434,6 +1975,60 @@ export function ProfileSection() {
               />
             </div>
 
+            {/* Distribution Strategy Mode */}
+            <div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1.5">Category Distribution</label>
+              <div className="space-y-2">
+                <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-all ${
+                  fundsAllocationMode === 'SPREAD' ? 'bg-[#182312] border-[#4A622F]' : 'bg-[#141310] border-[#2A2824]'
+                }`}>
+                  <input
+                    type="radio"
+                    name="fundsAllocationMode"
+                    checked={fundsAllocationMode === 'SPREAD'}
+                    onChange={() => setFundsAllocationMode('SPREAD')}
+                    className="mt-0.5 accent-[#6B8F3C]"
+                  />
+                  <div>
+                    <p className="text-xs font-semibold text-white">Auto-Spread Across Categories (Default)</p>
+                    <p className="text-[11px] text-[#8E9089]">Distributes dynamically across Needs 50%, Wants 30%, Savings 20%.</p>
+                  </div>
+                </label>
+
+                <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-all ${
+                  fundsAllocationMode === 'DIRECT_CATEGORY' ? 'bg-[#182312] border-[#4A622F]' : 'bg-[#141310] border-[#2A2824]'
+                }`}>
+                  <input
+                    type="radio"
+                    name="fundsAllocationMode"
+                    checked={fundsAllocationMode === 'DIRECT_CATEGORY'}
+                    onChange={() => setFundsAllocationMode('DIRECT_CATEGORY')}
+                    className="mt-0.5 accent-[#6B8F3C]"
+                  />
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-white">Route to Specific Category / Default Buffer</p>
+                    <p className="text-[11px] text-[#8E9089]">Assign entire deposit to a single envelope or the unallocated holding pool.</p>
+                  </div>
+                </label>
+              </div>
+
+              {fundsAllocationMode === 'DIRECT_CATEGORY' && (
+                <div className="mt-2.5">
+                  <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Select Envelope or Buffer</label>
+                  <select
+                    value={fundsTargetCategoryId}
+                    onChange={e => setFundsTargetCategoryId(e.target.value)}
+                    className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#4A622F]"
+                  >
+                    <option value="unallocated">Default / Unallocated Buffer (Holding Pool)</option>
+                    {categoriesList.map(cat => (
+                      <option key={cat.id} value={cat.id}>📂 {cat.name} ({cat.percentage}%)</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
             <div>
               <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Source / Note (Optional)</label>
               <input
@@ -1453,6 +2048,213 @@ export function ProfileSection() {
               }`}
             >
               {isSubmittingFunds ? 'Processing Deposit…' : 'Deposit & Distribute Funds'}
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {/* ── Add Income Stream Modal ── */}
+      {showAddIncomeModal && (
+        <Modal title="Add Income Stream" onClose={() => setShowAddIncomeModal(false)}>
+          <form onSubmit={handleCreateIncomeSource} className="space-y-3.5">
+            <div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Stream Name</label>
+              <input
+                type="text"
+                required
+                value={newIncName}
+                onChange={e => setNewIncName(e.target.value)}
+                placeholder="e.g. Full-time Salary, Rental Income"
+                className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#4A622F]"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Expected Amount (₹)</label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  step="any"
+                  value={newIncAmount}
+                  onChange={e => setNewIncAmount(e.target.value)}
+                  placeholder="50000"
+                  className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#4A622F]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Frequency</label>
+                <select
+                  value={newIncFrequency}
+                  onChange={e => setNewIncFrequency(e.target.value as IncomeSource['frequency'])}
+                  className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#4A622F]"
+                >
+                  <option value="MONTHLY">Monthly</option>
+                  <option value="BI_WEEKLY">Bi-Weekly</option>
+                  <option value="WEEKLY">Weekly</option>
+                  <option value="ONE_TIME">One-Time</option>
+                </select>
+              </div>
+            </div>
+
+            {newIncFrequency === 'MONTHLY' && (
+              <div>
+                <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Day of Month</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={newIncDay}
+                  onChange={e => setNewIncDay(e.target.value)}
+                  placeholder="1"
+                  className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#4A622F]"
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Target Account</label>
+              <select
+                value={newIncTargetAccount}
+                onChange={e => setNewIncTargetAccount(e.target.value)}
+                className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#4A622F]"
+              >
+                <option value="GLOBAL">All Accounts (Global Default)</option>
+                {accountsList.map(acc => (
+                  <option key={acc.id} value={acc.id}>{acc.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Allocation Mode</label>
+              <select
+                value={newIncAllocationMode}
+                onChange={e => setNewIncAllocationMode(e.target.value as IncomeSource['allocationMode'])}
+                className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#4A622F]"
+              >
+                <option value="SPREAD">Auto-Spread across Categories (50/30/20)</option>
+                <option value="DIRECT_CATEGORY">Route to Specific Category</option>
+              </select>
+            </div>
+
+            {newIncAllocationMode === 'DIRECT_CATEGORY' && (
+              <div>
+                <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Target Category</label>
+                <select
+                  value={newIncTargetCategory}
+                  onChange={e => setNewIncTargetCategory(e.target.value)}
+                  className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#4A622F]"
+                >
+                  {categoriesList.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full py-2.5 rounded-xl bg-[#4A622F] hover:bg-[#587438] active:scale-95 text-white font-bold text-xs transition-all cursor-pointer mt-2 shadow-md border border-[#64853E]/40"
+            >
+              Create Income Stream
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {/* ── Add Scheduled Spend / EMI Modal ── */}
+      {showAddSpendModal && (
+        <Modal title="Schedule Recurring Spend / EMI" onClose={() => setShowAddSpendModal(false)}>
+          <form onSubmit={handleCreateScheduledSpend} className="space-y-3.5">
+            <div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Bill / EMI Name</label>
+              <input
+                type="text"
+                required
+                value={newSpendName}
+                onChange={e => setNewSpendName(e.target.value)}
+                placeholder="e.g. Home Loan EMI, Netflix, Rent"
+                className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#4A622F]"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Amount (₹)</label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  step="any"
+                  value={newSpendAmount}
+                  onChange={e => setNewSpendAmount(e.target.value)}
+                  placeholder="15000"
+                  className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#4A622F]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Due Day of Month</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={newSpendDueDay}
+                  onChange={e => setNewSpendDueDay(e.target.value)}
+                  placeholder="5"
+                  className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#4A622F]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Frequency</label>
+              <select
+                value={newSpendFrequency}
+                onChange={e => setNewSpendFrequency(e.target.value as ScheduledSpend['frequency'])}
+                className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#4A622F]"
+              >
+                <option value="MONTHLY">Monthly</option>
+                <option value="QUARTERLY">Quarterly</option>
+                <option value="YEARLY">Yearly</option>
+                <option value="ONE_TIME">One-Time</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Deduct from Account</label>
+              <select
+                value={newSpendAccount}
+                onChange={e => setNewSpendAccount(e.target.value)}
+                className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#4A622F]"
+              >
+                {accountsList.map(acc => (
+                  <option key={acc.id} value={acc.id}>{acc.name} (₹{acc.amount.toLocaleString('en-IN')})</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">Envelope Category</label>
+              <select
+                value={newSpendCategory}
+                onChange={e => setNewSpendCategory(e.target.value)}
+                className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#4A622F]"
+              >
+                {categoriesList.map(cat => (
+                  <option key={cat.id} value={cat.id}>📂 {cat.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-2.5 rounded-xl bg-[#E87A24] hover:bg-[#F38936] text-[#141310] font-bold text-xs transition-all cursor-pointer mt-2 shadow-md"
+            >
+              Schedule Spend / EMI
             </button>
           </form>
         </Modal>

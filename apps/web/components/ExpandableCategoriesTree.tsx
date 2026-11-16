@@ -524,8 +524,25 @@ export function ExpandableCategoriesTree({
 
   const hasCategories = (savedAllocations && savedAllocations.length > 0) || storeCategories.length > 0;
 
-  // Pool total: dynamically tied to real account balance (or custom override)
-  const poolTotal = customPoolTotal !== null ? customPoolTotal : realAccountBalance;
+  // Read unallocated buffer from localStorage (money pulled into Default Buffer outside percentage spread)
+  const totalUnallocated = (() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('richingness_unallocated_by_account_v1');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          return Object.values(parsed).reduce((sum: number, val: unknown) => sum + (Number(val) || 0), 0);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return 0;
+  })();
+
+  // Pool total: dynamically tied to real account balance minus unallocated buffer (or custom override)
+  const effectiveBalance = Math.max(0, realAccountBalance - totalUnallocated);
+  const poolTotal = customPoolTotal !== null ? customPoolTotal : effectiveBalance;
 
   // Dynamically convert configured allocations or store categories into visual items
   const categoryItems: CategoryNodeItem[] = savedAllocations && savedAllocations.length > 0
@@ -873,6 +890,11 @@ export function ExpandableCategoriesTree({
             <h3 className="text-sm font-bold text-[#E5E3DC] tracking-tight">
               Life Budget
             </h3>
+            {totalUnallocated > 0 && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#2D2415] border border-[#524122] text-[#E8C47A]">
+                ₹{totalUnallocated.toLocaleString('en-IN')} in Default Buffer
+              </span>
+            )}
             {categoryItems.some(c => c.badges?.includes('Due')) && (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#382C17] border border-[#685327] text-[#E8C47A]">
                 Due
