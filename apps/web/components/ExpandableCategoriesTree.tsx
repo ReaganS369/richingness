@@ -581,20 +581,7 @@ export function ExpandableCategoriesTree({
       .reduce((sum, op) => sum + op.amount, 0n)
   ) / 100;
 
-  const categoryItems: CategoryNodeItem[] = [...baseCategoryItems];
-  if (totalUnallocated > 0) {
-    categoryItems.push({
-      id: 'cat-default-buffer',
-      name: 'General Funds',
-      percentage: undefined,
-      level: 1,
-      displayTotal: totalUnallocated,
-      income: 0,
-      expense: defaultBufferExpense,
-      badges: undefined,
-      children: undefined
-    });
-  }
+  const categoryItems: CategoryNodeItem[] = baseCategoryItems;
 
   const toggleNode = (id: string) => {
     setExpandedNodes(prev => ({ ...prev, [id]: !prev[id] }));
@@ -651,11 +638,11 @@ export function ExpandableCategoriesTree({
   }
 
   // Calculate live summary metrics
-  const categoriesTotal = poolTotal + (totalUnallocated > 0 ? totalUnallocated : 0);
   const totalExpense = categoryItems.reduce((acc, cat) => acc + (cat.expense || 0), 0);
   const totalIncome = Number(storeLedger.filter(l => l.type === 'INCOME').reduce((acc, l) => acc + l.amount, 0n)) / 100;
-  const availableBalance = Math.max(0, categoriesTotal - totalExpense);
-  const expensePercentage = categoriesTotal > 0 ? Math.min(100, Math.round((totalExpense / categoriesTotal) * 100)) : 0;
+  const lifeBudgetIncome = Math.max(0, totalIncome - (totalUnallocated > 0 ? totalUnallocated : 0));
+  const availableBalance = Math.max(0, poolTotal - totalExpense);
+  const expensePercentage = poolTotal > 0 ? Math.min(100, Math.round((totalExpense / poolTotal) * 100)) : 0;
   const availablePercentage = Math.max(0, 100 - expensePercentage);
 
   // ── Multi-Rail Category Item ──────────────────────────────────────────────
@@ -726,11 +713,7 @@ export function ExpandableCategoriesTree({
                 }}
               >
                 <div
-                  className={`rounded-full ${
-                    node.id === 'cat-default-buffer'
-                      ? 'bg-gradient-to-br from-[#E8C47A] to-[#B8923E] ring-1 ring-[#524122] shadow-[0_0_5px_rgba(232,196,122,0.45)]'
-                      : 'bg-gradient-to-br from-[#A8E063] to-[#78AC35] ring-1 ring-[#141310] shadow-[0_0_5px_rgba(168,224,99,0.45)]'
-                  } transition-transform duration-150 shrink-0 ${
+                  className={`rounded-full bg-gradient-to-br from-[#A8E063] to-[#78AC35] ring-1 ring-[#141310] shadow-[0_0_5px_rgba(168,224,99,0.45)] transition-transform duration-150 shrink-0 ${
                     isExpanded ? 'scale-115' : 'group-hover/category:scale-110'
                   }`}
                   style={{
@@ -753,11 +736,6 @@ export function ExpandableCategoriesTree({
                 >
                   {node.name}
                 </span>
-                {node.id === 'cat-default-buffer' && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#332A17] text-[#E8C47A] border border-[#524122]">
-                    General Pool
-                  </span>
-                )}
                 {node.percentage !== undefined && !node.name.includes('%') && (
                   <span className="text-[10px] font-semibold text-[#8E8A82]">
                     {node.percentage}%
@@ -921,7 +899,8 @@ export function ExpandableCategoriesTree({
       )}
 
       {/* ── Main Category Container (Figma Image 5 Layout) ── */}
-      <div className="bg-[#1B1A17] border border-[#2A2824] rounded-[14px] p-3.5 sm:p-5 space-y-3 shadow-xl">
+      {(poolTotal > 0 || totalUnallocated === 0) && (
+        <div className="bg-[#1B1A17] border border-[#2A2824] rounded-[14px] p-3.5 sm:p-5 space-y-3 shadow-xl">
 
         {/* Section Title & Pool Total + Expand All Button */}
         {/* Section Title & Badges (Matching Figma Design - Clean header, no Expand All button) */}
@@ -948,13 +927,13 @@ export function ExpandableCategoriesTree({
           <div className="pr-2 sm:pr-3">
             <p className="text-[10px] sm:text-[11px] text-[#8E8A82] font-semibold uppercase tracking-wider">Total</p>
             <p className="text-xs sm:text-base font-extrabold text-white num-display mt-0.5 tracking-tight">
-              ₹{categoriesTotal.toLocaleString('en-IN')}
+              ₹{poolTotal.toLocaleString('en-IN')}
             </p>
           </div>
           <div className="px-2 sm:px-3">
             <p className="text-[10px] sm:text-[11px] text-[#8E8A82] font-semibold uppercase tracking-wider">Income</p>
             <p className="text-xs sm:text-base font-extrabold text-[#9CD669] num-display mt-0.5 tracking-tight">
-              ₹{totalIncome.toLocaleString('en-IN')}
+              ₹{lifeBudgetIncome.toLocaleString('en-IN')}
             </p>
           </div>
           <div className="px-2 sm:px-3">
@@ -1005,7 +984,7 @@ export function ExpandableCategoriesTree({
             // "If its default then no need to show the other categories if the category has money assigned then only will show"
             const alloc = computeAllocatedAmount(c, poolTotal);
             const hasMoney = alloc > 0 || (c.displayTotal !== undefined && c.displayTotal > 0) || (c.expense || 0) > 0;
-            if (categoriesTotal > 0) {
+            if (poolTotal > 0) {
               return hasMoney;
             }
             return true;
@@ -1040,6 +1019,88 @@ export function ExpandableCategoriesTree({
         })()}
 
       </div>
+      )}
+
+      {/* ── General Funds Base Container (Another Base Pool Just like Life Budget) ── */}
+      {totalUnallocated > 0 && (() => {
+        const generalAvail = Math.max(0, totalUnallocated - defaultBufferExpense);
+        const generalExpPct = totalUnallocated > 0 ? Math.min(100, Math.round((defaultBufferExpense / totalUnallocated) * 100)) : 0;
+        const generalAvailPct = Math.max(0, 100 - generalExpPct);
+
+        return (
+          <div className="bg-[#1B1A17] border border-[#2A2824] rounded-[14px] p-3.5 sm:p-5 space-y-3 shadow-xl">
+            {/* Section Title & Badges */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-[#E8C47A] to-[#B8923E] ring-1 ring-[#524122] shadow-[0_0_5px_rgba(232,196,122,0.45)]" />
+                <h3 className="text-sm font-bold text-[#E5E3DC] tracking-tight">
+                  General Funds
+                </h3>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#332A17] border border-[#524122] text-[#E8C47A]">
+                  Base Pool
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => onSpendCategory && onSpendCategory('cat-default-buffer', 'General Funds')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#2D2415] hover:bg-[#3D311C] border border-[#524122] text-[#E8C47A] text-xs font-semibold transition-all cursor-pointer shadow-sm active:scale-95"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Spend</span>
+              </button>
+            </div>
+
+            {/* 4-Column Summary Strip directly below Title */}
+            <div className="grid grid-cols-4 divide-x divide-[#282622] pt-0.5">
+              <div className="pr-2 sm:pr-3">
+                <p className="text-[10px] sm:text-[11px] text-[#8E8A82] font-semibold uppercase tracking-wider">Total</p>
+                <p className="text-xs sm:text-base font-extrabold text-white num-display mt-0.5 tracking-tight">
+                  ₹{totalUnallocated.toLocaleString('en-IN')}
+                </p>
+              </div>
+              <div className="px-2 sm:px-3">
+                <p className="text-[10px] sm:text-[11px] text-[#8E8A82] font-semibold uppercase tracking-wider">Income</p>
+                <p className="text-xs sm:text-base font-extrabold text-[#E8C47A] num-display mt-0.5 tracking-tight">
+                  ₹{totalUnallocated.toLocaleString('en-IN')}
+                </p>
+              </div>
+              <div className="px-2 sm:px-3">
+                <p className="text-[10px] sm:text-[11px] text-[#8E8A82] font-semibold uppercase tracking-wider">Expense</p>
+                <p className="text-xs sm:text-base font-extrabold text-white num-display mt-0.5 tracking-tight">
+                  ₹{defaultBufferExpense.toLocaleString('en-IN')}
+                </p>
+              </div>
+              <div className="pl-2 sm:px-3">
+                <p className="text-[10px] sm:text-[11px] text-[#8E8A82] font-semibold uppercase tracking-wider">Available</p>
+                <p className="text-xs sm:text-base font-extrabold text-[#E8C47A] num-display mt-0.5 tracking-tight">
+                  ₹{generalAvail.toLocaleString('en-IN')}
+                </p>
+              </div>
+            </div>
+
+            {/* General Funds Progress Bar */}
+            <div className="space-y-1 pt-0.5">
+              <div className="w-full h-1.5 bg-[#23211C] rounded-full overflow-hidden flex">
+                <div
+                  className="h-full bg-[#B8923E]"
+                  style={{ width: `${generalExpPct}%` }}
+                  title={`Expense: ${generalExpPct}%`}
+                />
+                <div
+                  className="h-full bg-[#E8C47A]"
+                  style={{ width: `${generalAvailPct}%` }}
+                  title="Available"
+                />
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-[#7A7872] font-medium px-0.5">
+                <span>{generalExpPct}% Spent</span>
+                <span className="text-[#E8C47A] font-semibold">₹{generalAvail.toLocaleString('en-IN')} Remaining</span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Figma Due Payment Pop-up Modal (Exact Draft / Category due payment pop... from Figma) ── */}
       {dueModalOpen && (
