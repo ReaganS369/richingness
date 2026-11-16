@@ -498,9 +498,24 @@ export function ProfileSection() {
     };
   });
 
-  const totalBudget = categories.reduce((sum, c) => sum + (c.budgetAmount || 0n), 0n);
-  const categoriesList: SettingCategoryItem[] = categories.map(c => {
-    const pct = totalBudget > 0n ? Number((c.budgetAmount * 100n) / totalBudget) : 0;
+  // Deduplicate categories by normalized name to guarantee clean UI and accurate percentages
+  type CatType = (typeof categories)[number];
+  const uniqueCategories = Array.from(
+    categories.reduce((map, cat) => {
+      const anyCat = cat as unknown as { deletedAt?: Date; isHidden?: boolean };
+      if (!anyCat.deletedAt && !anyCat.isHidden) {
+        const lower = cat.name.toLowerCase().trim();
+        if (!map.has(lower)) {
+          map.set(lower, cat);
+        }
+      }
+      return map;
+    }, new Map<string, CatType>()).values()
+  );
+
+  const totalBudget = uniqueCategories.reduce((sum, c) => sum + (c.budgetAmount || 0n), 0n);
+  const categoriesList: SettingCategoryItem[] = uniqueCategories.map(c => {
+    const pct = totalBudget > 0n ? Math.round(Number((c.budgetAmount * 100n) / totalBudget)) : 0;
     return {
       id: c.id,
       name: c.name,
@@ -948,19 +963,15 @@ export function ProfileSection() {
             <span className="font-semibold text-sm sm:text-base text-white">
               {activeSegment === 'all-categories' ? 'All Categories' : 'My Account'}
             </span>
-            <button
-              onClick={() => {
-                if (activeSegment === 'my-account') {
-                  setShowAccountOptionsModal(true);
-                } else {
-                  setSubView('account-categories');
-                }
-              }}
-              className="p-1 text-[#888] hover:text-white transition-colors cursor-pointer"
-              title={activeSegment === 'my-account' ? 'Manage Account & Funds' : 'Edit Allocation Rules'}
-            >
-              <Pencil className="w-4 h-4" />
-            </button>
+            {activeSegment === 'all-categories' && (
+              <button
+                onClick={() => setSubView('account-categories')}
+                className="p-1 text-[#888] hover:text-white transition-colors cursor-pointer"
+                title="Edit Allocation Rules"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+            )}
           </div>
 
           {activeSegment === 'all-categories' ? (

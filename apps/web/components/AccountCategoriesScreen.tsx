@@ -292,13 +292,19 @@ export function AccountCategoriesScreen({
     if (typeof document !== 'undefined') {
       if (isAnyModalOpen) {
         document.body.classList.add('modal-open');
+        document.body.style.overflow = 'hidden';
+        document.body.style.touchAction = 'none';
       } else {
         document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.touchAction = '';
       }
     }
     return () => {
       if (typeof document !== 'undefined') {
         document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.touchAction = '';
       }
     };
   }, [isAnyModalOpen]);
@@ -1420,8 +1426,18 @@ export function AccountCategoriesScreen({
 
       {/* ── 1. Templates Store Modal (Exact Figma Draft / Templates store Screen) ── */}
       {showTemplateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-md bg-[#161D12] border border-[#2B3822] rounded-[20px] p-4 sm:p-5 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in overscroll-contain"
+          style={{ touchAction: 'none' }}
+          onTouchMove={(e) => {
+            if (e.target === e.currentTarget) e.preventDefault();
+          }}
+        >
+          <div
+            className="relative w-full max-w-md bg-[#161D12] border border-[#2B3822] rounded-[20px] p-4 sm:p-5 shadow-2xl space-y-4 max-h-[90vh] flex flex-col"
+            style={{ touchAction: 'pan-y' }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b border-[#27351F] pb-3">
               <div>
                 <h3 className="font-bold text-base text-white">Templates store</h3>
@@ -1529,8 +1545,18 @@ export function AccountCategoriesScreen({
 
       {/* ── 2. Add Category Modal ── */}
       {showAddCategoryModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-sm bg-[#161D12] border border-[#2B3822] rounded-2xl p-5 shadow-2xl space-y-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in overscroll-contain"
+          style={{ touchAction: 'none' }}
+          onTouchMove={(e) => {
+            if (e.target === e.currentTarget) e.preventDefault();
+          }}
+        >
+          <div
+            className="relative w-full max-w-sm bg-[#161D12] border border-[#2B3822] rounded-2xl p-5 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto overscroll-contain"
+            style={{ touchAction: 'pan-y' }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b border-[#27351F] pb-3">
               <h3 className="font-bold text-sm text-white">
                 {parentNode ? `Add Subcategory inside ${parentNode.name}` : 'Add Category Rule'}
@@ -1591,8 +1617,18 @@ export function AccountCategoriesScreen({
 
       {/* ── 3. Add Account Modal ── */}
       {showAddAccountModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-sm bg-[#161D12] border border-[#2B3822] rounded-2xl p-5 shadow-2xl space-y-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in overscroll-contain"
+          style={{ touchAction: 'none' }}
+          onTouchMove={(e) => {
+            if (e.target === e.currentTarget) e.preventDefault();
+          }}
+        >
+          <div
+            className="relative w-full max-w-sm bg-[#161D12] border border-[#2B3822] rounded-2xl p-5 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto overscroll-contain"
+            style={{ touchAction: 'pan-y' }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b border-[#27351F] pb-3">
               <h3 className="font-bold text-sm text-white">Add New Account</h3>
               <button onClick={() => setShowAddAccountModal(false)} className="text-[#888] hover:text-white p-1 cursor-pointer">
@@ -1653,8 +1689,18 @@ export function AccountCategoriesScreen({
 
       {/* ── 4. Unsaved Changes Exit Confirmation Modal ── */}
       {showDiscardExitConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-sm bg-[#181F13] border border-[#2D3B23] rounded-2xl p-5 shadow-2xl space-y-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in overscroll-contain"
+          style={{ touchAction: 'none' }}
+          onTouchMove={(e) => {
+            if (e.target === e.currentTarget) e.preventDefault();
+          }}
+        >
+          <div
+            className="relative w-full max-w-sm bg-[#181F13] border border-[#2D3B23] rounded-2xl p-5 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto overscroll-contain"
+            style={{ touchAction: 'pan-y' }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 rounded-xl bg-[#F2811D]/15 text-[#F2811D] flex items-center justify-center shrink-0">
                 <AlertTriangle className="w-5 h-5" />

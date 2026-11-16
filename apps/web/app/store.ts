@@ -389,6 +389,23 @@ export const useAppStore = create<AppState>((set, get) => ({
       accounts = [defaultAccount];
     }
 
+    // Deduplicate existing categories in the local database by normalized lowercase name
+    const rawRepo = scopedRepo as unknown as { saveCategory: (record: unknown) => Promise<void> };
+    const seenCatNames = new Set<string>();
+    const cleanedCategories: BudgetCategory[] = [];
+    for (const cat of categories) {
+      const anyCat = cat as unknown as { deletedAt?: Date; isHidden?: boolean };
+      if (anyCat.deletedAt || anyCat.isHidden) continue;
+      const lower = cat.name.toLowerCase().trim();
+      if (seenCatNames.has(lower)) {
+        await rawRepo.saveCategory({ ...cat, deletedAt: new Date(), isHidden: true });
+      } else {
+        seenCatNames.add(lower);
+        cleanedCategories.push(cat);
+      }
+    }
+    categories = cleanedCategories;
+
     set({ accounts, categories, ledger, goals });
 
     // 6. Start background sync service only if authenticated
