@@ -251,6 +251,8 @@ export function ProfileSection() {
   const exportAllData = useAppStore(state => state.exportAllData);
   const importAllData = useAppStore(state => state.importAllData);
   const accounts = useAppStore(state => state.accounts);
+  const addAccount = useAppStore(state => state.addAccount);
+  const updateAccountName = useAppStore(state => state.updateAccountName);
   const categories = useAppStore(state => state.categories);
   const ledger = useAppStore(state => state.ledger);
   const goals = useAppStore(state => state.goals);
@@ -389,6 +391,16 @@ export function ProfileSection() {
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [confirmResetType, setConfirmResetType] = useState<'MONTHLY_EXPENSES' | 'ACCOUNTS' | 'ALL_DATA' | null>(null);
   const [isResetting, setIsResetting] = useState(false);
+
+  // Account Management & Creation Modals
+  const [showAddAccountModal, setShowAddAccountModal] = useState(false);
+  const [newAccountName, setNewAccountName] = useState('');
+  const [newAccountType, setNewAccountType] = useState<'checking' | 'savings' | 'credit' | 'cash'>('savings');
+  const [newAccountCurrency, setNewAccountCurrency] = useState('INR');
+  const [showEditAccountModal, setShowEditAccountModal] = useState(false);
+  const [editingAccountId, setEditingAccountId] = useState('');
+  const [editingAccountName, setEditingAccountName] = useState('');
+  const [showAccountOptionsModal, setShowAccountOptionsModal] = useState(false);
 
   // Toast feedback
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
@@ -851,9 +863,15 @@ export function ProfileSection() {
               {activeSegment === 'all-categories' ? 'All Categories' : 'My Account'}
             </span>
             <button
-              onClick={() => setSubView('account-categories')}
+              onClick={() => {
+                if (activeSegment === 'my-account') {
+                  setShowAccountOptionsModal(true);
+                } else {
+                  setSubView('account-categories');
+                }
+              }}
               className="p-1 text-[#888] hover:text-white transition-colors cursor-pointer"
-              title="Edit Allocation Rules"
+              title={activeSegment === 'my-account' ? 'Manage Account & Funds' : 'Edit Allocation Rules'}
             >
               <Pencil className="w-4 h-4" />
             </button>
@@ -968,6 +986,19 @@ export function ProfileSection() {
                                 </span>
                               )}
                             </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingAccountId(acc.id);
+                                setEditingAccountName(acc.name);
+                                setShowEditAccountModal(true);
+                              }}
+                              className="p-1.5 rounded-lg text-[#888] hover:text-white hover:bg-white/[0.06] transition-all cursor-pointer"
+                              title="Edit Account Details & Funds"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
                             <ChevronDown className={`w-4 h-4 text-[#888] transition-transform duration-200 ${isExpanded ? 'rotate-180 text-[#8EBA55]' : ''}`} />
                           </div>
                         </div>
@@ -1041,6 +1072,36 @@ export function ProfileSection() {
                                 </div>
                               </div>
                             </div>
+
+                            {/* Inside Account Actions: Add Funds / Deposit & Edit */}
+                            <div className="pt-2 flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setFundsAccountId(acc.id);
+                                  setShowAddFundsModal(true);
+                                }}
+                                className="flex-1 py-2 px-3 rounded-xl bg-[#4A622F] hover:bg-[#587437] active:scale-[0.99] text-white font-semibold text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Add Funds to {acc.name}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingAccountId(acc.id);
+                                  setEditingAccountName(acc.name);
+                                  setShowEditAccountModal(true);
+                                }}
+                                className="py-2 px-3 rounded-xl bg-[#242621] hover:bg-[#2F322B] border border-[#3E4A30] text-[#DCE8C8] hover:text-white font-medium text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                                title="Edit Account Details"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                                <span>Edit</span>
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1053,18 +1114,15 @@ export function ProfileSection() {
                 </div>
               )}
 
-              {/* Action Buttons: Add Funds (always available) + Transfer Funds (only when 2+ accounts exist) */}
+              {/* Action Buttons: Add Account + Transfer Funds (only when 2+ accounts exist) */}
               <div className="space-y-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    setFundsAccountId(selectedAccountId || accounts[0]?.id || '');
-                    setShowAddFundsModal(true);
-                  }}
-                  className="w-full py-3.5 rounded-xl bg-[#4A622F] hover:bg-[#587437] active:scale-[0.99] text-white font-bold text-sm transition-all shadow-md cursor-pointer text-center flex items-center justify-center gap-2"
+                  onClick={() => setShowAddAccountModal(true)}
+                  className="w-full py-3.5 rounded-xl bg-[#242621] hover:bg-[#2F322B] active:scale-[0.99] text-[#DCE8C8] hover:text-white border border-[#3E4A30] font-bold text-sm transition-all shadow-md cursor-pointer text-center flex items-center justify-center gap-2"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Funds to Account</span>
+                  <Plus className="w-4 h-4 text-[#8EBA55]" />
+                  <span>Add Account</span>
                 </button>
 
                 {accountsList.length > 1 && (
@@ -2140,6 +2198,277 @@ export function ProfileSection() {
               {isSubmittingFunds ? 'Processing Deposit…' : 'Deposit & Distribute Funds'}
             </button>
           </form>
+        </Modal>
+      )}
+
+      {/* ── Add New Account Modal ── */}
+      {showAddAccountModal && (
+        <Modal
+          title="Add New Account"
+          onClose={() => {
+            setShowAddAccountModal(false);
+            setNewAccountName('');
+          }}
+        >
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!newAccountName.trim()) return;
+              await addAccount(newAccountName.trim(), newAccountType, newAccountCurrency);
+              setShowAddAccountModal(false);
+              setNewAccountName('');
+              showToast(`Account "${newAccountName.trim()}" created successfully!`);
+            }}
+            className="space-y-4"
+          >
+            <div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">
+                Account Name
+              </label>
+              <input
+                type="text"
+                required
+                value={newAccountName}
+                onChange={e => setNewAccountName(e.target.value)}
+                placeholder="e.g. HDFC Checking, Cash Wallet, Savings…"
+                className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-[#4A622F]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">
+                Account Type
+              </label>
+              <select
+                value={newAccountType}
+                onChange={e => setNewAccountType(e.target.value as 'checking' | 'savings' | 'credit' | 'cash')}
+                className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-[#4A622F]"
+              >
+                <option value="savings">Savings Account</option>
+                <option value="checking">Checking / Current Account</option>
+                <option value="credit">Credit Card / Line</option>
+                <option value="cash">Cash / Physical Wallet</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">
+                Currency
+              </label>
+              <select
+                value={newAccountCurrency}
+                onChange={e => setNewAccountCurrency(e.target.value)}
+                className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-[#4A622F]"
+              >
+                <option value="INR">INR (₹) - Indian Rupee</option>
+                <option value="USD">USD ($) - US Dollar</option>
+                <option value="EUR">EUR (€) - Euro</option>
+                <option value="GBP">GBP (£) - British Pound</option>
+              </select>
+            </div>
+
+            <div className="pt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowAddAccountModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-[#201F1B] hover:bg-[#2B2924] border border-[#2E2C27] text-[#888] hover:text-white font-semibold text-xs transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex-1 py-2.5 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white font-bold text-xs transition-all shadow-md cursor-pointer"
+              >
+                Create Account
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ── Edit Account Details & Manage Funds Modal ── */}
+      {showEditAccountModal && (
+        <Modal
+          title="Account Details & Actions"
+          onClose={() => {
+            setShowEditAccountModal(false);
+            setEditingAccountId('');
+            setEditingAccountName('');
+          }}
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">
+                Account Name
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={editingAccountName}
+                  onChange={e => setEditingAccountName(e.target.value)}
+                  placeholder="Account name"
+                  className="flex-1 bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#4A622F]"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (editingAccountId && editingAccountName.trim()) {
+                      await updateAccountName(editingAccountId, editingAccountName.trim());
+                      showToast('Account name updated!');
+                    }
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-[#242621] hover:bg-[#2F322B] border border-[#3E4A30] text-[#DCE8C8] hover:text-white text-xs font-bold transition-all cursor-pointer"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-[#171613] border border-[#2B2925] space-y-2.5">
+              <span className="text-[11px] font-semibold text-[#8E8A82] uppercase tracking-wider block">
+                Manage Funds & Envelopes
+              </span>
+              <div className="grid grid-cols-1 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditAccountModal(false);
+                    setFundsAccountId(editingAccountId);
+                    setShowAddFundsModal(true);
+                  }}
+                  className="w-full py-2.5 px-3.5 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Funds / Deposit to this Account</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditAccountModal(false);
+                    setSubView('account-categories');
+                  }}
+                  className="w-full py-2.5 px-3.5 rounded-xl bg-[#201F1B] hover:bg-[#2B2924] border border-[#2E2C27] text-[#DCE8C8] hover:text-white text-xs font-medium transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Layers className="w-4 h-4 text-[#8EBA55]" />
+                  <span>Configure Category Allocation Rules</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => setShowEditAccountModal(false)}
+                className="w-full py-2.5 rounded-xl bg-[#201F1B] hover:bg-[#2B2924] border border-[#2E2C27] text-[#888] hover:text-white text-xs font-semibold transition-all cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Account Options Modal (Header Pencil Tap) ── */}
+      {showAccountOptionsModal && (
+        <Modal
+          title="Account & Funds Management"
+          onClose={() => setShowAccountOptionsModal(false)}
+        >
+          <div className="space-y-3">
+            <p className="text-xs text-[#8E8A82]">
+              Select an action to manage your account, deposit funds, or configure envelope allocations:
+            </p>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowAccountOptionsModal(false);
+                setFundsAccountId(selectedAccountId || accounts[0]?.id || '');
+                setShowAddFundsModal(true);
+              }}
+              className="w-full p-3 rounded-xl bg-[#171613] hover:bg-[#22211C] border border-[#2E2C27] hover:border-[#4A622F] text-left transition-all cursor-pointer group flex items-center gap-3"
+            >
+              <div className="w-9 h-9 rounded-lg bg-[#4A622F]/20 text-[#8EBA55] flex items-center justify-center shrink-0">
+                <Plus className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="font-semibold text-xs text-white group-hover:text-[#DCE8C8] block">
+                  Add Funds / Deposit
+                </span>
+                <span className="text-[10px] text-[#888] block">
+                  Deposit salary, side income, or one-time funds with automatic envelope allocation
+                </span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowAccountOptionsModal(false);
+                setShowAddAccountModal(true);
+              }}
+              className="w-full p-3 rounded-xl bg-[#171613] hover:bg-[#22211C] border border-[#2E2C27] hover:border-[#4A622F] text-left transition-all cursor-pointer group flex items-center gap-3"
+            >
+              <div className="w-9 h-9 rounded-lg bg-[#242621] text-[#DCE8C8] flex items-center justify-center shrink-0">
+                <Wallet className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="font-semibold text-xs text-white group-hover:text-[#DCE8C8] block">
+                  Add New Account
+                </span>
+                <span className="text-[10px] text-[#888] block">
+                  Connect another bank checking, savings, or cash wallet account
+                </span>
+              </div>
+            </button>
+
+            {accounts.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAccountOptionsModal(false);
+                  const acc = accounts.find(a => a.id === selectedAccountId) || accounts[0];
+                  setEditingAccountId(acc.id);
+                  setEditingAccountName(acc.name);
+                  setShowEditAccountModal(true);
+                }}
+                className="w-full p-3 rounded-xl bg-[#171613] hover:bg-[#22211C] border border-[#2E2C27] hover:border-[#4A622F] text-left transition-all cursor-pointer group flex items-center gap-3"
+              >
+                <div className="w-9 h-9 rounded-lg bg-[#242621] text-[#C5E89B] flex items-center justify-center shrink-0">
+                  <Pencil className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-semibold text-xs text-white group-hover:text-[#DCE8C8] block">
+                    Edit Account Details
+                  </span>
+                  <span className="text-[10px] text-[#888] block">
+                    Rename account or manage account settings
+                  </span>
+                </div>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowAccountOptionsModal(false);
+                setSubView('account-categories');
+              }}
+              className="w-full p-3 rounded-xl bg-[#171613] hover:bg-[#22211C] border border-[#2E2C27] hover:border-[#4A622F] text-left transition-all cursor-pointer group flex items-center gap-3"
+            >
+              <div className="w-9 h-9 rounded-lg bg-[#242621] text-[#E8C47A] flex items-center justify-center shrink-0">
+                <Layers className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="font-semibold text-xs text-white group-hover:text-[#DCE8C8] block">
+                  Category Allocation Rules
+                </span>
+                <span className="text-[10px] text-[#888] block">
+                  Customize percentage splits (Needs 50%, Wants 30%, Savings 20%)
+                </span>
+              </div>
+            </button>
+          </div>
         </Modal>
       )}
 

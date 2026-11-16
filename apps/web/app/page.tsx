@@ -1185,7 +1185,7 @@ export default function Home() {
           </div>
         </main>
 
-        {/* ── 3-ITEM BALANCED FIGMA BOTTOM NAVIGATION BAR (Left: History | Middle: Home | Right: Settings) ────── */}
+        {/* ── 3-ITEM BALANCED FIGMA BOTTOM NAVIGATION BAR (40% Active / 30% Inactive / 30% Inactive) ────── */}
         {(() => {
           const isHistoryActive = activeTab === 'transactions';
           const isSettingsActive = activeTab === 'settings';
@@ -1194,29 +1194,27 @@ export default function Home() {
           return (
             <nav
               aria-label="Bottom Navigation"
-              className="md:hidden app-bottom-nav py-2 px-3 sm:px-6 flex justify-center bg-[#141310]/95 border-t border-[#26241F] backdrop-blur-xl shadow-2xl"
+              className="md:hidden app-bottom-nav py-2 px-4 flex justify-center bg-[#141310]/95 border-t border-[#26241F] backdrop-blur-xl shadow-2xl"
             >
-              <div className="grid grid-cols-3 w-full max-w-sm gap-1">
+              <div className="flex items-center justify-between w-full max-w-sm gap-1.5 bg-[#1B1A17] p-1.5 rounded-2xl border border-[#2B2923] shadow-lg">
                 {/* ── 1. Left: History (Transactions) ── */}
                 <button
                   type="button"
                   onClick={() => setActiveTab('transactions')}
                   title="History"
                   aria-label="History"
-                  className="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer group"
-                >
-                  <div className={`px-4 py-1.5 rounded-full flex items-center justify-center transition-all ${
+                  className={`h-11 rounded-xl transition-all duration-300 ease-out cursor-pointer flex items-center justify-center ${
                     isHistoryActive
-                      ? 'bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40'
-                      : 'text-[#8E8A82] group-hover:text-white group-hover:bg-white/[0.04]'
-                  }`}>
-                    <History className="w-5 h-5 shrink-0" />
-                  </div>
-                  <span className={`text-[11px] mt-1 transition-colors ${
-                    isHistoryActive ? 'text-white font-bold' : 'text-[#8E8A82] font-medium'
-                  }`}>
-                    History
-                  </span>
+                      ? 'flex-[4] basis-[40%] bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40 border border-[#6B8A44]/50 gap-2 px-3'
+                      : 'flex-[3] basis-[30%] text-[#8E8A82] hover:text-white hover:bg-white/[0.04] active:scale-95'
+                  }`}
+                >
+                  <History className="w-5 h-5 shrink-0" />
+                  {isHistoryActive && (
+                    <span className="font-bold text-xs whitespace-nowrap animate-fade-in">
+                      History
+                    </span>
+                  )}
                 </button>
 
                 {/* ── 2. Middle: Home (Dashboard) ── */}
@@ -1225,20 +1223,18 @@ export default function Home() {
                   onClick={() => setActiveTab('dashboard')}
                   title="Home"
                   aria-label="Home"
-                  className="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer group"
-                >
-                  <div className={`px-4 py-1.5 rounded-full flex items-center justify-center transition-all ${
+                  className={`h-11 rounded-xl transition-all duration-300 ease-out cursor-pointer flex items-center justify-center ${
                     isHomeActive
-                      ? 'bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40'
-                      : 'text-[#8E8A82] group-hover:text-white group-hover:bg-white/[0.04]'
-                  }`}>
-                    <HomeIcon className="w-5 h-5 shrink-0" />
-                  </div>
-                  <span className={`text-[11px] mt-1 transition-colors ${
-                    isHomeActive ? 'text-white font-bold' : 'text-[#8E8A82] font-medium'
-                  }`}>
-                    Home
-                  </span>
+                      ? 'flex-[4] basis-[40%] bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40 border border-[#6B8A44]/50 gap-2 px-3'
+                      : 'flex-[3] basis-[30%] text-[#8E8A82] hover:text-white hover:bg-white/[0.04] active:scale-95'
+                  }`}
+                >
+                  <HomeIcon className="w-5 h-5 shrink-0" />
+                  {isHomeActive && (
+                    <span className="font-bold text-xs whitespace-nowrap animate-fade-in">
+                      Home
+                    </span>
+                  )}
                 </button>
 
                 {/* ── 3. Right: Settings ── */}
@@ -1250,20 +1246,18 @@ export default function Home() {
                   }}
                   title="Settings"
                   aria-label="Settings"
-                  className="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer group"
-                >
-                  <div className={`px-4 py-1.5 rounded-full flex items-center justify-center transition-all ${
+                  className={`h-11 rounded-xl transition-all duration-300 ease-out cursor-pointer flex items-center justify-center ${
                     isSettingsActive
-                      ? 'bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40'
-                      : 'text-[#8E8A82] group-hover:text-white group-hover:bg-white/[0.04]'
-                  }`}>
-                    <Settings className="w-5 h-5 shrink-0" />
-                  </div>
-                  <span className={`text-[11px] mt-1 transition-colors ${
-                    isSettingsActive ? 'text-white font-bold' : 'text-[#8E8A82] font-medium'
-                  }`}>
-                    Settings
-                  </span>
+                      ? 'flex-[4] basis-[40%] bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40 border border-[#6B8A44]/50 gap-2 px-3'
+                      : 'flex-[3] basis-[30%] text-[#8E8A82] hover:text-white hover:bg-white/[0.04] active:scale-95'
+                  }`}
+                >
+                  <Settings className="w-5 h-5 shrink-0" />
+                  {isSettingsActive && (
+                    <span className="font-bold text-xs whitespace-nowrap animate-fade-in">
+                      Settings
+                    </span>
+                  )}
                 </button>
               </div>
             </nav>
