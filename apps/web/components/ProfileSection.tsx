@@ -21,7 +21,9 @@ import {
   Trash2,
   Wallet,
   ChevronDown,
-  Repeat
+  Repeat,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { useAppStore, authService, IncomeSource, ScheduledSpend } from '../app/store';
 import { formatRupeesToPaise } from '@repo/shared';
@@ -271,6 +273,8 @@ export function ProfileSection() {
   const resetMonthlyExpenses = useAppStore(state => state.resetMonthlyExpenses);
   const resetAccountLedger = useAppStore(state => state.resetAccountLedger);
   const resetAllData = useAppStore(state => state.resetAllData);
+  const theme = useAppStore(state => state.theme);
+  const setTheme = useAppStore(state => state.setTheme);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -1454,6 +1458,56 @@ export function ProfileSection() {
         </div>
       </div>
 
+
+      {/* ── Appearance & Theme (Dark Black Default vs Light White) ── */}
+      <div className="pt-2 space-y-2.5">
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-base text-white">Appearance & Theme</h3>
+          <span className="text-xs text-[#8E8A82]">
+            {theme === 'light' ? 'Light Mode (White)' : 'Dark Mode (Black Default)'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          {/* Dark / Black Option (Default) */}
+          <button
+            type="button"
+            onClick={() => setTheme('dark')}
+            className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex items-center gap-3 ${
+              theme === 'dark'
+                ? 'bg-[#1F1E19] border-[#4A622F] shadow-md shadow-[#4A622F]/20'
+                : 'bg-[#171613] border-[#2B2925] opacity-60 hover:opacity-100'
+            }`}
+          >
+            <div className="w-9 h-9 rounded-xl bg-black border border-[#333] flex items-center justify-center text-white shrink-0">
+              <Moon className="w-4 h-4 text-[#8EBA55]" />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-white block">Dark Mode</span>
+              <span className="text-[10px] text-[#8E8A82] block">Rich Black (Default)</span>
+            </div>
+          </button>
+
+          {/* Light / White Option */}
+          <button
+            type="button"
+            onClick={() => setTheme('light')}
+            className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex items-center gap-3 ${
+              theme === 'light'
+                ? 'bg-[#F3F4F6] border-[#4A622F] shadow-md shadow-[#4A622F]/20'
+                : 'bg-[#171613] border-[#2B2925] opacity-60 hover:opacity-100'
+            }`}
+          >
+            <div className="w-9 h-9 rounded-xl bg-white border border-[#E5E7EB] flex items-center justify-center text-[#1A1A1A] shrink-0">
+              <Sun className="w-4 h-4 text-[#E87A24]" />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-white block">Light Mode</span>
+              <span className="text-[10px] text-[#8E8A82] block">Crisp White</span>
+            </div>
+          </button>
+        </div>
+      </div>
 
       {/* ── Support Section ── */}
       <div className="pt-2">

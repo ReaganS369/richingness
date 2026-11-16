@@ -424,4 +424,97 @@ select option {
   -moz-appearance: textfield;
 }
 
+/* ── Two-Color Palette System (Green Primary + Orange Secondary) ─────────── */
+:root {
+  --rich-green-primary: #4A622F;
+  --rich-green-light: #5B7A38;
+  --rich-green-glow: rgba(74, 98, 47, 0.35);
+  --rich-orange-secondary: #E87A24;
+  --rich-orange-light: #F38936;
+  --rich-orange-glow: rgba(232, 122, 36, 0.35);
+}
+
+/* ── Light Mode (Crisp White Canvas) ─────────────────────────────────────── */
+html.theme-light,
+html.theme-light body,
+html.theme-light .app-root-shell,
+html.theme-light .app-workspace-shell {
+  background-color: #F8F9FA !important;
+  color: #111827 !important;
+}
+
+html.theme-light .app-bottom-nav {
+  background-color: #FFFFFF !important;
+  border-top: 1px solid #E5E7EB !important;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05) !important;
+}
+
+html.theme-light .app-bottom-nav > div {
+  background-color: #F3F4F6 !important;
+  border-color: #E5E7EB !important;
+}
+
+/* Light Mode Surfaces */
+html.theme-light .bg-\[\#161512\],
+html.theme-light .bg-\[\#11100E\],
+html.theme-light .bg-\[\#141310\] {
+  background-color: #F8F9FA !important;
+}
+
+html.theme-light .bg-\[\#1B1A17\],
+html.theme-light .bg-\[\#1C1A16\],
+html.theme-light .bg-\[\#171613\],
+html.theme-light .bg-\[\#12110E\],
+html.theme-light .bg-\[\#1A1915\],
+html.theme-light .bg-\[\#131610\] {
+  background-color: #FFFFFF !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+html.theme-light .bg-\[\#211F1B\],
+html.theme-light .bg-\[\#242621\],
+html.theme-light .bg-\[\#201F1B\],
+html.theme-light .bg-\[\#24221D\],
+html.theme-light .bg-\[\#1F1E19\] {
+  background-color: #F3F4F6 !important;
+}
+
+/* Light Mode Borders */
+html.theme-light .border-\[\#26241F\],
+html.theme-light .border-\[\#2B2923\],
+html.theme-light .border-\[\#2B2925\],
+html.theme-light .border-\[\#2D2A24\],
+html.theme-light .border-\[\#2E2C27\],
+html.theme-light .border-\[\#2F2C25\],
+html.theme-light .border-\[\#211F1B\],
+html.theme-light .border-\[\#24211D\],
+html.theme-light .border-\[\#282620\],
+html.theme-light .border-\[\#33302A\] {
+  border-color: #E5E7EB !important;
+}
+
+/* Light Mode Text Colors */
+html.theme-light .text-white {
+  color: #111827 !important;
+}
+
+html.theme-light .text-\[\#8E8A82\],
+html.theme-light .text-\[\#888\],
+html.theme-light .text-\[\#777\],
+html.theme-light .text-\[\#8E9089\] {
+  color: #6B7280 !important;
+}
+
+/* Preserve White text on Green Primary and Orange Secondary elements */
+html.theme-light .bg-\[\#4A622F\],
+html.theme-light .bg-\[\#4A622F\] *,
+html.theme-light .bg-\[\#485F2C\],
+html.theme-light .bg-\[\#485F2C\] *,
+html.theme-light .bg-\[\#48602E\],
+html.theme-light .bg-\[\#48602E\] *,
+html.theme-light .bg-\[\#E87A24\],
+html.theme-light .bg-\[\#E87A24\] * {
+  color: #FFFFFF !important;
+}
+
 

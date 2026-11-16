@@ -239,9 +239,22 @@ export default function Home() {
     initAuth, logout, setActiveTab, openSettingsAllocations, setSettingsSubView,
     addAccount, addCategory, addTransaction, updateAllocation, addGoal,
     borrowFromCategory,
+    theme,
     triggerRecovery, getBalances, getNetWorth, getBudgetTree,
     getGoalsProgress, getSpendingSummary, getBudgetHealth, triggerSyncPass
   } = useAppStore();
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (theme === 'light') {
+        document.documentElement.classList.add('theme-light');
+        document.documentElement.classList.remove('dark');
+      } else {
+        document.documentElement.classList.remove('theme-light');
+        document.documentElement.classList.add('dark');
+      }
+    }
+  }, [theme]);
 
   useEffect(() => {
     initAuth();
@@ -1204,18 +1217,18 @@ export default function Home() {
                   title="History"
                   aria-label="History"
                   style={{ WebkitTapHighlightColor: 'transparent' }}
-                  className={`h-11 rounded-t-lg rounded-b-none transition-[flex,width,background-color,color] duration-300 ease-out cursor-pointer flex items-center justify-center outline-none focus:outline-none focus:ring-0 active:outline-none select-none border ${
+                  className={`h-12 rounded-t-lg rounded-b-none transition-[flex,width,background-color,color] duration-300 ease-out cursor-pointer flex flex-col items-center justify-center outline-none focus:outline-none focus:ring-0 active:outline-none select-none border py-1 ${
                     isHistoryActive
-                      ? 'flex-[4] basis-[40%] bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40 border-[#769C4B] gap-2 px-3'
-                      : 'flex-[3] basis-[30%] text-[#8E8A82] hover:text-white hover:bg-white/[0.04] active:scale-95 border-transparent'
+                      ? 'flex-[4] basis-[40%] bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40 border-[#769C4B] px-2'
+                      : 'flex-[3] basis-[30%] text-[#8E8A82] hover:text-white hover:bg-white/[0.04] active:scale-95 border-transparent px-1'
                   }`}
                 >
-                  <History className="w-5 h-5 shrink-0" />
-                  {isHistoryActive && (
-                    <span className="font-bold text-xs whitespace-nowrap animate-fade-in">
-                      History
-                    </span>
-                  )}
+                  <History className="w-4.5 h-4.5 shrink-0" />
+                  <span className={`text-[10px] mt-0.5 leading-tight transition-colors ${
+                    isHistoryActive ? 'font-bold text-white' : 'font-medium text-[#8E8A82]'
+                  }`}>
+                    History
+                  </span>
                 </button>
 
                 {/* ── 2. Middle: Home (Dashboard) ── */}
@@ -1225,18 +1238,18 @@ export default function Home() {
                   title="Home"
                   aria-label="Home"
                   style={{ WebkitTapHighlightColor: 'transparent' }}
-                  className={`h-11 rounded-t-lg rounded-b-none transition-[flex,width,background-color,color] duration-300 ease-out cursor-pointer flex items-center justify-center outline-none focus:outline-none focus:ring-0 active:outline-none select-none border ${
+                  className={`h-12 rounded-t-lg rounded-b-none transition-[flex,width,background-color,color] duration-300 ease-out cursor-pointer flex flex-col items-center justify-center outline-none focus:outline-none focus:ring-0 active:outline-none select-none border py-1 ${
                     isHomeActive
-                      ? 'flex-[4] basis-[40%] bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40 border-[#769C4B] gap-2 px-3'
-                      : 'flex-[3] basis-[30%] text-[#8E8A82] hover:text-white hover:bg-white/[0.04] active:scale-95 border-transparent'
+                      ? 'flex-[4] basis-[40%] bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40 border-[#769C4B] px-2'
+                      : 'flex-[3] basis-[30%] text-[#8E8A82] hover:text-white hover:bg-white/[0.04] active:scale-95 border-transparent px-1'
                   }`}
                 >
-                  <HomeIcon className="w-5 h-5 shrink-0" />
-                  {isHomeActive && (
-                    <span className="font-bold text-xs whitespace-nowrap animate-fade-in">
-                      Home
-                    </span>
-                  )}
+                  <HomeIcon className="w-4.5 h-4.5 shrink-0" />
+                  <span className={`text-[10px] mt-0.5 leading-tight transition-colors ${
+                    isHomeActive ? 'font-bold text-white' : 'font-medium text-[#8E8A82]'
+                  }`}>
+                    Home
+                  </span>
                 </button>
 
                 {/* ── 3. Right: Settings ── */}
@@ -1249,18 +1262,18 @@ export default function Home() {
                   title="Settings"
                   aria-label="Settings"
                   style={{ WebkitTapHighlightColor: 'transparent' }}
-                  className={`h-11 rounded-t-lg rounded-b-none transition-[flex,width,background-color,color] duration-300 ease-out cursor-pointer flex items-center justify-center outline-none focus:outline-none focus:ring-0 active:outline-none select-none border ${
+                  className={`h-12 rounded-t-lg rounded-b-none transition-[flex,width,background-color,color] duration-300 ease-out cursor-pointer flex flex-col items-center justify-center outline-none focus:outline-none focus:ring-0 active:outline-none select-none border py-1 ${
                     isSettingsActive
-                      ? 'flex-[4] basis-[40%] bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40 border-[#769C4B] gap-2 px-3'
-                      : 'flex-[3] basis-[30%] text-[#8E8A82] hover:text-white hover:bg-white/[0.04] active:scale-95 border-transparent'
+                      ? 'flex-[4] basis-[40%] bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40 border-[#769C4B] px-2'
+                      : 'flex-[3] basis-[30%] text-[#8E8A82] hover:text-white hover:bg-white/[0.04] active:scale-95 border-transparent px-1'
                   }`}
                 >
-                  <Settings className="w-5 h-5 shrink-0" />
-                  {isSettingsActive && (
-                    <span className="font-bold text-xs whitespace-nowrap animate-fade-in">
-                      Settings
-                    </span>
-                  )}
+                  <Settings className="w-4.5 h-4.5 shrink-0" />
+                  <span className={`text-[10px] mt-0.5 leading-tight transition-colors ${
+                    isSettingsActive ? 'font-bold text-white' : 'font-medium text-[#8E8A82]'
+                  }`}>
+                    Settings
+                  </span>
                 </button>
               </div>
             </nav>

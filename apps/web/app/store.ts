@@ -82,6 +82,9 @@ interface AppState {
   session: UserSession | null;
   // Sync Status
   syncStatus: SyncStatusType;
+  // Theme (Dark / Black Default vs Light / White)
+  theme: 'dark' | 'light';
+  setTheme: (theme: 'dark' | 'light') => void;
   // Navigation
   activeTab: TabId;
   settingsSubView?: 'overview' | 'account-categories';
@@ -274,6 +277,7 @@ function loadStoredScheduledSpends(): ScheduledSpend[] {
 export const useAppStore = create<AppState>((set, get) => ({
   session: DEFAULT_GUEST_SESSION,
   syncStatus: 'offline',
+  theme: typeof window !== 'undefined' && localStorage.getItem('richingness_theme') === 'light' ? 'light' : 'dark',
   activeTab: 'dashboard',
   accounts: [],
   categories: [],
@@ -585,6 +589,23 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setActiveTab: (activeTab) => set({ activeTab }),
+  setTheme: (theme: 'dark' | 'light') => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('richingness_theme', theme);
+        if (theme === 'light') {
+          document.documentElement.classList.add('theme-light');
+          document.documentElement.classList.remove('dark');
+        } else {
+          document.documentElement.classList.remove('theme-light');
+          document.documentElement.classList.add('dark');
+        }
+      } catch {
+        // ignore
+      }
+    }
+    set({ theme });
+  },
   setSettingsSubView: (settingsSubView) => set({ settingsSubView }),
   openSettingsAllocations: (initialTab = 'global') => set({
     activeTab: 'settings',
