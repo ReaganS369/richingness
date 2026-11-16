@@ -47,7 +47,7 @@ import {
 import { Account, aggregateMonthlyCashFlow } from '@repo/module-finance';
 import { ProfileSection } from '../components/ProfileSection';
 import { ExpandableCategoriesTree } from '../components/ExpandableCategoriesTree';
-import { LiveInteractiveTour } from '../components/LiveInteractiveTour';
+import { OnboardingFlow } from '../components/OnboardingFlow';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 const NAV_LINKS = [
@@ -1891,27 +1891,9 @@ export default function Home() {
         </Modal>
       )}
 
-      {/* Live Interactive In-App Tour */}
-      <LiveInteractiveTour
-        accountsCount={accounts.length}
-        totalBalanceRupees={totalBalanceRupees}
-        primaryAccountName={accounts[0]?.name}
-        isAddAcctModalOpen={showAddAcctModal}
-        isAddTxModalOpen={showAddTxModal}
-        onOpenAddAccount={() => {
-          setAcctName('');
-          setShowAddAcctModal(true);
-        }}
-        onOpenAddFunds={() => {
-          setTxType('INCOME');
-          setTxAmount('');
-          setTxMerchant('Opening Balance');
-          setTxReferenceId('');
-          setSelectedCategoryName(null);
-          if (accounts.length > 0) setTxAccountId(accounts[0].id);
-          setShowAddTxModal(true);
-        }}
-        onOpenSignIn={() => {
+      {/* 2-Step Onboarding Flow (Guest/Login -> Experience Question -> Visual Guide) */}
+      <OnboardingFlow
+        onOpenSettings={() => {
           setActiveTab('settings');
         }}
       />

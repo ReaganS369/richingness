@@ -1549,6 +1549,7 @@ export function ProfileSection() {
                 type="button"
                 onClick={() => {
                   if (typeof window !== 'undefined') {
+                    localStorage.removeItem('richingness_onboarding_completed');
                     localStorage.removeItem('richingness_live_tour');
                     setActiveTab('dashboard');
                     window.dispatchEvent(new CustomEvent('richingness:replay-tour'));
