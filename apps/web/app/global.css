@@ -140,10 +140,8 @@
 /* ── Mobile-First Shell & Snapped Bottom Nav ─────────────────────────────── */
 html, body {
   height: 100% !important;
-  max-height: 100% !important;
   margin: 0 !important;
   padding: 0 !important;
-  overflow: hidden !important;
   background-color: #161512 !important;
 }
 

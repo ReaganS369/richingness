@@ -112,9 +112,12 @@ export default function OnboardingPage() {
   const savingsAmount = Math.round(parsedAmount * 0.2);
 
   return (
-    <div className="min-h-screen bg-[#141310] text-white flex flex-col justify-between p-4 sm:p-6 md:p-8">
+    <div
+      className="fixed inset-0 h-full w-full overflow-y-auto overflow-x-hidden bg-[#141310] text-white flex flex-col justify-between p-4 sm:p-6 md:p-8 overscroll-contain"
+      style={{ WebkitOverflowScrolling: 'touch' }}
+    >
       {/* ── Top Navigation Bar ── */}
-      <header className="max-w-2xl mx-auto w-full flex items-center justify-between py-2 border-b border-[#26241E]/80">
+      <header className="max-w-2xl mx-auto w-full flex items-center justify-between py-2 border-b border-[#26241E]/80 shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl bg-[#4A622F] border border-[#64853E] flex items-center justify-center text-white shadow-md">
             <Sparkles className="w-4 h-4 text-[#A8E063]" />
@@ -138,7 +141,7 @@ export default function OnboardingPage() {
       </header>
 
       {/* ── Main Content Stepper Card ── */}
-      <main className="max-w-xl mx-auto w-full my-auto py-6 sm:py-8">
+      <main className="max-w-xl mx-auto w-full py-4 sm:py-8 shrink-0">
         {/* Stepper Indicator */}
         <div className="mb-6">
           <div className="flex items-center justify-between text-xs font-semibold text-[#8E8A82] mb-2 px-1">
@@ -387,7 +390,7 @@ export default function OnboardingPage() {
       </main>
 
       {/* ── Footer ── */}
-      <footer className="max-w-2xl mx-auto w-full text-center py-2 text-2xs text-[#666]">
+      <footer className="max-w-2xl mx-auto w-full text-center py-4 text-2xs text-[#666] shrink-0">
         Richingness Financial Operating System · Bank-Grade Privacy &amp; Zero-Deficit Envelope Budgeting
       </footer>
     </div>
