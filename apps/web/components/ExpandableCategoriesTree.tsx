@@ -15,7 +15,7 @@ import { CategoryNodeAllocation } from './AccountCategoriesScreen';
 export interface CategoryNodeItem {
   id: string;
   name: string;
-  percentage: number;
+  percentage?: number;
   level: number; // 1, 2, 3, 4, 5
   displayTotal?: number;
   income: number;
@@ -551,7 +551,7 @@ export function ExpandableCategoriesTree({
   const poolTotal = customPoolTotal !== null ? customPoolTotal : effectiveBalance;
 
   // Dynamically convert configured allocations or store categories into visual items
-  const categoryItems: CategoryNodeItem[] = savedAllocations && savedAllocations.length > 0
+  const baseCategoryItems: CategoryNodeItem[] = savedAllocations && savedAllocations.length > 0
     ? convertAllocationsToItems(savedAllocations, poolTotal, storeLedger)
     : storeCategories.map((c) => {
         const pct = Number(c.budgetAmount) > 0 ? Math.min(100, Math.round(Number(c.budgetAmount) / 100)) : 0;
@@ -575,12 +575,36 @@ export function ExpandableCategoriesTree({
         };
       });
 
+  const defaultBufferExpense = Number(
+    storeLedger
+      .filter(op => op.type === 'EXPENSE' && (op.referenceId === 'cat-default' || op.referenceId === 'cat-default-buffer' || op.referenceId?.toLowerCase().includes('default')))
+      .reduce((sum, op) => sum + op.amount, 0n)
+  ) / 100;
+
+  const categoryItems: CategoryNodeItem[] = [...baseCategoryItems];
+  if (totalUnallocated > 0) {
+    categoryItems.push({
+      id: 'cat-default-buffer',
+      name: 'General Funds',
+      percentage: undefined,
+      level: 1,
+      displayTotal: totalUnallocated,
+      income: 0,
+      expense: defaultBufferExpense,
+      badges: undefined,
+      children: undefined
+    });
+  }
+
   const toggleNode = (id: string) => {
     setExpandedNodes(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   // Cascading math engine
   const computeAllocatedAmount = (node: CategoryNodeItem, parentAmount: number): number => {
+    if (node.displayTotal !== undefined && node.percentage === undefined) {
+      return node.displayTotal;
+    }
     return Math.round((parentAmount * (node.percentage || 0)) / 100);
   };
 
@@ -627,10 +651,11 @@ export function ExpandableCategoriesTree({
   }
 
   // Calculate live summary metrics
+  const categoriesTotal = poolTotal + (totalUnallocated > 0 ? totalUnallocated : 0);
   const totalExpense = categoryItems.reduce((acc, cat) => acc + (cat.expense || 0), 0);
   const totalIncome = Number(storeLedger.filter(l => l.type === 'INCOME').reduce((acc, l) => acc + l.amount, 0n)) / 100;
-  const availableBalance = Math.max(0, poolTotal - totalExpense);
-  const expensePercentage = poolTotal > 0 ? Math.min(100, Math.round((totalExpense / poolTotal) * 100)) : 0;
+  const availableBalance = Math.max(0, categoriesTotal - totalExpense);
+  const expensePercentage = categoriesTotal > 0 ? Math.min(100, Math.round((totalExpense / categoriesTotal) * 100)) : 0;
   const availablePercentage = Math.max(0, 100 - expensePercentage);
 
   // ── Multi-Rail Category Item ──────────────────────────────────────────────
@@ -701,7 +726,11 @@ export function ExpandableCategoriesTree({
                 }}
               >
                 <div
-                  className={`rounded-full bg-gradient-to-br from-[#A8E063] to-[#78AC35] ring-1 ring-[#141310] shadow-[0_0_5px_rgba(168,224,99,0.45)] transition-transform duration-150 shrink-0 ${
+                  className={`rounded-full ${
+                    node.id === 'cat-default-buffer'
+                      ? 'bg-gradient-to-br from-[#E8C47A] to-[#B8923E] ring-1 ring-[#524122] shadow-[0_0_5px_rgba(232,196,122,0.45)]'
+                      : 'bg-gradient-to-br from-[#A8E063] to-[#78AC35] ring-1 ring-[#141310] shadow-[0_0_5px_rgba(168,224,99,0.45)]'
+                  } transition-transform duration-150 shrink-0 ${
                     isExpanded ? 'scale-115' : 'group-hover/category:scale-110'
                   }`}
                   style={{
@@ -724,6 +753,11 @@ export function ExpandableCategoriesTree({
                 >
                   {node.name}
                 </span>
+                {node.id === 'cat-default-buffer' && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#332A17] text-[#E8C47A] border border-[#524122]">
+                    General Pool
+                  </span>
+                )}
                 {node.percentage !== undefined && !node.name.includes('%') && (
                   <span className="text-[10px] font-semibold text-[#8E8A82]">
                     {node.percentage}%
@@ -896,11 +930,6 @@ export function ExpandableCategoriesTree({
             <h3 className="text-sm font-bold text-[#E5E3DC] tracking-tight">
               Life Budget
             </h3>
-            {totalUnallocated > 0 && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#2D2415] border border-[#524122] text-[#E8C47A]">
-                ₹{totalUnallocated.toLocaleString('en-IN')} in Default Buffer
-              </span>
-            )}
             {categoryItems.some(c => c.badges?.includes('Due')) && (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#382C17] border border-[#685327] text-[#E8C47A]">
                 Due
@@ -919,7 +948,7 @@ export function ExpandableCategoriesTree({
           <div className="pr-2 sm:pr-3">
             <p className="text-[10px] sm:text-[11px] text-[#8E8A82] font-semibold uppercase tracking-wider">Total</p>
             <p className="text-xs sm:text-base font-extrabold text-white num-display mt-0.5 tracking-tight">
-              ₹{poolTotal.toLocaleString('en-IN')}
+              ₹{categoriesTotal.toLocaleString('en-IN')}
             </p>
           </div>
           <div className="px-2 sm:px-3">
@@ -971,7 +1000,16 @@ export function ExpandableCategoriesTree({
           down past all Level 1 categories and nested sub-trees, terminating cleanly at bottom-1.5.
         */}
         {(() => {
-          const visibleRoots = categoryItems.filter(c => nodeMatchesFilter(c));
+          const visibleRoots = categoryItems.filter(c => {
+            if (!nodeMatchesFilter(c)) return false;
+            // "If its default then no need to show the other categories if the category has money assigned then only will show"
+            const alloc = computeAllocatedAmount(c, poolTotal);
+            const hasMoney = alloc > 0 || (c.displayTotal !== undefined && c.displayTotal > 0) || (c.expense || 0) > 0;
+            if (categoriesTotal > 0) {
+              return hasMoney;
+            }
+            return true;
+          });
           return (
             <div className="relative pt-0">
               {visibleRoots.length > 0 && (

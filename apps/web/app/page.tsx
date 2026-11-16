@@ -380,6 +380,7 @@ export default function Home() {
       return {
         id: node.id,
         name: node.name,
+        percentage: node.percentage,
         allocated: effectiveAllocated,
         spent,
         available
@@ -1343,15 +1344,66 @@ export default function Home() {
 
       {/* Add Transaction */}
       {showAddTxModal && (() => {
-        const targetCat = categoryFunds.find(c => c.id === txReferenceId)
-          || (selectedCategoryName ? categoryFunds.find(c => c.name.toLowerCase().includes(selectedCategoryName.toLowerCase())) : null)
-          || categoryFunds[0];
+        // Compute account-specific available funds for the currently selected account
+        const selectedAcc = accounts.find(a => a.id === txAccountId) || accounts[0];
+        const accBalance = selectedAcc
+          ? Number(
+              ledger
+                .filter(l => l.accountId === selectedAcc.id)
+                .reduce((sum, l) => sum + (l.type === 'INCOME' ? l.amount : l.type === 'EXPENSE' ? -l.amount : 0n), 0n)
+            ) / 100
+          : 0;
+
+        const unallocatedMap = (() => {
+          if (typeof window !== 'undefined') {
+            try {
+              const raw = localStorage.getItem('richingness_unallocated_by_account_v1');
+              if (raw) return JSON.parse(raw);
+            } catch {
+              // fallback
+            }
+          }
+          return {};
+        })();
+        const accUnallocated = selectedAcc ? (unallocatedMap[selectedAcc.id] || 0) : 0;
+        const accPool = Math.max(0, accBalance - accUnallocated);
+
+        const accountCategoryFunds = categoryFunds.map(c => {
+          if (c.id === 'cat-default' || c.id === 'cat-default-buffer' || c.name.toLowerCase().includes('default')) {
+            const defSpent = Number(
+              ledger
+                .filter(l => l.accountId === selectedAcc?.id && l.type === 'EXPENSE' && (l.referenceId === 'cat-default' || l.referenceId === 'cat-default-buffer'))
+                .reduce((sum, l) => sum + l.amount, 0n)
+            ) / 100;
+            return {
+              ...c,
+              allocated: accUnallocated,
+              available: Math.max(0, accUnallocated - defSpent)
+            };
+          }
+          const allocated = Math.round((accPool * c.percentage) / 100);
+          const spent = Number(
+            ledger
+              .filter(l => l.accountId === selectedAcc?.id && l.type === 'EXPENSE' && l.referenceId === c.id)
+              .reduce((sum, l) => sum + l.amount, 0n)
+          ) / 100;
+          return {
+            ...c,
+            allocated,
+            spent,
+            available: Math.max(0, allocated - spent)
+          };
+        });
+
+        const targetCat = accountCategoryFunds.find(c => c.id === txReferenceId)
+          || (selectedCategoryName ? accountCategoryFunds.find(c => c.name.toLowerCase().includes(selectedCategoryName.toLowerCase())) : null)
+          || accountCategoryFunds[0];
         const targetAvail = targetCat ? targetCat.available : 0;
         const enteredAmt = parseFloat(txAmount) || 0;
         const deficit = txType === 'EXPENSE' && enteredAmt > 0 ? Math.max(0, enteredAmt - targetAvail) : 0;
-        const surplusCategories = categoryFunds.filter(c => c.id !== targetCat?.id && c.available > 0);
+        const surplusCategories = accountCategoryFunds.filter(c => c.id !== targetCat?.id && c.available > 0);
         const activeBorrowSourceId = borrowSourceCatId || (surplusCategories[0]?.id || '');
-        const activeBorrowSourceCat = categoryFunds.find(c => c.id === activeBorrowSourceId) || surplusCategories[0];
+        const activeBorrowSourceCat = accountCategoryFunds.find(c => c.id === activeBorrowSourceId) || surplusCategories[0];
         const isBlockedByZeroBalance = txType === 'EXPENSE' && deficit > 0 && surplusCategories.length === 0;
 
         return (
@@ -1480,8 +1532,14 @@ export default function Home() {
                       <span className="w-2.5 h-2.5 rounded-full bg-[#A8E063] shadow-[0_0_6px_rgba(168,224,99,0.5)]" />
                       <span>{selectedCategoryName}</span>
                     </div>
-                    <span className="text-[11px] text-[#A8E063] font-medium bg-[#4A622F]/20 px-2 py-0.5 rounded border border-[#587437]/30">
-                      ₹{targetAvail.toLocaleString('en-IN')} Available
+                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded border ${
+                      targetAvail > 0
+                        ? 'text-[#A8E063] bg-[#4A622F]/20 border-[#587437]/30'
+                        : 'text-[#E8C47A] bg-[#2C2417] border-[#4E3F24]'
+                    }`}>
+                      {targetAvail > 0
+                        ? `₹${targetAvail.toLocaleString('en-IN')} Available in ${selectedAcc?.name || 'Account'}`
+                        : `₹0 in ${selectedAcc?.name || 'Account'}`}
                     </span>
                   </div>
                 </Field>
@@ -1495,9 +1553,9 @@ export default function Home() {
                       className="w-full bg-[#211F1B] border border-[#2F2C25] focus:border-[#4A622F] rounded-xl px-4 py-3 text-white outline-none transition-all duration-150 text-sm focus:ring-1 focus:ring-[#4A622F] appearance-none cursor-pointer pr-10"
                     >
                       <option value="" disabled className="bg-[#211F1B] text-[#8E8A82]">Select category</option>
-                      {categoryFunds.map(c => (
+                      {accountCategoryFunds.map(c => (
                         <option key={c.id} value={c.id} className="bg-[#211F1B] text-white">
-                          📂 {c.name} (₹{c.available.toLocaleString('en-IN')} available)
+                          📂 {c.name} (₹{c.available.toLocaleString('en-IN')} in {selectedAcc?.name || 'Account'})
                         </option>
                       ))}
                       {goals.map(g => (

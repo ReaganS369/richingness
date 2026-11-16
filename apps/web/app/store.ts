@@ -151,8 +151,10 @@ interface AppState {
 
   // Income Sources & Scheduled Spends Actions
   addIncomeSource: (source: Omit<IncomeSource, 'id'>) => void;
+  updateIncomeSource: (id: string, updates: Partial<IncomeSource>) => void;
   deleteIncomeSource: (id: string) => void;
   addScheduledSpend: (spend: Omit<ScheduledSpend, 'id' | 'status'>) => void;
+  updateScheduledSpend: (id: string, updates: Partial<ScheduledSpend>) => void;
   deleteScheduledSpend: (id: string) => void;
   payScheduledSpendEarly: (id: string) => Promise<void>;
   depositFromIncomeSource: (sourceId: string, customAmount?: number) => Promise<void>;
@@ -1008,6 +1010,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ incomeSources: updated });
   },
 
+  updateIncomeSource: (id, updates) => {
+    const updated = get().incomeSources.map(s => s.id === id ? { ...s, ...updates } : s);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_INCOME_KEY, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+    }
+    set({ incomeSources: updated });
+  },
+
   addScheduledSpend: (spend) => {
     const newSpend: ScheduledSpend = {
       ...spend,
@@ -1027,6 +1041,18 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   deleteScheduledSpend: (id) => {
     const updated = get().scheduledSpends.filter(s => s.id !== id);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_SPENDS_KEY, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+    }
+    set({ scheduledSpends: updated });
+  },
+
+  updateScheduledSpend: (id, updates) => {
+    const updated = get().scheduledSpends.map(s => s.id === id ? { ...s, ...updates } : s);
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem(STORAGE_SPENDS_KEY, JSON.stringify(updated));

@@ -25,11 +25,13 @@ import {
   Sun,
   Moon,
   History,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw,
+  ArrowDownLeft
 } from 'lucide-react';
 import { useAppStore, authService, IncomeSource, ScheduledSpend } from '../app/store';
 import { formatRupeesToPaise } from '@repo/shared';
-import { AccountCategoriesScreen } from './AccountCategoriesScreen';
+import { AccountCategoriesScreen, CategoryNodeAllocation, DEFAULT_HIERARCHICAL_RULES } from './AccountCategoriesScreen';
 import { getStorageInfo, requestStoragePersistence, StorageInfo } from '../app/storageService';
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -268,6 +270,7 @@ export function ProfileSection() {
   const incomeSources = useAppStore(state => state.incomeSources);
   const scheduledSpends = useAppStore(state => state.scheduledSpends);
   const addIncomeSource = useAppStore(state => state.addIncomeSource);
+  const updateIncomeSource = useAppStore(state => state.updateIncomeSource);
   const deleteIncomeSource = useAppStore(state => state.deleteIncomeSource);
   const addScheduledSpend = useAppStore(state => state.addScheduledSpend);
   const deleteScheduledSpend = useAppStore(state => state.deleteScheduledSpend);
@@ -298,6 +301,78 @@ export function ProfileSection() {
     } else {
       showToast('Storage permission handled by browser policy.');
     }
+  };
+
+  // User custom display name (stored locally for guest / offline mode)
+  const [userName, setUserName] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('richingness_user_custom_name_v1') || 'Personal Budget';
+    }
+    return 'Personal Budget';
+  });
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [renameInput, setRenameInput] = useState(userName);
+
+  // Expandable envelope categories state inside account breakdown
+  const [expandedEnvelopeNodes, setExpandedEnvelopeNodes] = useState<Record<string, boolean>>({});
+
+  // Hierarchical rules tree
+  const hierarchicalTree: CategoryNodeAllocation[] = (() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('richingness_category_allocations_v2');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.globalTree && parsed.globalTree.length > 0) {
+            return parsed.globalTree;
+          }
+        }
+      } catch {
+        // fallback
+      }
+    }
+    return DEFAULT_HIERARCHICAL_RULES;
+  })();
+
+  // Edit Income Source Modal State (Clickable Income Streams)
+  const [editingIncome, setEditingIncome] = useState<IncomeSource | null>(null);
+  const [showEditIncomeModal, setShowEditIncomeModal] = useState(false);
+  const [editIncName, setEditIncName] = useState('');
+  const [editIncAmount, setEditIncAmount] = useState('');
+  const [editIncIsRegular, setEditIncIsRegular] = useState(true);
+  const [editIncDay, setEditIncDay] = useState('1');
+  const [editIncAllocationMode, setEditIncAllocationMode] = useState<'SPREAD' | 'DIRECT_CATEGORY'>('SPREAD');
+  const [editIncTargetAccount, setEditIncTargetAccount] = useState<string>('GLOBAL');
+
+  const openEditIncomeModal = (src: IncomeSource) => {
+    setEditingIncome(src);
+    setEditIncName(src.name);
+    setEditIncAmount(src.amount.toString());
+    setEditIncIsRegular(src.frequency !== 'ONE_TIME');
+    setEditIncDay((src.dayOfMonth || 1).toString());
+    setEditIncAllocationMode(src.allocationMode);
+    setEditIncTargetAccount(src.targetAccountId || 'GLOBAL');
+    setShowEditIncomeModal(true);
+  };
+
+  const handleUpdateIncomeSource = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingIncome) return;
+    const amt = parseFloat(editIncAmount);
+    if (isNaN(amt) || amt <= 0) {
+      showToast('Please enter a valid amount.');
+      return;
+    }
+    updateIncomeSource(editingIncome.id, {
+      name: editIncName.trim() || 'Income Stream',
+      amount: amt,
+      frequency: editIncIsRegular ? 'MONTHLY' : 'ONE_TIME',
+      dayOfMonth: editIncIsRegular ? Math.max(1, Math.min(31, parseInt(editIncDay) || 1)) : undefined,
+      allocationMode: editIncAllocationMode,
+      targetAccountId: editIncTargetAccount,
+    });
+    setShowEditIncomeModal(false);
+    showToast(`Updated income stream "${editIncName}"!`);
   };
 
   // ── Profiles System ("This, That, and Those") ────────────────────────────
@@ -368,7 +443,6 @@ export function ProfileSection() {
   } | null>(null);
 
   // Cash Flow & Schedules state
-  const [cashFlowTab, setCashFlowTab] = useState<'income' | 'spends'>('income');
   const [showAddIncomeModal, setShowAddIncomeModal] = useState(false);
   const [showAddSpendModal, setShowAddSpendModal] = useState(false);
 
@@ -429,6 +503,8 @@ export function ProfileSection() {
 
   // Lock background scroll when any modal in Settings is open
   const isAnyProfileModalOpen = Boolean(
+    showRenameModal ||
+    showEditIncomeModal ||
     showProfilesModal ||
     showAddProfileModal ||
     showAuthModal ||
@@ -841,24 +917,6 @@ export function ProfileSection() {
     showToast(`Scheduled spend / EMI "${newSpendName}" created!`);
   };
 
-  const handleDepositFromStream = async (src: IncomeSource) => {
-    try {
-      await depositFromIncomeSource(src.id);
-      showToast(`Deposited ₹${src.amount.toLocaleString('en-IN')} from "${src.name}"!`);
-    } catch {
-      showToast('Failed to execute stream deposit.');
-    }
-  };
-
-  const handlePayEarly = async (spend: ScheduledSpend) => {
-    try {
-      await payScheduledSpendEarly(spend.id);
-      showToast(`Paid early: ₹${spend.amount.toLocaleString('en-IN')} for "${spend.name}". Envelope updated!`);
-    } catch {
-      showToast('Failed to process payment.');
-    }
-  };
-
   if (subView === 'account-categories') {
     return (
       <AccountCategoriesScreen
@@ -892,24 +950,31 @@ export function ProfileSection() {
         </h1>
       </div>
 
-      {/* ── Profile Card (Exact Figma Olive Green Card #4E6732) ── */}
-      <div className="relative bg-[#4E6732] rounded-2xl p-4 sm:p-5 text-white shadow-lg overflow-hidden transition-all flex items-center justify-between min-h-[88px] gap-3">
+      {/* ── Profile Card ── */}
+      <div className="relative bg-[#4E6732] rounded-2xl p-4 sm:p-5 text-white shadow-lg overflow-hidden transition-all flex items-center justify-between min-h-[80px] gap-3">
         <div
-          onClick={() => setShowProfilesModal(true)}
+          onClick={() => {
+            setRenameInput(session && !session.isGuest ? (session.name || userName) : userName);
+            setShowRenameModal(true);
+          }}
           className="cursor-pointer group flex-1 min-w-0"
-          title="Switch Active Profile"
+          title="Tap to rename"
         >
-          <h2 className="font-bold text-base sm:text-lg text-white leading-tight truncate">
-            {session && !session.isGuest ? (session.name || 'My Budget') : activeProfile.name}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="font-bold text-base sm:text-lg text-white leading-tight truncate group-hover:underline">
+              {session && !session.isGuest ? (session.name || userName) : userName}
+            </h2>
+            <Pencil className="w-3.5 h-3.5 text-white/70 group-hover:text-white shrink-0 opacity-70 group-hover:opacity-100 transition-opacity" />
+          </div>
           <p className="text-white/70 text-xs sm:text-sm mt-1 truncate font-normal">
-            {session && !session.isGuest ? session.email : 'Offline Vault · Guest Mode'}
+            {session && !session.isGuest ? session.email : 'Offline Vault'}
           </p>
         </div>
 
         {/* Top-Right Sign In / Sign Out Action */}
         {session && !session.isGuest ? (
           <button
+            type="button"
             onClick={() => setShowSignOutConfirm(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/25 hover:bg-red-500/25 hover:text-red-200 border border-white/15 text-white/90 text-xs font-medium transition-all cursor-pointer shrink-0"
             title="Sign Out"
@@ -919,9 +984,13 @@ export function ProfileSection() {
           </button>
         ) : (
           <button
-            onClick={() => setShowAuthModal(true)}
+            type="button"
+            onClick={() => {
+              setAuthMode('signin');
+              setShowAuthModal(true);
+            }}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-black/30 hover:bg-black/50 border border-white/20 hover:border-white/40 text-white font-semibold text-xs transition-all shadow-sm active:scale-95 cursor-pointer shrink-0"
-            title="Sign In to Sync"
+            title="Sign In"
           >
             <LogIn className="w-3.5 h-3.5 text-[#C5E89B]" />
             <span>Sign In</span>
@@ -1020,28 +1089,90 @@ export function ProfileSection() {
                   {accountsList.map(acc => {
                     const unallocated = unallocatedByAccount[acc.id] || 0;
                     const pool = Math.max(0, acc.amount - unallocated);
-                    const needsAlloc = Math.round((pool * 50) / 100);
-                    const wantsAlloc = Math.round((pool * 30) / 100);
-                    const savingsAlloc = Math.round((pool * 20) / 100);
-
-                    const accExpenses = ledger.filter(op => op.type === 'EXPENSE' && op.accountId === acc.id);
-                    const needsSpent = accExpenses
-                      .filter(op => !op.referenceId || op.referenceId.toLowerCase().includes('need') || op.referenceId.toLowerCase().includes('rent') || op.referenceId.toLowerCase().includes('food') || op.referenceId.toLowerCase().includes('grocery'))
-                      .reduce((sum, op) => sum + Number(op.amount) / 100, 0);
-
-                    const wantsSpent = accExpenses
-                      .filter(op => op.referenceId && (op.referenceId.toLowerCase().includes('want') || op.referenceId.toLowerCase().includes('dining') || op.referenceId.toLowerCase().includes('hobbi')))
-                      .reduce((sum, op) => sum + Number(op.amount) / 100, 0);
-
-                    const savingsSpent = accExpenses
-                      .filter(op => op.referenceId && (op.referenceId.toLowerCase().includes('saving') || op.referenceId.toLowerCase().includes('invest')))
-                      .reduce((sum, op) => sum + Number(op.amount) / 100, 0);
-
-                    const needsAvail = Math.max(0, needsAlloc - needsSpent);
-                    const wantsAvail = Math.max(0, wantsAlloc - wantsSpent);
-                    const savingsAvail = Math.max(0, savingsAlloc - savingsSpent);
-
                     const isExpanded = acc.id === selectedAccountId;
+
+                    // Recursive renderer for an envelope node with subcategories
+                    const renderEnvelopeNode = (node: CategoryNodeAllocation, parentAlloc: number, depth: number = 0): React.ReactNode => {
+                      const alloc = Math.round((parentAlloc * node.percentage) / 100);
+                      const nodeKeyWord = node.name.toLowerCase().split(' ')[0] || '';
+                      const spent = ledger
+                        .filter(op => op.accountId === acc.id && op.type === 'EXPENSE' && op.referenceId && (
+                          op.referenceId === node.id ||
+                          op.referenceId.toLowerCase().includes(nodeKeyWord)
+                        ))
+                        .reduce((sum, op) => sum + Number(op.amount) / 100, 0);
+                      const available = Math.max(0, alloc - spent);
+
+                      // If zero allocation at root and pool is 0, don't show ("if category has money assigned then only will show")
+                      if (alloc === 0 && spent === 0 && depth === 0) return null;
+
+                      const hasChildren = Boolean(node.children && node.children.length > 0);
+                      const isNodeExpanded = !!expandedEnvelopeNodes[`${acc.id}-${node.id}`];
+
+                      return (
+                        <div key={node.id} className="space-y-1">
+                          <div
+                            onClick={() => {
+                              if (hasChildren) {
+                                setExpandedEnvelopeNodes(prev => ({
+                                  ...prev,
+                                  [`${acc.id}-${node.id}`]: !prev[`${acc.id}-${node.id}`]
+                                }));
+                              }
+                            }}
+                            className={`flex items-center justify-between p-2.5 rounded-lg border transition-all ${
+                              depth === 0 ? 'bg-[#12110E] border-[#222]' : 'bg-[#161512] border-[#282622] ml-3'
+                            } ${hasChildren ? 'cursor-pointer hover:border-[#38352C]' : ''}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              {hasChildren ? (
+                                <ChevronRight
+                                  className={`w-3.5 h-3.5 text-[#888] transition-transform duration-200 shrink-0 ${
+                                    isNodeExpanded ? 'rotate-90 text-[#8EBA55]' : ''
+                                  }`}
+                                />
+                              ) : (
+                                <span
+                                  className={`w-2 h-2 rounded-full shrink-0 ${
+                                    node.name.toLowerCase().includes('need') || node.name.toLowerCase().includes('rent')
+                                      ? 'bg-[#8EBA55]'
+                                      : node.name.toLowerCase().includes('want') || node.name.toLowerCase().includes('dining')
+                                      ? 'bg-[#4A90E2]'
+                                      : 'bg-[#E5A93C]'
+                                  }`}
+                                />
+                              )}
+                              <div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-semibold text-white">{node.name}</span>
+                                  <span className="text-[10px] text-[#888]">({node.percentage}%)</span>
+                                </div>
+                                <span className="text-[10px] text-[#777]">
+                                  Alloc: ₹{alloc.toLocaleString('en-IN')} · Spent: ₹{spent.toLocaleString('en-IN')}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="text-right">
+                              <span className="text-xs font-bold text-[#A8E063] block">
+                                ₹{available.toLocaleString('en-IN')}
+                              </span>
+                              <span className="text-[9px] text-[#666]">available</span>
+                            </div>
+                          </div>
+
+                          {hasChildren && isNodeExpanded && (
+                            <div className="space-y-1 pt-0.5">
+                              {node.children!.map(child => renderEnvelopeNode(child, alloc, depth + 1))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    };
+
+                    const accIncomes = incomeSources.filter(src => src.targetAccountId === acc.id || (src.targetAccountId === 'GLOBAL' && acc.id === accountsList[0]?.id));
+                    const accSpends = scheduledSpends.filter(s => s.accountId === acc.id || (!s.accountId && acc.id === accountsList[0]?.id));
+                    const hasCashFlow = accIncomes.length > 0 || accSpends.length > 0;
 
                     return (
                       <div key={acc.id} className="py-2.5">
@@ -1069,7 +1200,7 @@ export function ProfileSection() {
                               </span>
                               {unallocated > 0 && (
                                 <span className="text-[10px] text-[#E8C47A] font-medium">
-                                  ₹{unallocated.toLocaleString('en-IN')} in Default
+                                  ₹{unallocated.toLocaleString('en-IN')} in General Funds
                                 </span>
                               )}
                             </div>
@@ -1089,74 +1220,19 @@ export function ProfileSection() {
 
                             {/* Envelopes Table with Net Math */}
                             <div className="space-y-1.5">
-                              {/* Needs */}
-                              <div className="flex items-center justify-between bg-[#12110E] p-2.5 rounded-lg border border-[#222]">
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-[#8EBA55]" />
-                                    <span className="text-xs font-semibold text-white">Needs (50%)</span>
-                                  </div>
-                                  <span className="text-[10px] text-[#777]">
-                                    Alloc: ₹{needsAlloc.toLocaleString('en-IN')} · Spent: ₹{needsSpent.toLocaleString('en-IN')}
-                                  </span>
-                                </div>
-                                <div className="text-right">
-                                  <span className="text-xs font-bold text-[#A8E063] block">
-                                    ₹{needsAvail.toLocaleString('en-IN')}
-                                  </span>
-                                  <span className="text-[9px] text-[#666]">available</span>
-                                </div>
-                              </div>
+                              {hierarchicalTree.map(rootNode => renderEnvelopeNode(rootNode, pool, 0))}
 
-                              {/* Wants */}
-                              <div className="flex items-center justify-between bg-[#12110E] p-2.5 rounded-lg border border-[#222]">
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-[#4A90E2]" />
-                                    <span className="text-xs font-semibold text-white">Wants (30%)</span>
-                                  </div>
-                                  <span className="text-[10px] text-[#777]">
-                                    Alloc: ₹{wantsAlloc.toLocaleString('en-IN')} · Spent: ₹{wantsSpent.toLocaleString('en-IN')}
-                                  </span>
-                                </div>
-                                <div className="text-right">
-                                  <span className="text-xs font-bold text-[#A8E063] block">
-                                    ₹{wantsAvail.toLocaleString('en-IN')}
-                                  </span>
-                                  <span className="text-[9px] text-[#666]">available</span>
-                                </div>
-                              </div>
-
-                              {/* Savings */}
-                              <div className="flex items-center justify-between bg-[#12110E] p-2.5 rounded-lg border border-[#222]">
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-[#E5A93C]" />
-                                    <span className="text-xs font-semibold text-white">Savings (20%)</span>
-                                  </div>
-                                  <span className="text-[10px] text-[#777]">
-                                    Alloc: ₹{savingsAlloc.toLocaleString('en-IN')} · Spent: ₹{savingsSpent.toLocaleString('en-IN')}
-                                  </span>
-                                </div>
-                                <div className="text-right">
-                                  <span className="text-xs font-bold text-[#A8E063] block">
-                                    ₹{savingsAvail.toLocaleString('en-IN')}
-                                  </span>
-                                  <span className="text-[9px] text-[#666]">available</span>
-                                </div>
-                              </div>
-
-                              {/* Default Category (Single unspread category) */}
+                              {/* General Funds (Single unspread category) */}
                               {unallocated > 0 && (
                                 <div className="flex items-center justify-between bg-[#191814] p-2.5 rounded-lg border border-[#3E382A]">
                                   <div>
                                     <div className="flex items-center gap-2">
                                       <span className="w-2 h-2 rounded-full bg-[#E8C47A]" />
-                                      <span className="text-xs font-semibold text-white">Default Category</span>
-                                      <span className="text-[9px] bg-[#3A3222] text-[#E8C47A] px-1.5 py-0.5 rounded font-bold">Unspread</span>
+                                      <span className="text-xs font-semibold text-white">General Funds</span>
+                                      <span className="text-[9px] bg-[#3A3222] text-[#E8C47A] px-1.5 py-0.5 rounded font-bold">General Pool</span>
                                     </div>
                                     <span className="text-[10px] text-[#A69B85]">
-                                      Single default buffer · Not split across subcategories
+                                      Flexible unallocated buffer · Not split across subcategories
                                     </span>
                                   </div>
                                   <div className="text-right">
@@ -1168,6 +1244,98 @@ export function ProfileSection() {
                                 </div>
                               )}
                             </div>
+
+                            {/* Account Cash Flow (Income Streams & Recurring Spends / EMIs) */}
+                            {hasCashFlow && (
+                              <div className="pt-2 border-t border-[#26241F] space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[11px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                                    <RefreshCw className="w-3 h-3 text-[#A8E063]" />
+                                    Cash Flow & Schedules
+                                  </span>
+                                  <span className="text-[10px] text-[#888]">
+                                    {accIncomes.length} Income · {accSpends.length} Spends
+                                  </span>
+                                </div>
+
+                                {/* Income Streams (CLICKABLE to edit regular vs one-time, general vs spread) */}
+                                {accIncomes.map(src => (
+                                  <div
+                                    key={src.id}
+                                    onClick={() => openEditIncomeModal(src)}
+                                    className="p-2.5 bg-[#12110E] hover:bg-[#181713] rounded-xl border border-[#222] hover:border-[#3D3A2F] flex items-center justify-between gap-2 cursor-pointer transition-all group"
+                                    title="Tap to edit this income stream"
+                                  >
+                                    <div className="space-y-0.5 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-semibold text-xs text-white group-hover:text-[#A8E063] transition-colors truncate">
+                                          {src.name}
+                                        </span>
+                                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-[#2D2A24] text-[#C5E89B] font-medium shrink-0">
+                                          {src.frequency === 'ONE_TIME' ? 'One-Time' : `Day ${src.dayOfMonth || 1}`}
+                                        </span>
+                                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-[#232B1C] text-[#A8E063] border border-[#3E5227] font-semibold shrink-0">
+                                          {src.allocationMode === 'SPREAD' ? '50/30/20' : 'General'}
+                                        </span>
+                                      </div>
+                                      <p className="text-[10px] text-[#888]">
+                                        ₹{src.amount.toLocaleString('en-IN')} · Tap to adjust rules or frequency
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      <span className="text-xs font-bold text-[#A8E063]">
+                                        +₹{src.amount.toLocaleString('en-IN')}
+                                      </span>
+                                      <Pencil className="w-3 h-3 text-[#666] group-hover:text-white" />
+                                    </div>
+                                  </div>
+                                ))}
+
+                                {/* Recurring Spends & EMIs */}
+                                {accSpends.map(spend => (
+                                  <div
+                                    key={spend.id}
+                                    className="p-2.5 bg-[#12110E] rounded-xl border border-[#222] flex items-center justify-between gap-2"
+                                  >
+                                    <div className="space-y-0.5 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-semibold text-xs text-white truncate">
+                                          {spend.name}
+                                        </span>
+                                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-[#3D2D1A] text-[#E5A93C] font-medium shrink-0">
+                                          Due {spend.dueDay}th
+                                        </span>
+                                      </div>
+                                      <p className="text-[10px] text-[#888]">
+                                        ₹{spend.amount.toLocaleString('en-IN')} · {spend.frequency} · Deducts from {spend.categoryId.replace('cat-', '')}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={() => payScheduledSpendEarly(spend.id)}
+                                        className="py-1 px-2 rounded-lg bg-[#E5832E] hover:bg-[#F28F38] text-black font-bold text-[10px] transition-all cursor-pointer flex items-center gap-1"
+                                        title="Pay now ahead of schedule"
+                                      >
+                                        <Zap className="w-3 h-3" />
+                                        Pay Early
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          deleteScheduledSpend(spend.id);
+                                          showToast(`Removed scheduled spend "${spend.name}"`);
+                                        }}
+                                        className="p-1 rounded-lg text-[#666] hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                                        title="Delete EMI / Bill"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
 
                             {/* Inside Account Actions: Add Funds, History & Edit */}
                             <div className="pt-2 flex items-center gap-2">
@@ -1294,184 +1462,6 @@ export function ProfileSection() {
             No savings goals set yet. Tap + to create your first goal.
           </div>
         )}
-      </div>
-
-      {/* ── Cash Flow & Schedules Section (Income Streams & EMI Spends) ── */}
-      <div className="pt-1 space-y-2.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h3 className="font-bold text-base text-white">Cash Flow & Schedules</h3>
-            <span className="text-[10px] font-bold text-[#A6C485] bg-[#4A622F]/20 px-2 py-0.5 rounded-full border border-[#587437]/30">
-              Auto-Rules
-            </span>
-          </div>
-
-          <button
-            onClick={() => {
-              if (cashFlowTab === 'income') {
-                setShowAddIncomeModal(true);
-              } else {
-                setShowAddSpendModal(true);
-              }
-            }}
-            className="px-2.5 py-1 rounded-lg bg-[#201F1B] border border-[#2E2C27] text-white hover:border-[#6B8F3C] flex items-center gap-1.5 text-xs font-semibold transition-all cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5 text-[#8EBA55]" />
-            <span>{cashFlowTab === 'income' ? 'Add Income Stream' : 'Add EMI / Bill'}</span>
-          </button>
-        </div>
-
-        <div className="bg-[#1C1A16] rounded-2xl border border-[#282622] p-3.5 space-y-3 shadow-md">
-          {/* Segment switch */}
-          <div className="bg-[#12110E] p-1 rounded-xl flex items-center gap-1">
-            <button
-              onClick={() => setCashFlowTab('income')}
-              className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer text-center ${
-                cashFlowTab === 'income'
-                  ? 'bg-[#4A622F] text-white shadow-sm'
-                  : 'text-[#8E9089] hover:text-white'
-              }`}
-            >
-              Income Streams ({incomeSources.length})
-            </button>
-            <button
-              onClick={() => setCashFlowTab('spends')}
-              className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer text-center ${
-                cashFlowTab === 'spends'
-                  ? 'bg-[#4A622F] text-white shadow-sm'
-                  : 'text-[#8E9089] hover:text-white'
-              }`}
-            >
-              Recurring Spends & EMIs ({scheduledSpends.length})
-            </button>
-          </div>
-
-          {/* Tab 1: Income Streams */}
-          {cashFlowTab === 'income' && (
-            <div className="space-y-2">
-              {incomeSources.length > 0 ? (
-                incomeSources.map(src => (
-                  <div
-                    key={src.id}
-                    className="p-3 bg-[#141310] rounded-xl border border-[#282622] flex items-center justify-between gap-2.5"
-                  >
-                    <div className="space-y-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-xs sm:text-sm text-white truncate">
-                          {src.name}
-                        </span>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#25281E] border border-[#3A4526] text-[#A6C485] shrink-0">
-                          {src.frequency === 'MONTHLY' ? `Monthly (${src.dayOfMonth || 1}st)` : src.frequency}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-[11px] text-[#8E8A82]">
-                        <span className="font-mono text-white font-bold">
-                          ₹{src.amount.toLocaleString('en-IN')}
-                        </span>
-                        <span>·</span>
-                        <span>
-                          {src.allocationMode === 'SPREAD' ? 'Auto-Spread 50/30/20' : 'Direct Category'}
-                        </span>
-                        <span>·</span>
-                        <span>
-                          {src.targetAccountId === 'GLOBAL' ? 'All Accounts' : 'Primary Account'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        onClick={() => handleDepositFromStream(src)}
-                        className="px-2.5 py-1.5 rounded-lg bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm"
-                        title="Deposit Now"
-                      >
-                        <Zap className="w-3 h-3 text-[#C5E89B]" />
-                        <span>Deposit</span>
-                      </button>
-                      <button
-                        onClick={() => deleteIncomeSource(src.id)}
-                        className="p-1.5 text-[#666] hover:text-[#E85D5D] transition-colors cursor-pointer"
-                        title="Delete Stream"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="py-4 text-center text-[#888] text-xs">
-                  No income streams configured yet.
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Tab 2: Recurring Spends & EMIs */}
-          {cashFlowTab === 'spends' && (
-            <div className="space-y-2">
-              {scheduledSpends.length > 0 ? (
-                scheduledSpends.map(spend => {
-                  const isPaidEarly = spend.status === 'PAID_EARLY';
-                  return (
-                    <div
-                      key={spend.id}
-                      className="p-3 bg-[#141310] rounded-xl border border-[#282622] flex items-center justify-between gap-2.5"
-                    >
-                      <div className="space-y-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-xs sm:text-sm text-white truncate">
-                            {spend.name}
-                          </span>
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#2D2419] border border-[#4E3E26] text-[#E8C47A] shrink-0">
-                            Due {spend.dueDay}th
-                          </span>
-                          {isPaidEarly && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#1B2915] border border-[#3E5C2A] text-[#A6C485] shrink-0">
-                              Paid Early
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 text-[11px] text-[#8E8A82]">
-                          <span className="font-mono text-white font-bold">
-                            ₹{spend.amount.toLocaleString('en-IN')}
-                          </span>
-                          <span>·</span>
-                          <span>{spend.frequency}</span>
-                          <span>·</span>
-                          <span className="text-[#8EBA55]">Deducts from Needs</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {!isPaidEarly && (
-                          <button
-                            onClick={() => handlePayEarly(spend)}
-                            className="px-2.5 py-1.5 rounded-lg bg-[#E87A24] hover:bg-[#F38936] text-[#141310] text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm"
-                            title="Pay Early"
-                          >
-                            <Zap className="w-3 h-3 text-[#141310]" />
-                            <span>Pay Early</span>
-                          </button>
-                        )}
-                        <button
-                          onClick={() => deleteScheduledSpend(spend.id)}
-                          className="p-1.5 text-[#666] hover:text-[#E85D5D] transition-colors cursor-pointer"
-                          title="Delete EMI"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="py-4 text-center text-[#888] text-xs">
-                  No recurring spends or EMIs scheduled yet.
-                </div>
-              )}
-            </div>
-          )}
-        </div>
       </div>
 
       {/* ── Data & Backups Section ── */}
@@ -3292,6 +3282,242 @@ export function ProfileSection() {
               </button>
             </div>
           </div>
+        </Modal>
+      )}
+
+      {/* ── Rename Profile Modal ── */}
+      {showRenameModal && (
+        <Modal title="Rename Profile" onClose={() => setShowRenameModal(false)}>
+          <div className="space-y-4">
+            <div>
+              <label className="text-2xs font-semibold uppercase tracking-wider text-[#999] mb-1.5 block">
+                Profile Name
+              </label>
+              <input
+                type="text"
+                value={renameInput}
+                onChange={e => setRenameInput(e.target.value)}
+                placeholder="e.g. Personal Budget"
+                className="w-full bg-[#12110E] border border-[#282622] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#485F2C]"
+                autoFocus
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    const trimmed = renameInput.trim() || 'Personal Budget';
+                    setUserName(trimmed);
+                    if (typeof window !== 'undefined') {
+                      localStorage.setItem('richingness_user_custom_name_v1', trimmed);
+                    }
+                    setShowRenameModal(false);
+                    showToast('Profile name updated!');
+                  }
+                }}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowRenameModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-xs cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const trimmed = renameInput.trim() || 'Personal Budget';
+                  setUserName(trimmed);
+                  if (typeof window !== 'undefined') {
+                    localStorage.setItem('richingness_user_custom_name_v1', trimmed);
+                  }
+                  setShowRenameModal(false);
+                  showToast('Profile name updated!');
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-[#485F2C] hover:bg-[#587437] text-white font-bold text-xs cursor-pointer shadow-md"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Edit Income Modal (Regular vs One-Time & General Funds vs Spread) ── */}
+      {showEditIncomeModal && editingIncome && (
+        <Modal title={`Edit Income · ${editingIncome.name}`} onClose={() => setShowEditIncomeModal(false)}>
+          <form onSubmit={handleUpdateIncomeSource} className="space-y-4">
+            <div>
+              <label className="text-2xs font-semibold uppercase tracking-wider text-[#999] mb-1 block">
+                Income Source Name
+              </label>
+              <input
+                type="text"
+                value={editIncName}
+                onChange={e => setEditIncName(e.target.value)}
+                className="w-full bg-[#12110E] border border-[#282622] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#485F2C]"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="text-2xs font-semibold uppercase tracking-wider text-[#999] mb-1 block">
+                Amount (₹)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={editIncAmount}
+                onChange={e => setEditIncAmount(e.target.value)}
+                className="w-full bg-[#12110E] border border-[#282622] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#485F2C]"
+                required
+              />
+            </div>
+
+            {/* Regular vs One-Time */}
+            <div>
+              <label className="text-2xs font-semibold uppercase tracking-wider text-[#999] mb-1.5 block">
+                Frequency
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditIncIsRegular(true)}
+                  className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                    editIncIsRegular
+                      ? 'bg-[#485F2C] text-white border-[#587437]'
+                      : 'bg-[#181714] text-[#888] border-[#282622] hover:text-white'
+                  }`}
+                >
+                  Regular (Monthly)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditIncIsRegular(false)}
+                  className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                    !editIncIsRegular
+                      ? 'bg-[#485F2C] text-white border-[#587437]'
+                      : 'bg-[#181714] text-[#888] border-[#282622] hover:text-white'
+                  }`}
+                >
+                  One-Time
+                </button>
+              </div>
+            </div>
+
+            {editIncIsRegular && (
+              <div>
+                <label className="text-2xs font-semibold uppercase tracking-wider text-[#999] mb-1 block">
+                  Day of Month (1 - 31)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={editIncDay}
+                  onChange={e => setEditIncDay(e.target.value)}
+                  className="w-full bg-[#12110E] border border-[#282622] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#485F2C]"
+                />
+              </div>
+            )}
+
+            {/* Destination Mode: Spread Envelopes vs General Funds */}
+            <div>
+              <label className="text-2xs font-semibold uppercase tracking-wider text-[#999] mb-1.5 block">
+                Category Allocation Mode
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditIncAllocationMode('SPREAD')}
+                  className={`py-2 px-2.5 rounded-xl text-xs font-semibold border text-center transition-all cursor-pointer ${
+                    editIncAllocationMode === 'SPREAD'
+                      ? 'bg-[#485F2C] text-white border-[#587437]'
+                      : 'bg-[#181714] text-[#888] border-[#282622] hover:text-white'
+                  }`}
+                >
+                  Spread (50/30/20)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditIncAllocationMode('DIRECT_CATEGORY')}
+                  className={`py-2 px-2.5 rounded-xl text-xs font-semibold border text-center transition-all cursor-pointer ${
+                    editIncAllocationMode === 'DIRECT_CATEGORY'
+                      ? 'bg-[#485F2C] text-white border-[#587437]'
+                      : 'bg-[#181714] text-[#888] border-[#282622] hover:text-white'
+                  }`}
+                >
+                  General Funds
+                </button>
+              </div>
+              <p className="text-[11px] text-[#777] mt-1.5">
+                {editIncAllocationMode === 'SPREAD'
+                  ? 'Allocates across Needs, Wants, and Savings according to category percentages.'
+                  : 'Deposits into General Funds as a flexible reserve pool.'}
+              </p>
+            </div>
+
+            {/* Target Account */}
+            <div>
+              <label className="text-2xs font-semibold uppercase tracking-wider text-[#999] mb-1 block">
+                Target Account
+              </label>
+              <select
+                value={editIncTargetAccount}
+                onChange={e => setEditIncTargetAccount(e.target.value)}
+                className="w-full bg-[#12110E] border border-[#282622] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#485F2C]"
+              >
+                <option value="GLOBAL">Primary / Default Account</option>
+                {accounts.map(acc => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Quick Actions: Deposit Now, Save, Delete */}
+            <div className="pt-2 border-t border-[#282622] space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  depositFromIncomeSource(editingIncome.id);
+                  setShowEditIncomeModal(false);
+                  showToast(`Deposited ₹${editingIncome.amount.toLocaleString()} into account!`);
+                }}
+                className="w-full py-2.5 rounded-xl bg-[#242A1D] hover:bg-[#303B23] border border-[#485F2C] text-[#C5E89B] font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <ArrowDownLeft className="w-3.5 h-3.5" />
+                Deposit Now (Instant Credit)
+              </button>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    deleteIncomeSource(editingIncome.id);
+                    setShowEditIncomeModal(false);
+                    showToast(`Deleted income stream "${editingIncome.name}"`);
+                  }}
+                  className="px-3 py-2.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 font-semibold text-xs cursor-pointer flex items-center justify-center gap-1 transition-all"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowEditIncomeModal(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-[#485F2C] hover:bg-[#587437] text-white font-bold text-xs cursor-pointer shadow-md"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </form>
         </Modal>
       )}
 
