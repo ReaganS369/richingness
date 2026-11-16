@@ -205,9 +205,11 @@ body.modal-open .app-main-scroll {
   flex-shrink: 0 !important;
   width: 100% !important;
   z-index: 50 !important;
-  background-color: #141310 !important;
-  border-top: 1px solid #26241F !important;
-  border-radius: 20px 20px 0 0 !important;
+  background-color: rgba(20, 19, 16, 0.95) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 16px 16px 0 0 !important;
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0.5rem)) !important;
 }
 

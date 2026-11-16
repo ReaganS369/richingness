@@ -1269,7 +1269,7 @@ export default function Home() {
           </div>
         </main>
 
-        {/* ── 3-ITEM BALANCED FIGMA BOTTOM NAVIGATION BAR (40% Active / 30% Inactive / 30% Inactive · Flat Bottom) ────── */}
+        {/* ── 3-ITEM MODERN CONSUMER BOTTOM NAVIGATION BAR ────── */}
         {(() => {
           const isHistoryActive = activeTab === 'transactions';
           const isSettingsActive = activeTab === 'settings';
@@ -1278,52 +1278,64 @@ export default function Home() {
           return (
             <nav
               aria-label="Bottom Navigation"
-              className="md:hidden app-bottom-nav w-full pt-1.5 pb-1 px-1.5 flex bg-[#141310] border-t border-[#26241F] rounded-t-2xl rounded-b-none shadow-2xl"
+              className="md:hidden app-bottom-nav w-full pt-1.5 pb-2 px-3 flex bg-[#141310]/95 backdrop-blur-xl border-t border-white/[0.08] shadow-2xl shrink-0"
             >
-              <div className="flex items-center justify-between w-full gap-1.5 bg-[#1B1A17] p-1.5 rounded-t-xl rounded-b-none border-t border-x border-b-0 border-[#2B2923] shadow-lg">
-                {/* ── 1. Left: History (Transactions) ── */}
+              <div className="grid grid-cols-3 items-center w-full gap-2">
+                {/* ── 1. History (Transactions) ── */}
                 <button
                   type="button"
                   onClick={() => setActiveTab('transactions')}
                   title="History"
                   aria-label="History"
                   style={{ WebkitTapHighlightColor: 'transparent' }}
-                  className={`h-12 rounded-t-lg rounded-b-none transition-[flex,width,background-color,color] duration-300 ease-out cursor-pointer flex flex-col items-center justify-center outline-none focus:outline-none focus:ring-0 active:outline-none select-none border py-1 ${
-                    isHistoryActive
-                      ? 'flex-[4] basis-[40%] bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40 border-[#769C4B] px-2'
-                      : 'flex-[3] basis-[30%] text-[#8E8A82] hover:text-white hover:bg-white/[0.04] active:scale-95 border-transparent px-1'
-                  }`}
+                  className="flex flex-col items-center justify-center py-1 transition-all duration-200 cursor-pointer group outline-none select-none"
                 >
-                  <History className="w-4.5 h-4.5 shrink-0" />
-                  <span className={`text-[10px] mt-0.5 leading-tight transition-colors ${
-                    isHistoryActive ? 'font-bold text-white' : 'font-medium text-[#8E8A82]'
-                  }`}>
+                  <div
+                    className={`h-8 px-4 rounded-full flex items-center justify-center transition-all duration-200 ${
+                      isHistoryActive
+                        ? 'bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/30'
+                        : 'text-[#8E8A82] group-hover:text-white group-hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    <History className="w-4 h-4 shrink-0" />
+                  </div>
+                  <span
+                    className={`text-[11px] mt-1 tracking-tight transition-colors ${
+                      isHistoryActive ? 'font-bold text-white' : 'font-medium text-[#8E8A82]'
+                    }`}
+                  >
                     History
                   </span>
                 </button>
 
-                {/* ── 2. Middle: Home (Dashboard) ── */}
+                {/* ── 2. Home (Dashboard) ── */}
                 <button
                   type="button"
                   onClick={() => setActiveTab('dashboard')}
                   title="Home"
                   aria-label="Home"
                   style={{ WebkitTapHighlightColor: 'transparent' }}
-                  className={`h-12 rounded-t-lg rounded-b-none transition-[flex,width,background-color,color] duration-300 ease-out cursor-pointer flex flex-col items-center justify-center outline-none focus:outline-none focus:ring-0 active:outline-none select-none border py-1 ${
-                    isHomeActive
-                      ? 'flex-[4] basis-[40%] bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40 border-[#769C4B] px-2'
-                      : 'flex-[3] basis-[30%] text-[#8E8A82] hover:text-white hover:bg-white/[0.04] active:scale-95 border-transparent px-1'
-                  }`}
+                  className="flex flex-col items-center justify-center py-1 transition-all duration-200 cursor-pointer group outline-none select-none"
                 >
-                  <HomeIcon className="w-4.5 h-4.5 shrink-0" />
-                  <span className={`text-[10px] mt-0.5 leading-tight transition-colors ${
-                    isHomeActive ? 'font-bold text-white' : 'font-medium text-[#8E8A82]'
-                  }`}>
+                  <div
+                    className={`h-8 px-4 rounded-full flex items-center justify-center transition-all duration-200 ${
+                      isHomeActive
+                        ? 'bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/30'
+                        : 'text-[#8E8A82] group-hover:text-white group-hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    <HomeIcon className="w-4 h-4 shrink-0" />
+                  </div>
+                  <span
+                    className={`text-[11px] mt-1 tracking-tight transition-colors ${
+                      isHomeActive ? 'font-bold text-white' : 'font-medium text-[#8E8A82]'
+                    }`}
+                  >
                     Home
                   </span>
                 </button>
 
-                {/* ── 3. Right: Settings ── */}
+                {/* ── 3. Settings ── */}
                 <button
                   type="button"
                   onClick={() => {
@@ -1333,16 +1345,22 @@ export default function Home() {
                   title="Settings"
                   aria-label="Settings"
                   style={{ WebkitTapHighlightColor: 'transparent' }}
-                  className={`h-12 rounded-t-lg rounded-b-none transition-[flex,width,background-color,color] duration-300 ease-out cursor-pointer flex flex-col items-center justify-center outline-none focus:outline-none focus:ring-0 active:outline-none select-none border py-1 ${
-                    isSettingsActive
-                      ? 'flex-[4] basis-[40%] bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40 border-[#769C4B] px-2'
-                      : 'flex-[3] basis-[30%] text-[#8E8A82] hover:text-white hover:bg-white/[0.04] active:scale-95 border-transparent px-1'
-                  }`}
+                  className="flex flex-col items-center justify-center py-1 transition-all duration-200 cursor-pointer group outline-none select-none"
                 >
-                  <Settings className="w-4.5 h-4.5 shrink-0" />
-                  <span className={`text-[10px] mt-0.5 leading-tight transition-colors ${
-                    isSettingsActive ? 'font-bold text-white' : 'font-medium text-[#8E8A82]'
-                  }`}>
+                  <div
+                    className={`h-8 px-4 rounded-full flex items-center justify-center transition-all duration-200 ${
+                      isSettingsActive
+                        ? 'bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/30'
+                        : 'text-[#8E8A82] group-hover:text-white group-hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    <Settings className="w-4 h-4 shrink-0" />
+                  </div>
+                  <span
+                    className={`text-[11px] mt-1 tracking-tight transition-colors ${
+                      isSettingsActive ? 'font-bold text-white' : 'font-medium text-[#8E8A82]'
+                    }`}
+                  >
                     Settings
                   </span>
                 </button>

@@ -1555,9 +1555,9 @@ export function ProfileSection() {
                   }
                 }}
                 className="text-[11px] font-semibold text-[#A8E063] hover:underline cursor-pointer"
-                title="Replay the live interactive tour on the dashboard"
+                title="Replay the guided interactive walkthrough"
               >
-                Replay Tutorial
+                Replay Guided Tour
               </button>
               <button
                 type="button"

@@ -3,14 +3,16 @@
 import React, { useState, useEffect } from 'react';
 import {
   Sparkles,
-  Zap,
+  Compass,
   ArrowRight,
   CheckCircle2,
   X,
   Wallet,
   ArrowDownLeft,
   FolderTree,
-  ChevronRight
+  ChevronRight,
+  ShieldCheck,
+  Layers
 } from 'lucide-react';
 
 interface LiveInteractiveTourProps {
@@ -121,129 +123,148 @@ export function LiveInteractiveTour({
 
   return (
     <>
-      {/* ── 1. INITIAL QUESTION: ARE YOU NEW OR NOT? ── */}
+      {/* ── 1. WELCOME MODAL: CLEAN CONSUMER-GRADE PRESENTATION ── */}
       {tourStatus === 'prompt' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-          <div className="w-full max-w-md bg-[#191714] border border-[#2D2A24] rounded-2xl shadow-2xl p-6 sm:p-7 text-white space-y-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in">
+          <div className="relative w-full max-w-md bg-gradient-to-b from-[#1C1A17] to-[#141310] border border-white/[0.08] rounded-3xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] p-6 sm:p-7 text-white space-y-6 overflow-hidden">
+            {/* Ambient subtle glow */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-20 bg-[#4A622F]/20 blur-3xl pointer-events-none rounded-full" />
+
             {/* Header */}
-            <div className="text-center space-y-2">
-              <div className="w-12 h-12 rounded-2xl bg-[#4A622F]/30 border border-[#587437]/50 flex items-center justify-center text-[#A8E063] mx-auto shadow-inner">
-                <Sparkles className="w-6 h-6" />
+            <div className="text-center space-y-2 relative">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#4A622F]/20 border border-[#587437]/35 text-[#A8E063] text-2xs font-bold uppercase tracking-wider">
+                <Sparkles className="w-3 h-3 text-[#A8E063]" />
+                <span>Financial OS</span>
               </div>
-              <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-2">
                 Welcome to Richingness
               </h2>
               <p className="text-xs sm:text-sm text-[#A09C94] leading-relaxed max-w-xs mx-auto">
-                Smart envelope budgeting that keeps every rupee accounted for.
+                Intelligent envelope budgeting crafted to give every rupee purpose and clarity.
               </p>
             </div>
 
-            {/* Question & Choices */}
-            <div className="space-y-3">
-              <p className="text-center text-xs font-bold text-[#E5A93C] uppercase tracking-wider">
-                Are you new to Richingness?
-              </p>
-
-              {/* Option A: Yes, I'm new */}
+            {/* Options */}
+            <div className="space-y-3 relative">
+              {/* Option A: Guided Tour (Recommended) */}
               <button
                 type="button"
                 onClick={handleStartTour}
-                className="w-full p-4 rounded-xl bg-[#211F1B] hover:bg-[#282622] border-2 border-[#4A622F] hover:border-[#587437] transition-all cursor-pointer group flex items-start gap-3.5 relative overflow-hidden shadow-lg shadow-[#4A622F]/10 text-left"
+                className="w-full p-4 rounded-2xl bg-gradient-to-r from-[#23211C] to-[#1C1A16] hover:from-[#2A2722] hover:to-[#221F1B] border border-[#4A622F]/60 hover:border-[#587437] transition-all cursor-pointer group flex items-start gap-3.5 relative shadow-lg shadow-black/40 text-left"
               >
-                <div className="w-9 h-9 rounded-xl bg-[#4A622F] text-white flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
-                  <Sparkles className="w-4 h-4 text-white" />
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#4A622F] to-[#384B23] text-white flex items-center justify-center shrink-0 mt-0.5 shadow-md group-hover:scale-105 transition-transform">
+                  <Compass className="w-5 h-5 text-white" />
                 </div>
-                <div className="flex-1 pr-6">
-                  <span className="text-sm font-bold text-white block">
-                    ✨ Yes, I&apos;m new — Show me around
-                  </span>
-                  <span className="text-xs text-[#A09C94] mt-0.5 block leading-relaxed">
-                    Live walkthrough: We’ll open each section and guide you right inside the app.
-                  </span>
+                <div className="flex-1 min-w-0 pr-6">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-white tracking-tight">
+                      Take Guided Tour
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-[#4A622F]/30 text-[#A8E063] text-[10px] font-bold uppercase tracking-wider">
+                      Recommended
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#A09C94] mt-1 leading-relaxed">
+                    A quick 60-second interactive setup to create your primary account and assign budget envelopes.
+                  </p>
                 </div>
-                <ArrowRight className="w-4 h-4 text-[#A8E063] absolute right-4 top-1/2 -translate-y-1/2 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="w-4 h-4 text-[#A8E063] absolute right-4 top-1/2 -translate-y-1/2 group-hover:translate-x-1 transition-transform shrink-0" />
               </button>
 
-              {/* Option B: I have used this before */}
+              {/* Option B: Explore on My Own */}
               <button
                 type="button"
                 onClick={handleSkipTour}
-                className="w-full p-4 rounded-xl bg-[#1C1A16] hover:bg-[#24211D] border border-[#2F2C25] hover:border-[#3D3930] transition-all cursor-pointer group flex items-start gap-3.5 text-left"
+                className="w-full p-4 rounded-2xl bg-[#181613] hover:bg-[#1E1C18] border border-white/[0.06] hover:border-white/[0.12] transition-all cursor-pointer group flex items-start gap-3.5 relative text-left"
               >
-                <div className="w-9 h-9 rounded-xl bg-[#292620] text-[#A09C94] group-hover:text-white flex items-center justify-center shrink-0 mt-0.5">
-                  <Zap className="w-4 h-4" />
+                <div className="w-10 h-10 rounded-xl bg-white/[0.05] text-[#8E8A82] group-hover:text-white flex items-center justify-center shrink-0 mt-0.5 transition-colors">
+                  <Layers className="w-5 h-5" />
                 </div>
-                <div className="flex-1 pr-6">
-                  <span className="text-sm font-bold text-white block">
-                    ⚡ I&apos;ve used this before — Jump straight in
+                <div className="flex-1 min-w-0 pr-6">
+                  <span className="text-sm font-semibold text-white tracking-tight block">
+                    Explore on My Own
                   </span>
-                  <span className="text-xs text-[#8E8A82] mt-0.5 block leading-relaxed">
-                    Skip tutorials and start using the app. (You can replay anytime from Settings).
-                  </span>
+                  <p className="text-xs text-[#8E8A82] mt-1 leading-relaxed">
+                    Jump directly to your empty dashboard. You can replay the walkthrough anytime from Settings.
+                  </p>
                 </div>
-                <ChevronRight className="w-4 h-4 text-[#8E8A82] group-hover:text-white absolute right-4 top-1/2 -translate-y-1/2 group-hover:translate-x-1 transition-transform" />
+                <ChevronRight className="w-4 h-4 text-[#8E8A82] group-hover:text-white absolute right-4 top-1/2 -translate-y-1/2 group-hover:translate-x-1 transition-transform shrink-0" />
               </button>
             </div>
 
             {/* Cloud Sign In Option */}
-            <div className="pt-3 border-t border-[#292620] flex items-center justify-between text-xs text-[#8E8A82]">
-              <span>Have an existing account?</span>
+            <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs text-[#8E8A82]">
+              <span>Already syncing data?</span>
               <button
                 type="button"
                 onClick={() => {
                   handleSkipTour();
                   onOpenSignIn();
                 }}
-                className="text-[#A8E063] hover:underline font-semibold cursor-pointer"
+                className="text-[#A8E063] hover:text-white font-medium transition-colors cursor-pointer"
               >
-                Sign In to Cloud Sync →
+                Sign In with Cloud Sync →
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── 2. LIVE IN-APP FLOATING COACHMARK ── */}
+      {/* ── 2. LIVE IN-APP FLOATING HUD COACHMARK ── */}
       {tourStatus === 'running' && (
-        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 sm:max-w-md z-40 animate-fade-up">
-          <div className="bg-[#1C1A16]/95 backdrop-blur-md border-2 border-[#4A622F] rounded-2xl p-4 sm:p-5 shadow-2xl text-white space-y-3.5 relative">
-            
-            {/* Top Bar with Step & Dismiss */}
-            <div className="flex items-center justify-between">
+        <div className="fixed bottom-20 sm:bottom-6 left-3 right-3 sm:left-auto sm:right-6 sm:max-w-md z-[9990] animate-fade-up">
+          <div className="bg-[#181714]/95 backdrop-blur-2xl border border-white/[0.12] rounded-2xl p-4 sm:p-5 shadow-[0_20px_50px_rgba(0,0,0,0.7)] text-white space-y-3.5 relative overflow-hidden">
+            {/* Top Bar with Step Progress & Dismiss */}
+            <div className="flex items-center justify-between pb-2.5 border-b border-white/[0.06]">
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#4A622F]/30 border border-[#587437]/50 text-[#A8E063] text-2xs font-bold uppercase tracking-wider">
-                  Live Guide · Step {currentStep} of 3
+                <div className="flex items-center gap-1.5">
+                  {[1, 2, 3].map(step => (
+                    <div
+                      key={step}
+                      className={`h-1.5 rounded-full transition-all duration-300 ${
+                        step === currentStep
+                          ? 'w-6 bg-[#A8E063]'
+                          : step < currentStep
+                          ? 'w-3 bg-[#4A622F]'
+                          : 'w-3 bg-white/10'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="text-2xs font-bold text-[#A8E063] tracking-wider uppercase ml-1">
+                  Step {currentStep} of 3
                 </span>
               </div>
               <button
                 type="button"
                 onClick={handleSkipTour}
-                className="text-xs text-[#8E8A82] hover:text-white flex items-center gap-1 px-2 py-1 rounded hover:bg-white/5 cursor-pointer"
-                title="End Tour"
+                className="text-xs text-[#8E8A82] hover:text-white flex items-center gap-1 px-2 py-0.5 rounded-lg hover:bg-white/[0.06] transition-colors cursor-pointer"
               >
-                <span>Skip</span>
+                <span>Exit Guide</span>
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
 
             {/* ── Step 1 Guidance: Create Account ── */}
             {currentStep === 1 && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-white font-bold text-sm sm:text-base">
-                  <Wallet className="w-4 h-4 text-[#A8E063]" />
-                  <span>Step 1: First, let&apos;s create an account</span>
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-2.5 text-white font-bold text-sm sm:text-base">
+                  <div className="w-7 h-7 rounded-lg bg-[#4A622F]/30 border border-[#587437]/40 flex items-center justify-center text-[#A8E063] shrink-0">
+                    <Wallet className="w-4 h-4" />
+                  </div>
+                  <span>Create Your Primary Account</span>
                 </div>
                 <p className="text-xs text-[#A09C94] leading-relaxed">
-                  Every rupee you manage belongs to an account. Type any name for your account (e.g. Primary, My Account, or your own name) and tap <strong>Create Account</strong>.
+                  Every transaction and budget envelope is backed by real accounts. Enter a name for your primary bank or cash account to get started.
                 </p>
                 {!isAddAcctModalOpen && (
                   <button
                     type="button"
                     onClick={onOpenAddAccount}
-                    className="w-full mt-1 py-2.5 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-all"
+                    className="w-full mt-1 py-2.5 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#4A622F]/25 cursor-pointer transition-all active:scale-[0.99]"
                   >
                     <Wallet className="w-3.5 h-3.5" />
-                    <span>Open Account Window</span>
+                    <span>Open Account Form</span>
                   </button>
                 )}
               </div>
@@ -251,22 +272,24 @@ export function LiveInteractiveTour({
 
             {/* ── Step 2 Guidance: Add Initial Funds ── */}
             {currentStep === 2 && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-white font-bold text-sm sm:text-base">
-                  <ArrowDownLeft className="w-4 h-4 text-[#A8E063]" />
-                  <span>Step 2: Add initial funds</span>
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-2.5 text-white font-bold text-sm sm:text-base">
+                  <div className="w-7 h-7 rounded-lg bg-[#4A622F]/30 border border-[#587437]/40 flex items-center justify-center text-[#A8E063] shrink-0">
+                    <ArrowDownLeft className="w-4 h-4" />
+                  </div>
+                  <span>Fund Your Workspace</span>
                 </div>
                 <p className="text-xs text-[#A09C94] leading-relaxed">
-                  Great job! Now let’s add some starting funds. Enter your current balance or salary into <strong className="text-white">{primaryAccountName}</strong> so you have money to budget with.
+                  Deposit your current balance or recent salary into <strong className="text-white">{primaryAccountName}</strong>. These funds flow into your unallocated pool, ready for budgeting.
                 </p>
                 {!isAddTxModalOpen && (
                   <button
                     type="button"
                     onClick={onOpenAddFunds}
-                    className="w-full mt-1 py-2.5 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-all"
+                    className="w-full mt-1 py-2.5 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#4A622F]/25 cursor-pointer transition-all active:scale-[0.99]"
                   >
                     <ArrowDownLeft className="w-3.5 h-3.5" />
-                    <span>Open Deposit Window</span>
+                    <span>Open Deposit Form</span>
                   </button>
                 )}
               </div>
@@ -275,24 +298,31 @@ export function LiveInteractiveTour({
             {/* ── Step 3 Guidance: Categories & Spending ── */}
             {currentStep === 3 && (
               <div className="space-y-2.5">
-                <div className="flex items-center gap-2 text-white font-bold text-sm sm:text-base">
-                  <FolderTree className="w-4 h-4 text-[#A8E063]" />
-                  <span>Step 3: Categories &amp; Envelopes</span>
+                <div className="flex items-center gap-2.5 text-white font-bold text-sm sm:text-base">
+                  <div className="w-7 h-7 rounded-lg bg-[#4A622F]/30 border border-[#587437]/40 flex items-center justify-center text-[#A8E063] shrink-0">
+                    <FolderTree className="w-4 h-4" />
+                  </div>
+                  <span>Envelopes &amp; Smart Borrowing</span>
                 </div>
                 <p className="text-xs text-[#A09C94] leading-relaxed">
-                  Your funds are now ready! Notice how Richingness divides your money into <strong>Needs (50%)</strong>, <strong>Wants (30%)</strong>, and <strong>Savings (20%)</strong>.
+                  Your funds are ready! Richingness divides your money into <strong>Needs (50%)</strong>, <strong>Wants (30%)</strong>, and <strong>Savings (20%)</strong>.
                 </p>
-                <div className="p-2.5 rounded-xl bg-[#14120F] border border-[#2D2A24] space-y-1 text-2xs text-[#8E8A82]">
-                  <p className="text-white font-semibold">💡 How spending works:</p>
-                  <p>When you spend, tap <strong className="text-[#A8E063]">+ Spend</strong> on that category. If an envelope is empty, Richingness prompts you to borrow from another envelope before spending!</p>
+                <div className="p-3 rounded-xl bg-black/30 border border-white/[0.06] space-y-1 text-2xs text-[#A09C94] leading-relaxed">
+                  <div className="flex items-center gap-1.5 text-white font-semibold">
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#A8E063]" />
+                    <span>How envelope budgeting protects you:</span>
+                  </div>
+                  <p>
+                    When spending, tap <strong>+ Spend</strong> on any category. If an envelope runs out, Richingness suggests borrowing from Wants before ever touching your Savings.
+                  </p>
                 </div>
                 <button
                   type="button"
                   onClick={handleFinishTour}
-                  className="w-full py-2.5 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-[#4A622F]/30 cursor-pointer transition-all hover:scale-[1.01]"
+                  className="w-full py-2.5 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#4A622F]/30 cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99]"
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Got it, Let&apos;s Start Budgeting! 🚀</span>
+                  <CheckCircle2 className="w-4 h-4 text-[#A8E063]" />
+                  <span>Complete Setup &amp; Enter Dashboard</span>
                 </button>
               </div>
             )}

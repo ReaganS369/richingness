@@ -615,22 +615,25 @@ export function ExpandableCategoriesTree({
     return (
       <div
         onClick={() => onNavigateToAllocations && onNavigateToAllocations('global')}
-        className="w-full text-center bg-[#1B1A17] hover:bg-[#201E1A] border border-[#2A2824] hover:border-[#48602E] rounded-[14px] p-6 space-y-3.5 shadow-xl select-none block cursor-pointer transition-all group"
+        className="w-full text-center bg-gradient-to-b from-[#1C1A17] to-[#151411] hover:from-[#201E1A] hover:to-[#181713] border border-white/[0.08] hover:border-[#4A622F]/60 rounded-2xl p-6 sm:p-7 space-y-3.5 shadow-xl select-none block cursor-pointer transition-all group"
       >
-        <div className="w-14 h-14 rounded-full bg-[#23211C] group-hover:bg-[#48602E]/20 border border-[#33302A] group-hover:border-[#6B8A44] flex items-center justify-center mx-auto text-[#8E8A82] group-hover:text-white shadow-inner transition-all">
-          <Layers className="w-7 h-7 text-[#7A7872] group-hover:text-[#A8E063] transition-colors" />
+        <div className="relative mx-auto w-12 h-12 flex items-center justify-center">
+          <div className="absolute inset-0 rounded-2xl bg-[#4A622F]/15 blur-md group-hover:bg-[#4A622F]/30 transition-all" />
+          <div className="relative w-12 h-12 rounded-2xl bg-[#23211C] group-hover:bg-[#2A2722] border border-white/[0.08] group-hover:border-[#587437]/50 flex items-center justify-center text-[#A09C94] group-hover:text-[#A8E063] transition-all">
+            <Layers className="w-5 h-5 transition-transform group-hover:scale-105" />
+          </div>
         </div>
         <div>
-          <h3 className="text-base sm:text-lg font-bold text-white group-hover:text-[#A8E063] transition-colors">
-            You don&apos;t have any categories yet
+          <h3 className="text-base sm:text-lg font-bold text-white group-hover:text-[#A8E063] tracking-tight transition-colors">
+            No Budget Envelopes Yet
           </h3>
           <p className="text-xs sm:text-sm text-[#8E8A82] mt-1 max-w-xs mx-auto leading-relaxed">
-            Tap anywhere to set up and customize your budget categories.
+            Assign your funds to Needs, Wants, and Savings envelopes to start mindful budgeting.
           </p>
         </div>
 
-        <div className="pt-1 flex items-center justify-center gap-1.5 text-xs font-semibold text-[#8EBA55] group-hover:text-[#A8E063] transition-all">
-          <span>Create a category now</span>
+        <div className="pt-1 flex items-center justify-center gap-1.5 text-xs font-semibold text-[#A8E063] group-hover:text-white transition-all">
+          <span>Set Up Categories</span>
           <ChevronDown className="w-4 h-4 -rotate-90 group-hover:translate-x-0.5 transition-transform" />
         </div>
       </div>
