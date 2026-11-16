@@ -197,9 +197,10 @@ html, body {
   flex-shrink: 0 !important;
   width: 100% !important;
   z-index: 50 !important;
-  background-color: #0A0A0A !important;
-  border-top: 1px solid #1C1C1C !important;
-  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0.75rem)) !important;
+  background-color: #141310 !important;
+  border-top: 1px solid #26241F !important;
+  border-radius: 20px 20px 0 0 !important;
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0.5rem)) !important;
 }
 
 /* ── Scrollbars ──────────────────────────────────────────────────────────── */

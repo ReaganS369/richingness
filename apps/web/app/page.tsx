@@ -1185,7 +1185,7 @@ export default function Home() {
           </div>
         </main>
 
-        {/* ── 3-ITEM BALANCED FIGMA BOTTOM NAVIGATION BAR (40% Active / 30% Inactive / 30% Inactive) ────── */}
+        {/* ── 3-ITEM BALANCED FIGMA BOTTOM NAVIGATION BAR (40% Active / 30% Inactive / 30% Inactive · Flat Bottom) ────── */}
         {(() => {
           const isHistoryActive = activeTab === 'transactions';
           const isSettingsActive = activeTab === 'settings';
@@ -1194,19 +1194,20 @@ export default function Home() {
           return (
             <nav
               aria-label="Bottom Navigation"
-              className="md:hidden app-bottom-nav py-2 px-4 flex justify-center bg-[#141310]/95 border-t border-[#26241F] backdrop-blur-xl shadow-2xl"
+              className="md:hidden app-bottom-nav pt-1.5 pb-1 px-3 flex justify-center bg-[#141310] border-t border-[#26241F] rounded-t-2xl rounded-b-none shadow-2xl"
             >
-              <div className="flex items-center justify-between w-full max-w-sm gap-1.5 bg-[#1B1A17] p-1.5 rounded-2xl border border-[#2B2923] shadow-lg">
+              <div className="flex items-center justify-between w-full max-w-sm gap-1.5 bg-[#1B1A17] p-1.5 rounded-t-xl rounded-b-none border-t border-x border-b-0 border-[#2B2923] shadow-lg">
                 {/* ── 1. Left: History (Transactions) ── */}
                 <button
                   type="button"
                   onClick={() => setActiveTab('transactions')}
                   title="History"
                   aria-label="History"
-                  className={`h-11 rounded-xl transition-all duration-300 ease-out cursor-pointer flex items-center justify-center ${
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
+                  className={`h-11 rounded-t-lg rounded-b-none transition-[flex,width,background-color,color] duration-300 ease-out cursor-pointer flex items-center justify-center outline-none focus:outline-none focus:ring-0 active:outline-none select-none border ${
                     isHistoryActive
-                      ? 'flex-[4] basis-[40%] bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40 border border-[#6B8A44]/50 gap-2 px-3'
-                      : 'flex-[3] basis-[30%] text-[#8E8A82] hover:text-white hover:bg-white/[0.04] active:scale-95'
+                      ? 'flex-[4] basis-[40%] bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40 border-[#769C4B] gap-2 px-3'
+                      : 'flex-[3] basis-[30%] text-[#8E8A82] hover:text-white hover:bg-white/[0.04] active:scale-95 border-transparent'
                   }`}
                 >
                   <History className="w-5 h-5 shrink-0" />
@@ -1223,10 +1224,11 @@ export default function Home() {
                   onClick={() => setActiveTab('dashboard')}
                   title="Home"
                   aria-label="Home"
-                  className={`h-11 rounded-xl transition-all duration-300 ease-out cursor-pointer flex items-center justify-center ${
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
+                  className={`h-11 rounded-t-lg rounded-b-none transition-[flex,width,background-color,color] duration-300 ease-out cursor-pointer flex items-center justify-center outline-none focus:outline-none focus:ring-0 active:outline-none select-none border ${
                     isHomeActive
-                      ? 'flex-[4] basis-[40%] bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40 border border-[#6B8A44]/50 gap-2 px-3'
-                      : 'flex-[3] basis-[30%] text-[#8E8A82] hover:text-white hover:bg-white/[0.04] active:scale-95'
+                      ? 'flex-[4] basis-[40%] bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40 border-[#769C4B] gap-2 px-3'
+                      : 'flex-[3] basis-[30%] text-[#8E8A82] hover:text-white hover:bg-white/[0.04] active:scale-95 border-transparent'
                   }`}
                 >
                   <HomeIcon className="w-5 h-5 shrink-0" />
@@ -1246,10 +1248,11 @@ export default function Home() {
                   }}
                   title="Settings"
                   aria-label="Settings"
-                  className={`h-11 rounded-xl transition-all duration-300 ease-out cursor-pointer flex items-center justify-center ${
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
+                  className={`h-11 rounded-t-lg rounded-b-none transition-[flex,width,background-color,color] duration-300 ease-out cursor-pointer flex items-center justify-center outline-none focus:outline-none focus:ring-0 active:outline-none select-none border ${
                     isSettingsActive
-                      ? 'flex-[4] basis-[40%] bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40 border border-[#6B8A44]/50 gap-2 px-3'
-                      : 'flex-[3] basis-[30%] text-[#8E8A82] hover:text-white hover:bg-white/[0.04] active:scale-95'
+                      ? 'flex-[4] basis-[40%] bg-[#4A622F] text-white shadow-md shadow-[#4A622F]/40 border-[#769C4B] gap-2 px-3'
+                      : 'flex-[3] basis-[30%] text-[#8E8A82] hover:text-white hover:bg-white/[0.04] active:scale-95 border-transparent'
                   }`}
                 >
                   <Settings className="w-5 h-5 shrink-0" />
