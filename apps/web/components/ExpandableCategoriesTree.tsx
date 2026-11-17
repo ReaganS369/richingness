@@ -625,10 +625,10 @@ export function ExpandableCategoriesTree({
         </div>
         <div>
           <h3 className="text-base sm:text-lg font-bold text-white group-hover:text-[#A8E063] tracking-tight transition-colors">
-            No Budget Envelopes Yet
+            No Budget Categories Yet
           </h3>
           <p className="text-xs sm:text-sm text-[#8E8A82] mt-1 max-w-xs mx-auto leading-relaxed">
-            Assign your funds to Needs, Wants, and Savings envelopes to start mindful budgeting.
+            Divide your balance into categories like Needs, Wants, and Savings to maintain your budget and manage your spending well.
           </p>
         </div>
 

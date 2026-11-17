@@ -823,7 +823,7 @@ export default function Home() {
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="font-display font-bold text-textPrimary text-lg">Budget Envelopes</h2>
+                    <h2 className="font-display font-bold text-textPrimary text-lg">Budget Categories</h2>
                     <p className="text-textSecondary text-sm mt-0.5">Nested allocation tree · {monthLabel}</p>
                   </div>
                 </div>
@@ -1623,7 +1623,7 @@ export default function Home() {
                           Category Deficit: ₹{deficit.toLocaleString('en-IN')}
                         </p>
                         <p className="text-[11px] text-[#A69C85] mt-0.5 leading-relaxed">
-                          {targetCat?.name || 'Selected category'} has ₹{targetAvail.toLocaleString('en-IN')} available. Automatically borrow ₹{deficit.toLocaleString('en-IN')} from another envelope:
+                          {targetCat?.name || 'Selected category'} has ₹{targetAvail.toLocaleString('en-IN')} available. Automatically borrow ₹{deficit.toLocaleString('en-IN')} from another category:
                         </p>
                       </div>
                     </div>
@@ -1654,7 +1654,7 @@ export default function Home() {
                           🚫 Insufficient Balance (₹0 Available)
                         </p>
                         <p className="text-[11px] text-[#C48C8C] mt-0.5 leading-relaxed">
-                          You cannot spend without balance. No other envelope has surplus funds to borrow from. Please add funds first.
+                          You cannot spend without balance. No other category has surplus funds to borrow from. Please add funds first.
                         </p>
                       </div>
                     </div>
@@ -1727,22 +1727,89 @@ export default function Home() {
             onSubmit={(e) => { e.preventDefault(); if (acctName) { addAccount(acctName, acctType, acctCurrency); setShowAddAcctModal(false); } }}
             className="space-y-4"
           >
-            <Field label="Account Name">
-              <input type="text" required value={acctName} onChange={e => setAcctName(e.target.value)} placeholder="Checking, Cash Wallet…" className={inputCls} />
-            </Field>
-            <Field label="Account Type">
+            {/* Guidance Helper Card */}
+            <div className="p-3 rounded-2xl bg-[#232B1C] border border-[#3E5227] text-white flex items-start gap-2.5">
+              <div className="w-5 h-5 rounded-full bg-[#4A622F] text-[#A8E063] text-2xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                💡
+              </div>
+              <div className="space-y-0.5 min-w-0">
+                <p className="text-xs font-bold text-white">
+                  Add Your Account
+                </p>
+                <p className="text-2xs text-[#C5E89B] leading-relaxed">
+                  Tap an example below or type a name, choose the account type, and tap <strong>Create Account</strong>.
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-2xs font-semibold text-[#8E8A82] uppercase tracking-wider">
+                  Step 1 · Account Name
+                </label>
+                {acctName.trim() && (
+                  <span className="text-[10px] text-[#A8E063] font-semibold flex items-center gap-1">
+                    ✓ Ready
+                  </span>
+                )}
+              </div>
+              <input
+                type="text"
+                required
+                autoFocus
+                value={acctName}
+                onChange={e => setAcctName(e.target.value)}
+                placeholder="e.g. HDFC Checking, Cash Wallet, Savings…"
+                className={inputCls}
+              />
+
+              {/* Quick Example Chips */}
+              <div className="mt-2.5 space-y-1.5">
+                <p className="text-[10px] text-[#8E8A82] font-semibold">Tap to fill an example:</p>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[
+                    { name: 'HDFC Bank', type: 'savings' as const },
+                    { name: 'Cash Wallet', type: 'cash' as const },
+                    { name: 'UPI / GPay', type: 'checking' as const },
+                    { name: 'SBI Savings', type: 'savings' as const },
+                  ].map(preset => (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      onClick={() => {
+                        setAcctName(preset.name);
+                        setAcctType(preset.type);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-2xs font-semibold transition-all cursor-pointer border ${
+                        acctName === preset.name
+                          ? 'bg-[#4A622F] text-white border-[#6B8A44] shadow-sm'
+                          : 'bg-[#1C1A16] text-[#A09C94] hover:text-white border-[#2E2C27] hover:border-[#4A622F]'
+                      }`}
+                    >
+                      + {preset.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <Field label="Step 2 · Account Type">
               <select value={acctType} onChange={e => setAcctType(e.target.value as Account['type'])} className={selectCls}>
-                {['checking', 'savings', 'credit', 'cash', 'investment', 'crypto'].map(t => (
+                {['savings', 'checking', 'cash', 'credit', 'investment'].map(t => (
                   <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
                 ))}
               </select>
             </Field>
-            <Field label="Currency Code">
+
+            <Field label="Step 3 · Currency Code">
               <input type="text" required value={acctCurrency} onChange={e => setAcctCurrency(e.target.value)} placeholder="INR" className={inputCls} />
             </Field>
+
             <div className="flex gap-3 pt-1">
               <SecondaryBtn type="button" onClick={() => setShowAddAcctModal(false)}>Cancel</SecondaryBtn>
-              <PrimaryBtn type="submit">Create Account</PrimaryBtn>
+              <PrimaryBtn type="submit" disabled={!acctName.trim()}>
+                {acctName.trim() ? 'Create Account →' : 'Enter Name Above'}
+              </PrimaryBtn>
             </div>
           </form>
         </Modal>

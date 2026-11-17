@@ -179,7 +179,7 @@ export function OnboardingFlow({
                   Richingness
                 </h1>
                 <p className="text-xs sm:text-sm text-[#A09C94] mt-1 font-medium">
-                  Simple envelope budgeting.
+                  Know where every rupee goes.
                 </p>
               </div>
             </div>
@@ -269,10 +269,10 @@ export function OnboardingFlow({
                   <div className="w-7 h-7 rounded-lg bg-[#4A622F]/30 border border-[#587437]/40 flex items-center justify-center text-[#A8E063] shrink-0">
                     <Wallet className="w-4 h-4" />
                   </div>
-                  <span>1. Connect an Account</span>
+                  <span>1. Add Your Account</span>
                 </div>
                 <p className="text-xs text-[#D1CECA] leading-relaxed">
-                  👆 Tap the glowing <strong className="text-[#A8E063]">+ Add Account</strong> button above to connect your bank, cash, or card balance.
+                  👆 Tap the glowing <strong className="text-[#A8E063]">+ Add Account</strong> button above to add your bank, cash, or UPI balance.
                 </p>
                 <div className="pt-1 flex items-center justify-between gap-2">
                   <button
@@ -282,13 +282,24 @@ export function OnboardingFlow({
                   >
                     Skip Tour
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setGuideStep(2)}
-                    className="py-2.5 px-4 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-[#4A622F]/30 cursor-pointer transition-all active:scale-[0.98]"
-                  >
-                    <span>Next: Categories →</span>
-                  </button>
+                  {initialAccountsCount !== null && accountsCount > initialAccountsCount ? (
+                    <button
+                      type="button"
+                      onClick={() => setGuideStep(2)}
+                      className="py-2.5 px-4 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-[#4A622F]/30 cursor-pointer transition-all active:scale-[0.98]"
+                    >
+                      <span>Next: Categories →</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled
+                      title="Add an account first to proceed to categories"
+                      className="py-2.5 px-3.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-[#7A7770] text-xs font-semibold flex items-center justify-center gap-1.5 cursor-not-allowed opacity-60"
+                    >
+                      <span>Add an account first</span>
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -300,10 +311,10 @@ export function OnboardingFlow({
                   <div className="w-7 h-7 rounded-lg bg-[#4A622F]/30 border border-[#587437]/40 flex items-center justify-center text-[#A8E063] shrink-0">
                     <FolderTree className="w-4 h-4" />
                   </div>
-                  <span>2. Budget Envelopes</span>
+                  <span>2. Divide Your Balance</span>
                 </div>
                 <p className="text-xs text-[#D1CECA] leading-relaxed">
-                  👆 Tap the glowing <strong className="text-[#A8E063]">+ Create Category</strong> button above. Envelopes divide funds into <strong>Needs (50%)</strong>, <strong>Wants (30%)</strong>, and <strong>Savings (20%)</strong>.
+                  👆 Tap the glowing <strong className="text-[#A8E063]">+ Create Category</strong> button above. Divide your balance into clear use cases: <strong>Needs (50%)</strong> for bills, <strong>Wants (30%)</strong> for fun, and <strong>Savings (20%)</strong> for your future. Know exactly where to spend and manage well!
                 </p>
                 <div className="pt-1 flex items-center justify-between gap-2">
                   <button
@@ -334,7 +345,7 @@ export function OnboardingFlow({
                   <span>3. Spend &amp; Protection</span>
                 </div>
                 <p className="text-xs text-[#D1CECA] leading-relaxed">
-                  👆 Tap the glowing <strong className="text-[#A8E063]">+ Spend</strong> button above when you buy something. If an envelope runs out, Richingness automatically borrows from Wants to protect your Savings!
+                  👆 Tap the glowing <strong className="text-[#A8E063]">+ Spend</strong> button above when you buy something. If a category runs out, Richingness automatically borrows from Wants so your Savings are never touched!
                 </p>
                 <div className="pt-1 flex items-center justify-between gap-2">
                   <button

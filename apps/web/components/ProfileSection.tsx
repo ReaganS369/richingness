@@ -1392,7 +1392,7 @@ export function ProfileSection() {
                 </div>
               ) : (
                 <div className="py-6 text-center text-[#888] text-xs">
-                  No accounts connected yet.
+                  No accounts added yet.
                 </div>
               )}
 
@@ -2476,23 +2476,79 @@ export function ProfileSection() {
             }}
             className="space-y-4"
           >
-            <div>
-              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">
-                Account Name
-              </label>
-              <input
-                type="text"
-                required
-                value={newAccountName}
-                onChange={e => setNewAccountName(e.target.value)}
-                placeholder="e.g. HDFC Checking, Cash Wallet, Savings…"
-                className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-[#4A622F]"
-              />
+            {/* Guidance Helper Card */}
+            <div className="p-3 rounded-2xl bg-[#232B1C] border border-[#3E5227] text-white flex items-start gap-2.5">
+              <div className="w-5 h-5 rounded-full bg-[#4A622F] text-[#A8E063] text-2xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                💡
+              </div>
+              <div className="space-y-0.5 min-w-0">
+                <p className="text-xs font-bold text-white">
+                  Add Your Account
+                </p>
+                <p className="text-2xs text-[#C5E89B] leading-relaxed">
+                  Tap an example below or type a name, verify the account type, and tap <strong>Create Account</strong>.
+                </p>
+              </div>
             </div>
 
             <div>
-              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">
-                Account Type
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-2xs font-semibold text-[#8E8A82] uppercase tracking-wider">
+                  Step 1 · Account Name
+                </label>
+                {newAccountName.trim() && (
+                  <span className="text-[10px] text-[#A8E063] font-semibold flex items-center gap-1">
+                    ✓ Ready
+                  </span>
+                )}
+              </div>
+              <input
+                type="text"
+                required
+                autoFocus
+                value={newAccountName}
+                onChange={e => setNewAccountName(e.target.value)}
+                placeholder="e.g. HDFC Checking, Cash Wallet, Savings…"
+                className={`w-full bg-[#12110E] border rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none transition-all ${
+                  newAccountName.trim()
+                    ? 'border-[#4A622F] ring-1 ring-[#4A622F]'
+                    : 'border-[#2B2925] focus:border-[#4A622F]'
+                }`}
+              />
+
+              {/* Quick Example Chips */}
+              <div className="mt-2.5 space-y-1.5">
+                <p className="text-[10px] text-[#8E8A82] font-semibold">Tap to fill an example:</p>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[
+                    { name: 'HDFC Bank', type: 'savings' as const },
+                    { name: 'Cash Wallet', type: 'cash' as const },
+                    { name: 'UPI / GPay', type: 'checking' as const },
+                    { name: 'SBI Savings', type: 'savings' as const },
+                  ].map(preset => (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      onClick={() => {
+                        setNewAccountName(preset.name);
+                        setNewAccountType(preset.type);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-2xs font-semibold transition-all cursor-pointer border ${
+                        newAccountName === preset.name
+                          ? 'bg-[#4A622F] text-white border-[#6B8A44] shadow-sm'
+                          : 'bg-[#1C1A16] text-[#A09C94] hover:text-white border-[#2E2C27] hover:border-[#4A622F]'
+                      }`}
+                    >
+                      + {preset.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1 tracking-wider">
+                Step 2 · Account Type
               </label>
               <select
                 value={newAccountType}
@@ -2507,8 +2563,8 @@ export function ProfileSection() {
             </div>
 
             <div>
-              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1">
-                Currency
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1 tracking-wider">
+                Step 3 · Currency
               </label>
               <select
                 value={newAccountCurrency}
@@ -2532,9 +2588,14 @@ export function ProfileSection() {
               </button>
               <button
                 type="submit"
-                className="flex-1 py-2.5 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white font-bold text-xs transition-all shadow-md cursor-pointer"
+                disabled={!newAccountName.trim()}
+                className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5 ${
+                  newAccountName.trim()
+                    ? 'bg-[#4A622F] hover:bg-[#587437] text-white ring-2 ring-[#A8E063]/50 animate-pulse'
+                    : 'bg-[#201F1B] text-[#666] border border-[#2E2C27] cursor-not-allowed opacity-60'
+                }`}
               >
-                Create Account
+                <span>{newAccountName.trim() ? 'Create Account →' : 'Enter Name Above'}</span>
               </button>
             </div>
           </form>
