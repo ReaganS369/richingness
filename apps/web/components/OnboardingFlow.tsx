@@ -2,31 +2,22 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  Sparkles,
-  Compass,
-  ArrowRight,
-  CheckCircle2,
-  X,
   Wallet,
   FolderTree,
-  ChevronRight,
   ShieldCheck,
-  User,
+  ArrowRight,
   LogIn,
-  UserPlus,
+  X,
   ArrowLeft,
-  Loader2,
-  Shield
+  Loader2
 } from 'lucide-react';
 import { authService } from '../app/store';
 
 export type OnboardingStage =
   | 'loading'
   | 'welcome'
-  | 'new_user_guide_prompt'
   | 'login_modal'
-  | 'signup_modal'
-  | 'guide_slides'
+  | 'guide'
   | 'completed';
 
 interface OnboardingFlowProps {
@@ -36,17 +27,14 @@ interface OnboardingFlowProps {
 
 export function OnboardingFlow({ onComplete, onOpenSettings: _onOpenSettings }: OnboardingFlowProps) {
   const [stage, setStage] = useState<OnboardingStage>('loading');
-  const [guideSlide, setGuideSlide] = useState<number>(1);
+  const [slide, setSlide] = useState<number>(1);
 
   // Auth form states
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
-  const [authName, setAuthName] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [authSuccessMsg, setAuthSuccessMsg] = useState<string | null>(null);
 
-  // Check initial onboarding state on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const completed = localStorage.getItem('richingness_onboarding_completed');
@@ -57,10 +45,9 @@ export function OnboardingFlow({ onComplete, onOpenSettings: _onOpenSettings }: 
       }
     }
 
-    // Custom event to replay tour from Settings
     const handleReplay = () => {
-      setGuideSlide(1);
-      setStage('guide_slides');
+      setSlide(1);
+      setStage('guide');
     };
 
     window.addEventListener('richingness:replay-tour', handleReplay);
@@ -75,7 +62,19 @@ export function OnboardingFlow({ onComplete, onOpenSettings: _onOpenSettings }: 
     if (onComplete) onComplete();
   };
 
-  // Google OAuth sign-in
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      await authService.signIn(authEmail, authPassword);
+      finishOnboarding();
+    } catch (err: unknown) {
+      setAuthError(err instanceof Error ? err.message : 'Invalid credentials');
+      setAuthLoading(false);
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     setAuthLoading(true);
     setAuthError(null);
@@ -83,41 +82,7 @@ export function OnboardingFlow({ onComplete, onOpenSettings: _onOpenSettings }: 
       const redirectTo = `${window.location.origin}/auth/callback`;
       await authService.signInWithOAuth('google', redirectTo);
     } catch (err: unknown) {
-      setAuthError(err instanceof Error ? err.message : 'Failed to connect with Google');
-      setAuthLoading(false);
-    }
-  };
-
-  // Email Sign In
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthLoading(true);
-    setAuthError(null);
-    try {
-      await authService.signIn(authEmail, authPassword);
-      // Existing user signed in -> skip guide directly to dashboard
-      finishOnboarding();
-    } catch (err: unknown) {
-      setAuthError(err instanceof Error ? err.message : 'Invalid credentials. Please try again.');
-      setAuthLoading(false);
-    }
-  };
-
-  // Email Sign Up
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthLoading(true);
-    setAuthError(null);
-    try {
-      await authService.signUp(authEmail, authPassword, authName || undefined);
-      setAuthSuccessMsg('Account created! Please check your email to confirm, or start using your workspace.');
-      setAuthLoading(false);
-      // Offer the guide after sign up
-      setTimeout(() => {
-        setStage('new_user_guide_prompt');
-      }, 1200);
-    } catch (err: unknown) {
-      setAuthError(err instanceof Error ? err.message : 'Sign up failed. Please try again.');
+      setAuthError(err instanceof Error ? err.message : 'Failed to connect');
       setAuthLoading(false);
     }
   };
@@ -127,566 +92,289 @@ export function OnboardingFlow({ onComplete, onOpenSettings: _onOpenSettings }: 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-xl animate-fade-in overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-2xl animate-fade-in">
       
-      {/* ═══════════════════════════════════════════════════════════════════════ */}
-      {/* SCREEN 1: CLEAR WELCOME - NEW USER VS EXISTING CUSTOMER                */}
-      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {/* ── 1. CLEAN MINIMALIST WELCOME ── */}
       {stage === 'welcome' && (
-        <div className="relative w-full max-w-md bg-gradient-to-b from-[#1C1A17] to-[#131210] border border-white/[0.08] rounded-3xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85)] p-6 sm:p-8 text-white space-y-6 overflow-hidden">
-          {/* Subtle ambient glow halo */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-56 h-24 bg-[#4A622F]/20 blur-3xl pointer-events-none rounded-full" />
-
-          {/* Brand Header */}
-          <div className="text-center space-y-2 relative">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#4A622F]/20 border border-[#587437]/40 text-[#A8E063] text-2xs font-bold uppercase tracking-wider">
-              <Sparkles className="w-3 h-3 text-[#A8E063]" />
-              <span>Financial OS</span>
+        <div className="relative w-full max-w-sm bg-[#161512] border border-white/10 rounded-[28px] shadow-2xl p-7 text-center space-y-7 animate-scale-in">
+          {/* Brand Icon & Title */}
+          <div className="space-y-3">
+            <div className="w-14 h-14 rounded-2xl bg-[#4A622F] text-white flex items-center justify-center mx-auto shadow-lg shadow-[#4A622F]/30 text-2xl font-black">
+              R
             </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-2">
-              Welcome to Richingness
-            </h2>
-            <p className="text-xs sm:text-sm text-[#A09C94] leading-relaxed max-w-xs mx-auto">
-              Intelligent envelope budgeting crafted to give every rupee a clear purpose.
-            </p>
+            <div>
+              <h2 className="text-2xl font-extrabold text-white tracking-tight">Richingness</h2>
+              <p className="text-sm text-[#A09C94] mt-1">Simple envelope budgeting.</p>
+            </div>
           </div>
 
-          {/* Primary Two Choices: New vs Existing */}
-          <div className="space-y-3.5 relative">
-            
-            {/* Option A: New Customer / First Time */}
+          {/* Clean Primary Buttons */}
+          <div className="space-y-3">
+            {/* New User -> Quick Guide */}
             <button
               type="button"
-              onClick={() => setStage('new_user_guide_prompt')}
-              className="w-full p-4.5 rounded-2xl bg-gradient-to-r from-[#24211D] to-[#1C1A16] hover:from-[#2C2923] hover:to-[#221F1B] border border-[#4A622F]/70 hover:border-[#6B8D43] transition-all cursor-pointer group flex items-start gap-4 relative shadow-lg shadow-black/40 text-left"
+              onClick={() => {
+                setSlide(1);
+                setStage('guide');
+              }}
+              className="w-full py-3.5 px-5 rounded-2xl bg-[#4A622F] hover:bg-[#587437] text-white font-bold text-sm shadow-lg shadow-[#4A622F]/25 cursor-pointer transition-all active:scale-[0.98] flex items-center justify-center gap-2"
             >
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#4A622F] to-[#384B23] text-white flex items-center justify-center shrink-0 mt-0.5 shadow-md group-hover:scale-105 transition-transform">
-                <Sparkles className="w-5 h-5 text-white" />
-              </div>
-              <div className="flex-1 min-w-0 pr-6">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-white tracking-tight">
-                    I&apos;m New to Richingness
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full bg-[#4A622F]/30 text-[#A8E063] text-[10px] font-bold uppercase tracking-wider">
-                    First Visit
-                  </span>
-                </div>
-                <p className="text-xs text-[#A09C94] mt-1 leading-relaxed">
-                  Start fresh with instant offline guest mode, or take a quick 1-minute visual tour.
-                </p>
-              </div>
-              <ArrowRight className="w-4 h-4 text-[#A8E063] absolute right-4 top-1/2 -translate-y-1/2 group-hover:translate-x-1 transition-transform shrink-0" />
+              <span>I&apos;m New — Show Me Around</span>
+              <ArrowRight className="w-4 h-4" />
             </button>
 
-            {/* Option B: Existing Customer / Already have account */}
+            {/* Existing User -> Direct to Dashboard */}
+            <button
+              type="button"
+              onClick={finishOnboarding}
+              className="w-full py-3.5 px-5 rounded-2xl bg-[#22201B] hover:bg-[#2A2722] border border-white/5 text-white font-semibold text-sm cursor-pointer transition-all active:scale-[0.98]"
+            >
+              I&apos;ve Used This Before
+            </button>
+          </div>
+
+          {/* Discreet Sign In Link */}
+          <div className="pt-2 border-t border-white/5">
             <button
               type="button"
               onClick={() => {
                 setAuthError(null);
                 setStage('login_modal');
               }}
-              className="w-full p-4.5 rounded-2xl bg-[#191714] hover:bg-[#201E1A] border border-white/[0.08] hover:border-white/[0.15] transition-all cursor-pointer group flex items-start gap-4 text-left relative"
+              className="text-xs text-[#8E8A82] hover:text-white transition-colors cursor-pointer"
             >
-              <div className="w-11 h-11 rounded-xl bg-white/[0.06] text-[#A09C94] group-hover:text-white flex items-center justify-center shrink-0 mt-0.5 transition-colors">
-                <LogIn className="w-5 h-5" />
-              </div>
-              <div className="flex-1 min-w-0 pr-6">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-white tracking-tight">
-                    I Already Have an Account
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full bg-white/[0.06] text-[#8E8A82] text-[10px] font-medium">
-                    Sign In
-                  </span>
-                </div>
-                <p className="text-xs text-[#8E8A82] mt-1 leading-relaxed">
-                  Sign in with email or Google to restore your synced data. Tutorials will be skipped.
-                </p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-[#8E8A82] group-hover:text-white absolute right-4 top-1/2 -translate-y-1/2 group-hover:translate-x-1 transition-transform shrink-0" />
-            </button>
-          </div>
-
-          {/* Quick Direct Link */}
-          <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs text-[#8E8A82]">
-            <span className="flex items-center gap-1.5 text-2xs text-[#7A766E]">
-              <Shield className="w-3.5 h-3.5 text-[#A8E063]" />
-              <span>Private &amp; offline-first</span>
-            </span>
-            <button
-              type="button"
-              onClick={finishOnboarding}
-              className="text-[#A8E063] hover:underline font-medium cursor-pointer"
-            >
-              Skip directly to dashboard →
+              Already syncing? <span className="text-[#A8E063] font-semibold underline underline-offset-2">Sign In</span>
             </button>
           </div>
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════════ */}
-      {/* SCREEN 2: FOR NEW USERS - WANT A GUIDE OR JUMP STRAIGHT IN?            */}
-      {/* ═══════════════════════════════════════════════════════════════════════ */}
-      {stage === 'new_user_guide_prompt' && (
-        <div className="relative w-full max-w-md bg-gradient-to-b from-[#1C1A17] to-[#131210] border border-white/[0.08] rounded-3xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85)] p-6 sm:p-8 text-white space-y-6 overflow-hidden animate-fade-in">
-          {/* Subtle ambient glow halo */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-20 bg-[#4A622F]/20 blur-3xl pointer-events-none rounded-full" />
-
-          {/* Header */}
-          <div className="text-center space-y-2 relative">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#4A622F]/20 border border-[#587437]/40 text-[#A8E063] text-2xs font-bold uppercase tracking-wider">
-              <Compass className="w-3 h-3 text-[#A8E063]" />
-              <span>Getting Started</span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-2">
-              Would you like a quick guide?
-            </h2>
-            <p className="text-xs sm:text-sm text-[#A09C94] leading-relaxed max-w-xs mx-auto">
-              We can give you a 60-second visual walkthrough on how accounts, 50/30/20 envelopes, and smart rebalancing work.
-            </p>
-          </div>
-
-          {/* Options */}
-          <div className="space-y-3 relative">
-            
-            {/* Option A: Yes, Show the Guide */}
-            <button
-              type="button"
-              onClick={() => {
-                setGuideSlide(1);
-                setStage('guide_slides');
-              }}
-              className="w-full p-4.5 rounded-2xl bg-gradient-to-r from-[#24211D] to-[#1C1A16] hover:from-[#2C2923] hover:to-[#221F1B] border border-[#4A622F]/70 hover:border-[#6B8D43] transition-all cursor-pointer group flex items-start gap-4 relative shadow-lg shadow-black/40 text-left"
-            >
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#4A622F] to-[#384B23] text-white flex items-center justify-center shrink-0 mt-0.5 shadow-md group-hover:scale-105 transition-transform">
-                <Compass className="w-5 h-5 text-white" />
-              </div>
-              <div className="flex-1 min-w-0 pr-6">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-white tracking-tight">
-                    Yes, Show Me the Guide
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full bg-[#4A622F]/30 text-[#A8E063] text-[10px] font-bold uppercase tracking-wider">
-                    Recommended · 60s
-                  </span>
-                </div>
-                <p className="text-xs text-[#A09C94] mt-1 leading-relaxed">
-                  A visual overview of how to manage accounts and envelopes before entering the app.
-                </p>
-              </div>
-              <ArrowRight className="w-4 h-4 text-[#A8E063] absolute right-4 top-1/2 -translate-y-1/2 group-hover:translate-x-1 transition-transform shrink-0" />
-            </button>
-
-            {/* Option B: No, Jump Straight to Dashboard (Guest Mode) */}
-            <button
-              type="button"
-              onClick={finishOnboarding}
-              className="w-full p-4 rounded-2xl bg-[#191714] hover:bg-[#201E1A] border border-white/[0.08] hover:border-white/[0.15] transition-all cursor-pointer group flex items-start gap-4 text-left relative"
-            >
-              <div className="w-10 h-10 rounded-xl bg-white/[0.06] text-[#A09C94] group-hover:text-white flex items-center justify-center shrink-0 mt-0.5 transition-colors">
-                <User className="w-5 h-5 text-[#8E8A82] group-hover:text-[#A8E063] transition-colors" />
-              </div>
-              <div className="flex-1 min-w-0 pr-6">
-                <span className="text-sm font-semibold text-white tracking-tight block">
-                  No, Jump Straight into Guest Mode
-                </span>
-                <p className="text-xs text-[#8E8A82] mt-0.5 leading-relaxed">
-                  Skip the guide and open the empty dashboard. (You can replay the guide anytime from Settings).
-                </p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-[#8E8A82] group-hover:text-white absolute right-4 top-1/2 -translate-y-1/2 group-hover:translate-x-1 transition-transform shrink-0" />
-            </button>
-          </div>
-
-          {/* Navigation Controls */}
-          <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs text-[#8E8A82]">
-            <button
-              type="button"
-              onClick={() => setStage('welcome')}
-              className="text-[#8E8A82] hover:text-white transition-colors cursor-pointer"
-            >
-              ← Back
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setAuthError(null);
-                setStage('signup_modal');
-              }}
-              className="text-[#A8E063] hover:underline font-medium cursor-pointer"
-            >
-              Create Cloud Account instead →
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ═══════════════════════════════════════════════════════════════════════ */}
-      {/* SIGN IN SUB-SCREEN (LOGIN)                                             */}
-      {/* ═══════════════════════════════════════════════════════════════════════ */}
-      {stage === 'login_modal' && (
-        <div className="relative w-full max-w-sm bg-[#1A1916] border border-white/[0.1] rounded-3xl shadow-2xl p-6 sm:p-7 text-white space-y-5 animate-scale-in">
-          <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
-            <button
-              type="button"
-              onClick={() => setStage('welcome')}
-              className="flex items-center gap-1.5 text-xs text-[#8E8A82] hover:text-white transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Back</span>
-            </button>
-            <h3 className="font-bold text-sm text-white">Sign In to Cloud Sync</h3>
-            <div className="w-8" />
-          </div>
-
-          {authError && (
-            <div className="p-3 rounded-xl bg-red-950/40 border border-red-800/50 text-red-300 text-xs">
-              {authError}
-            </div>
-          )}
-
-          <form onSubmit={handleSignIn} className="space-y-3.5">
-            <div className="space-y-1">
-              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase tracking-wider">Email</label>
-              <input
-                type="email"
-                required
-                value={authEmail}
-                onChange={e => setAuthEmail(e.target.value)}
-                placeholder="name@example.com"
-                className="w-full bg-[#22201B] border border-white/[0.08] focus:border-[#4A622F] rounded-xl px-3.5 py-2.5 text-white placeholder-[#6E6A62] text-xs outline-none focus:ring-1 focus:ring-[#4A622F]"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase tracking-wider">Password</label>
-              <input
-                type="password"
-                required
-                value={authPassword}
-                onChange={e => setAuthPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-[#22201B] border border-white/[0.08] focus:border-[#4A622F] rounded-xl px-3.5 py-2.5 text-white placeholder-[#6E6A62] text-xs outline-none focus:ring-1 focus:ring-[#4A622F]"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={authLoading}
-              className="w-full mt-2 py-2.5 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              {authLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
-              <span>Sign In &amp; Enter Dashboard</span>
-            </button>
-          </form>
-
-          <div className="relative my-2">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/[0.08]" /></div>
-            <div className="relative flex justify-center text-2xs"><span className="bg-[#1A1916] px-2 text-[#7A766E]">Or</span></div>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleGoogleSignIn}
-            disabled={authLoading}
-            className="w-full py-2.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer"
-          >
-            <span>Continue with Google</span>
-          </button>
-        </div>
-      )}
-
-      {/* ═══════════════════════════════════════════════════════════════════════ */}
-      {/* SIGN UP SUB-SCREEN (CREATE ACCOUNT)                                    */}
-      {/* ═══════════════════════════════════════════════════════════════════════ */}
-      {stage === 'signup_modal' && (
-        <div className="relative w-full max-w-sm bg-[#1A1916] border border-white/[0.1] rounded-3xl shadow-2xl p-6 sm:p-7 text-white space-y-5 animate-scale-in">
-          <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
-            <button
-              type="button"
-              onClick={() => setStage('new_user_guide_prompt')}
-              className="flex items-center gap-1.5 text-xs text-[#8E8A82] hover:text-white transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Back</span>
-            </button>
-            <h3 className="font-bold text-sm text-white">Create Cloud Account</h3>
-            <div className="w-8" />
-          </div>
-
-          {authError && (
-            <div className="p-3 rounded-xl bg-red-950/40 border border-red-800/50 text-red-300 text-xs">
-              {authError}
-            </div>
-          )}
-
-          {authSuccessMsg && (
-            <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-800/50 text-emerald-300 text-xs">
-              {authSuccessMsg}
-            </div>
-          )}
-
-          <form onSubmit={handleSignUp} className="space-y-3.5">
-            <div className="space-y-1">
-              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase tracking-wider">Your Name</label>
-              <input
-                type="text"
-                value={authName}
-                onChange={e => setAuthName(e.target.value)}
-                placeholder="Alex Morgan"
-                className="w-full bg-[#22201B] border border-white/[0.08] focus:border-[#4A622F] rounded-xl px-3.5 py-2.5 text-white placeholder-[#6E6A62] text-xs outline-none focus:ring-1 focus:ring-[#4A622F]"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase tracking-wider">Email</label>
-              <input
-                type="email"
-                required
-                value={authEmail}
-                onChange={e => setAuthEmail(e.target.value)}
-                placeholder="name@example.com"
-                className="w-full bg-[#22201B] border border-white/[0.08] focus:border-[#4A622F] rounded-xl px-3.5 py-2.5 text-white placeholder-[#6E6A62] text-xs outline-none focus:ring-1 focus:ring-[#4A622F]"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase tracking-wider">Password</label>
-              <input
-                type="password"
-                required
-                minLength={6}
-                value={authPassword}
-                onChange={e => setAuthPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-[#22201B] border border-white/[0.08] focus:border-[#4A622F] rounded-xl px-3.5 py-2.5 text-white placeholder-[#6E6A62] text-xs outline-none focus:ring-1 focus:ring-[#4A622F]"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={authLoading}
-              className="w-full mt-2 py-2.5 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              {authLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
-              <span>Create Account &amp; Proceed</span>
-            </button>
-          </form>
-        </div>
-      )}
-
-      {/* ═══════════════════════════════════════════════════════════════════════ */}
-      {/* DEDICATED VISUAL GUIDE (SLIDES 1, 2, 3)                                */}
-      {/* ═══════════════════════════════════════════════════════════════════════ */}
-      {stage === 'guide_slides' && (
-        <div className="relative w-full max-w-lg bg-gradient-to-b from-[#1C1A17] to-[#131210] border border-white/[0.1] rounded-3xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] p-6 sm:p-8 text-white space-y-6 overflow-hidden animate-fade-in">
-          
-          {/* Top Bar with Step Indicators & Exit */}
-          <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5">
-                {[1, 2, 3].map(step => (
-                  <div
-                    key={step}
-                    className={`h-1.5 rounded-full transition-all duration-300 ${
-                      step === guideSlide
-                        ? 'w-7 bg-[#A8E063]'
-                        : step < guideSlide
-                        ? 'w-3 bg-[#4A622F]'
-                        : 'w-3 bg-white/10'
-                    }`}
-                  />
-                ))}
-              </div>
-              <span className="text-2xs font-bold text-[#A8E063] uppercase tracking-wider ml-1">
-                Guide · {guideSlide} of 3
-              </span>
+      {/* ── 2. VISUAL 3-SLIDE GUIDE (ALMOST NO TEXT, ZERO CLUTTER) ── */}
+      {stage === 'guide' && (
+        <div className="relative w-full max-w-sm bg-[#161512] border border-white/10 rounded-[28px] shadow-2xl p-6 sm:p-7 space-y-6 animate-scale-in text-white">
+          {/* Header with dots and skip */}
+          <div className="flex items-center justify-between pb-2 border-b border-white/5">
+            <div className="flex items-center gap-1.5">
+              {[1, 2, 3].map(i => (
+                <div
+                  key={i}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    i === slide ? 'w-6 bg-[#A8E063]' : 'w-2 bg-white/15'
+                  }`}
+                />
+              ))}
             </div>
             <button
               type="button"
               onClick={finishOnboarding}
-              className="text-xs text-[#8E8A82] hover:text-white flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-white/[0.06] transition-colors cursor-pointer"
+              className="text-xs text-[#8E8A82] hover:text-white flex items-center gap-1 cursor-pointer"
             >
-              <span>Skip Guide</span>
+              <span>Skip</span>
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          {/* ── Slide 1: Real Accounts ── */}
-          {guideSlide === 1 && (
+          {/* Slide 1: Real Accounts */}
+          {slide === 1 && (
             <div className="space-y-5 animate-fade-up">
-              {/* Visual Card Mockup */}
-              <div className="p-4 rounded-2xl bg-[#23201B] border border-white/[0.08] shadow-inner space-y-3">
-                <div className="flex items-center justify-between text-xs text-[#A09C94]">
-                  <span className="font-semibold text-white">Your Money Source</span>
-                  <span className="px-2 py-0.5 rounded-full bg-[#4A622F]/30 text-[#A8E063] text-2xs font-bold uppercase">Active</span>
+              {/* Graphic Mockup */}
+              <div className="p-4 rounded-2xl bg-[#201E19] border border-white/5 flex items-center gap-3.5 shadow-inner">
+                <div className="w-11 h-11 rounded-xl bg-[#4A622F]/30 text-[#A8E063] flex items-center justify-center shrink-0">
+                  <Wallet className="w-6 h-6" />
                 </div>
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-[#181613] border border-white/[0.06]">
-                  <div className="w-10 h-10 rounded-xl bg-[#4A622F]/30 text-[#A8E063] flex items-center justify-center">
-                    <Wallet className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-white">Primary Account</h4>
-                    <p className="text-xs text-[#8E8A82]">Checking / Salary / Cash Wallet</p>
-                  </div>
-                  <div className="ml-auto text-right">
-                    <span className="text-sm font-extrabold text-white">₹50,000</span>
-                  </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-bold text-white">Primary Bank</h4>
+                  <p className="text-xs text-[#8E8A82]">Cash &amp; Bank Accounts</p>
                 </div>
+                <span className="text-base font-extrabold text-[#A8E063]">₹50,000</span>
               </div>
 
-              {/* Slide Explanatory Text */}
-              <div className="space-y-1.5">
-                <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight flex items-center gap-2">
-                  <Wallet className="w-5 h-5 text-[#A8E063]" />
-                  <span>1. All budgeting starts with Accounts</span>
-                </h3>
-                <p className="text-xs sm:text-sm text-[#A09C94] leading-relaxed">
-                  Before organizing expenses, money lives in your real bank accounts, UPI wallets, or cash reserves. Richingness tracks your real balance so every rupee is accounted for.
+              {/* Title & 1 Short Sentence */}
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-white">1. Real Accounts</h3>
+                <p className="text-xs text-[#A09C94] leading-relaxed">
+                  Money starts in your real bank accounts or cash wallet.
                 </p>
               </div>
 
-              {/* Forward Navigation */}
-              <div className="pt-2 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setGuideSlide(2)}
-                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#4A622F]/25 cursor-pointer transition-all active:scale-[0.99]"
-                >
-                  <span>Next: How Categories Work</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setSlide(2)}
+                className="w-full py-3 rounded-2xl bg-[#4A622F] hover:bg-[#587437] text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-md transition-all active:scale-[0.98]"
+              >
+                <span>Next: Envelopes</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
             </div>
           )}
 
-          {/* ── Slide 2: 50/30/20 Envelopes ── */}
-          {guideSlide === 2 && (
+          {/* Slide 2: 50/30/20 Envelopes */}
+          {slide === 2 && (
             <div className="space-y-5 animate-fade-up">
-              {/* Visual Card Mockup */}
-              <div className="p-4 rounded-2xl bg-[#23201B] border border-white/[0.08] shadow-inner space-y-2.5">
-                <span className="text-xs font-semibold text-[#A09C94] block mb-1">Envelope Budgeting Distribution</span>
-                
-                {/* Needs 50% */}
-                <div className="p-2.5 rounded-xl bg-[#181613] border border-white/[0.06] flex items-center justify-between text-xs">
+              {/* Graphic Mockup */}
+              <div className="p-3.5 rounded-2xl bg-[#201E19] border border-white/5 space-y-2 shadow-inner">
+                <div className="p-2 rounded-xl bg-[#181613] flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-[#10B981]" />
-                    <span className="font-bold text-white">Needs (50%)</span>
-                    <span className="text-2xs text-[#8E8A82]">Rent, bills, groceries</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                    <span className="font-semibold text-white">Needs (50%)</span>
                   </div>
-                  <span className="font-bold text-[#10B981]">₹25,000</span>
+                  <span className="font-bold text-emerald-400">₹25,000</span>
                 </div>
-
-                {/* Wants 30% */}
-                <div className="p-2.5 rounded-xl bg-[#181613] border border-white/[0.06] flex items-center justify-between text-xs">
+                <div className="p-2 rounded-xl bg-[#181613] flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-[#3B82F6]" />
-                    <span className="font-bold text-white">Wants (30%)</span>
-                    <span className="text-2xs text-[#8E8A82]">Dining, outings, shopping</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-400" />
+                    <span className="font-semibold text-white">Wants (30%)</span>
                   </div>
-                  <span className="font-bold text-[#3B82F6]">₹15,000</span>
+                  <span className="font-bold text-blue-400">₹15,000</span>
                 </div>
-
-                {/* Savings 20% */}
-                <div className="p-2.5 rounded-xl bg-[#181613] border border-white/[0.06] flex items-center justify-between text-xs">
+                <div className="p-2 rounded-xl bg-[#181613] flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-[#8B5CF6]" />
-                    <span className="font-bold text-white">Savings (20%)</span>
-                    <span className="text-2xs text-[#8E8A82]">Emergency fund, growth</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-purple-400" />
+                    <span className="font-semibold text-white">Savings (20%)</span>
                   </div>
-                  <span className="font-bold text-[#8B5CF6]">₹10,000</span>
+                  <span className="font-bold text-purple-400">₹10,000</span>
                 </div>
               </div>
 
-              {/* Slide Explanatory Text */}
-              <div className="space-y-1.5">
-                <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight flex items-center gap-2">
-                  <FolderTree className="w-5 h-5 text-[#A8E063]" />
-                  <span>2. Assign each rupee a clear purpose</span>
+              {/* Title & 1 Short Sentence */}
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <FolderTree className="w-4 h-4 text-[#A8E063]" />
+                  <span>2. Dedicated Envelopes</span>
                 </h3>
-                <p className="text-xs sm:text-sm text-[#A09C94] leading-relaxed">
-                  Instead of tracking where money went after it is gone, envelope budgeting gives every rupee a job in advance. You only spend what is inside the envelope!
+                <p className="text-xs text-[#A09C94] leading-relaxed">
+                  Income is divided into envelopes before you spend.
                 </p>
               </div>
 
-              {/* Navigation */}
-              <div className="pt-2 flex items-center justify-between gap-3">
+              <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setGuideSlide(1)}
-                  className="px-4 py-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] text-xs font-semibold text-white cursor-pointer transition-all"
+                  onClick={() => setSlide(1)}
+                  className="px-4 py-3 rounded-2xl bg-[#22201B] hover:bg-[#2A2722] text-white text-xs font-semibold cursor-pointer"
                 >
                   Back
                 </button>
                 <button
                   type="button"
-                  onClick={() => setGuideSlide(3)}
-                  className="flex-1 px-6 py-3 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#4A622F]/25 cursor-pointer transition-all active:scale-[0.99]"
+                  onClick={() => setSlide(3)}
+                  className="flex-1 py-3 rounded-2xl bg-[#4A622F] hover:bg-[#587437] text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-md transition-all active:scale-[0.98]"
                 >
-                  <span>Next: Spending &amp; Borrowing</span>
+                  <span>Next: Spending</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
           )}
 
-          {/* ── Slide 3: Smart Borrowing ── */}
-          {guideSlide === 3 && (
+          {/* Slide 3: Smart Borrowing */}
+          {slide === 3 && (
             <div className="space-y-5 animate-fade-up">
-              {/* Visual Card Mockup */}
-              <div className="p-4 rounded-2xl bg-[#23201B] border border-white/[0.08] shadow-inner space-y-3">
+              {/* Graphic Mockup */}
+              <div className="p-4 rounded-2xl bg-[#201E19] border border-white/5 space-y-2.5 shadow-inner">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-white">Intelligent Rebalancing</span>
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-900/40 text-[#A8E063] text-2xs font-bold uppercase flex items-center gap-1">
-                    <ShieldCheck className="w-3 h-3 text-[#A8E063]" />
-                    <span>Savings Protected</span>
+                  <span className="font-semibold text-white">Safe Rebalancing</span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 text-2xs font-bold flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3" />
+                    <span>Protected</span>
                   </span>
                 </div>
-                
-                <div className="p-3 rounded-xl bg-[#181613] border border-white/[0.06] flex items-center justify-between text-xs">
-                  <div>
-                    <span className="text-2xs text-[#8E8A82] block">From Wants Pool</span>
-                    <span className="font-bold text-red-400">- ₹1,500</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-2xs text-[#A8E063] px-2 py-1 rounded bg-[#4A622F]/20">
-                    <span>Borrow Flow</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </div>
-                  <div className="text-right">
-                    <span className="text-2xs text-[#8E8A82] block">To Needs Pool</span>
-                    <span className="font-bold text-emerald-400">+ ₹1,500</span>
-                  </div>
+                <div className="p-2.5 rounded-xl bg-[#181613] flex items-center justify-between text-xs">
+                  <span className="text-red-400 font-bold">Wants -₹1,500</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#A8E063]" />
+                  <span className="text-emerald-400 font-bold">Needs +₹1,500</span>
                 </div>
               </div>
 
-              {/* Slide Explanatory Text */}
-              <div className="space-y-1.5">
-                <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-[#A8E063]" />
-                  <span>3. Overspent? Borrow without breaking savings</span>
+              {/* Title & 1 Short Sentence */}
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#A8E063]" />
+                  <span>3. Spend &amp; Borrow Safely</span>
                 </h3>
-                <p className="text-xs sm:text-sm text-[#A09C94] leading-relaxed">
-                  Life happens! When an expense exceeds an envelope, Richingness helps you borrow from flexible &apos;Wants&apos; before ever dipping into your emergency savings.
+                <p className="text-xs text-[#A09C94] leading-relaxed">
+                  Overspent? Borrow from Wants to protect your Savings.
                 </p>
               </div>
 
-              {/* Finish Action */}
-              <div className="pt-2 flex items-center justify-between gap-3">
+              <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setGuideSlide(2)}
-                  className="px-4 py-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] text-xs font-semibold text-white cursor-pointer transition-all"
+                  onClick={() => setSlide(2)}
+                  className="px-4 py-3 rounded-2xl bg-[#22201B] hover:bg-[#2A2722] text-white text-xs font-semibold cursor-pointer"
                 >
                   Back
                 </button>
                 <button
                   type="button"
                   onClick={finishOnboarding}
-                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#4A622F] to-[#587437] hover:from-[#587437] hover:to-[#6B8D43] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xl shadow-[#4A622F]/40 cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99]"
+                  className="flex-1 py-3 rounded-2xl bg-[#4A622F] hover:bg-[#587437] text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-[#4A622F]/30 transition-all active:scale-[0.98]"
                 >
-                  <CheckCircle2 className="w-4 h-4 text-[#A8E063]" />
-                  <span>Got it, Let&apos;s Enter Dashboard! 🚀</span>
+                  <span>Start Budgeting 🚀</span>
                 </button>
               </div>
             </div>
           )}
+        </div>
+      )}
 
+      {/* ── 3. CLEAN SIGN IN MODAL ── */}
+      {stage === 'login_modal' && (
+        <div className="relative w-full max-w-sm bg-[#161512] border border-white/10 rounded-[28px] shadow-2xl p-6 sm:p-7 space-y-4 animate-scale-in text-white">
+          <div className="flex items-center justify-between pb-2 border-b border-white/5">
+            <button
+              type="button"
+              onClick={() => setStage('welcome')}
+              className="flex items-center gap-1 text-xs text-[#8E8A82] hover:text-white cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back</span>
+            </button>
+            <h3 className="font-bold text-sm">Sign In</h3>
+            <div className="w-8" />
+          </div>
+
+          {authError && (
+            <div className="p-2.5 rounded-xl bg-red-950/40 border border-red-800/40 text-red-300 text-xs">
+              {authError}
+            </div>
+          )}
+
+          <form onSubmit={handleSignIn} className="space-y-3">
+            <input
+              type="email"
+              required
+              value={authEmail}
+              onChange={e => setAuthEmail(e.target.value)}
+              placeholder="Email address"
+              className="w-full bg-[#201E19] border border-white/10 rounded-xl px-3.5 py-2.5 text-white placeholder-[#6E6A62] text-xs outline-none focus:border-[#4A622F]"
+            />
+            <input
+              type="password"
+              required
+              value={authPassword}
+              onChange={e => setAuthPassword(e.target.value)}
+              placeholder="Password"
+              className="w-full bg-[#201E19] border border-white/10 rounded-xl px-3.5 py-2.5 text-white placeholder-[#6E6A62] text-xs outline-none focus:border-[#4A622F]"
+            />
+            <button
+              type="submit"
+              disabled={authLoading}
+              className="w-full py-2.5 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md cursor-pointer disabled:opacity-50"
+            >
+              {authLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
+              <span>Sign In</span>
+            </button>
+          </form>
+
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={authLoading}
+            className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-white text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <span>Continue with Google</span>
+          </button>
         </div>
       )}
 
