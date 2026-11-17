@@ -291,7 +291,6 @@ export default function Home() {
   const [acctName,     setAcctName]     = useState('');
   const [acctType,     setAcctType]     = useState<Account['type']>('checking');
   const [acctCurrency, setAcctCurrency] = useState('INR');
-  const [acctCurrencyConfirmed, setAcctCurrencyConfirmed] = useState(false);
   const [showMoreAcctCurrencies, setShowMoreAcctCurrencies] = useState(false);
 
   const [goalName,    setGoalName]    = useState('');
@@ -1727,7 +1726,6 @@ export default function Home() {
           title="Add Account"
           onClose={() => {
             setShowAddAcctModal(false);
-            setAcctCurrencyConfirmed(false);
             setShowMoreAcctCurrencies(false);
           }}
           icon={<Wallet className="w-4 h-4" />}
@@ -1735,62 +1733,24 @@ export default function Home() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              if (acctName && acctCurrencyConfirmed) {
+              if (acctName) {
                 addAccount(acctName.trim(), acctType, acctCurrency);
                 setShowAddAcctModal(false);
-                setAcctCurrencyConfirmed(false);
                 setShowMoreAcctCurrencies(false);
               }
             }}
             className="space-y-4"
           >
-            {/* Guidance Helper Card with Step Directions */}
-            {!acctName.trim() ? (
-              <div className="p-3 rounded-2xl bg-[#1C2614] border border-[#3E5227] text-white flex items-center gap-2.5">
-                <span className="text-sm shrink-0">👇</span>
-                <div className="space-y-0.5 min-w-0">
-                  <p className="text-xs font-bold text-white">Step 1 · Name Your Account</p>
-                  <p className="text-2xs text-[#C5E89B]">Tap an example chip below or type an account name.</p>
-                </div>
-              </div>
-            ) : !acctCurrencyConfirmed ? (
-              <div className="p-3 rounded-2xl bg-[#1C2614] border border-[#587437] text-white flex items-center gap-2.5 shadow-md">
-                <span className="text-sm shrink-0">👇</span>
-                <div className="space-y-0.5 min-w-0">
-                  <p className="text-xs font-bold text-white">Step 2 · Confirm Currency</p>
-                  <p className="text-2xs text-[#C5E89B]">
-                    Tap <strong className="text-white underline">INR (₹)</strong> below to confirm currency.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="p-3 rounded-2xl bg-[#233319] border border-[#6B8A44] text-white flex items-center gap-2.5 shadow-md">
-                <span className="text-sm shrink-0">👇</span>
-                <div className="space-y-0.5 min-w-0">
-                  <p className="text-xs font-bold text-white">Step 3 · Ready to Create!</p>
-                  <p className="text-2xs text-[#C5E89B]">
-                    All set! Tap <strong>Create Account →</strong> below to start budgeting.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Step 1: Account Name */}
+            {/* Account Name */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-2xs font-semibold text-[#8E8A82] uppercase tracking-wider">
-                  Step 1 · Account Name
-                </label>
-                {acctName.trim() && (
-                  <span className="text-[10px] text-[#A8E063] font-semibold flex items-center gap-1">
-                    ✓ Ready
-                  </span>
-                )}
-              </div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1.5 tracking-wider">
+                Account Name
+              </label>
               <input
                 type="text"
                 required
                 autoFocus
+                data-guide-target="account-name-input"
                 value={acctName}
                 onChange={e => setAcctName(e.target.value)}
                 placeholder="e.g. HDFC Checking, Cash Wallet, Savings…"
@@ -1827,49 +1787,31 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Step 2: Currency Pills */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="block text-2xs font-semibold text-[#8E8A82] uppercase tracking-wider">
-                  Step 2 · Currency
-                </label>
-                {acctCurrencyConfirmed ? (
-                  <span className="text-[10px] text-[#A8E063] font-semibold flex items-center gap-1">
-                    ✓ Selected: {acctCurrency}
-                  </span>
-                ) : (
-                  <span className="text-[10px] text-[#E8C47A] font-semibold flex items-center gap-1">
-                    Tap to select
-                  </span>
-                )}
-              </div>
+            {/* Currency Pills */}
+            <div className="space-y-1.5">
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase tracking-wider">
+                Currency
+              </label>
 
               <div className="flex items-center gap-1.5 flex-wrap">
                 {POPULAR_CURRENCIES.map(c => {
-                  const isSelected = acctCurrency === c.code && acctCurrencyConfirmed;
-                  const isGuidePrompt = !acctCurrencyConfirmed && c.code === 'INR' && Boolean(acctName.trim());
+                  const isSelected = acctCurrency === c.code;
                   return (
                     <button
                       key={c.code}
                       type="button"
+                      data-guide-target={c.code === 'INR' ? 'modal-currency-inr' : undefined}
+                      data-selected={isSelected}
                       onClick={() => {
                         setAcctCurrency(c.code);
-                        setAcctCurrencyConfirmed(true);
                       }}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border relative ${
+                      className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
                         isSelected
                           ? 'bg-[#4A622F] text-white border-[#6B8A44] shadow-md'
-                          : isGuidePrompt
-                          ? 'bg-[#232F18] text-[#A8E063] border-[#587437] ring-2 ring-[#A8E063] animate-pulse shadow-glow'
                           : 'bg-[#141310] text-[#A09C94] hover:text-white border-[#2B2925] hover:border-[#4A622F]'
                       }`}
                     >
-                      <span>{c.label}</span>
-                      {isGuidePrompt && (
-                        <span className="text-[9px] bg-[#4A622F] text-white px-1.5 py-0.5 rounded font-bold uppercase ml-0.5">
-                          👈 Tap
-                        </span>
-                      )}
+                      {c.label}
                     </button>
                   );
                 })}
@@ -1899,11 +1841,10 @@ export default function Home() {
                       type="button"
                       onClick={() => {
                         setAcctCurrency(c.code);
-                        setAcctCurrencyConfirmed(true);
                         setShowMoreAcctCurrencies(false);
                       }}
                       className={`py-1.5 px-2 rounded-lg text-xs font-medium text-center transition-all cursor-pointer border ${
-                        acctCurrency === c.code && acctCurrencyConfirmed
+                        acctCurrency === c.code
                           ? 'bg-[#4A622F] text-white border-[#6B8A44]'
                           : 'bg-[#1C1A16] text-[#A09C94] hover:text-white border-[#2E2C27]'
                       }`}
@@ -1920,18 +1861,13 @@ export default function Home() {
                 type="button"
                 onClick={() => {
                   setShowAddAcctModal(false);
-                  setAcctCurrencyConfirmed(false);
                   setShowMoreAcctCurrencies(false);
                 }}
               >
                 Cancel
               </SecondaryBtn>
-              <PrimaryBtn type="submit" disabled={!acctName.trim() || !acctCurrencyConfirmed}>
-                {!acctName.trim()
-                  ? 'Step 1: Enter Name Above'
-                  : !acctCurrencyConfirmed
-                  ? 'Step 2: Tap INR (₹) Above'
-                  : 'Create Account →'}
+              <PrimaryBtn type="submit" data-guide-target="account-submit-btn" disabled={!acctName.trim()}>
+                Create Account
               </PrimaryBtn>
             </div>
           </form>

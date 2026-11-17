@@ -537,12 +537,9 @@ html.theme-light .bg-\[\#E87A24\] * {
   color: #FFFFFF !important;
 }
 
-/* Onboarding HUD hide when modal is active */
-body.modal-open .onboarding-guide-hud {
-  opacity: 0 !important;
-  pointer-events: none !important;
-  visibility: hidden !important;
-  transition: opacity 0.2s ease;
+/* Onboarding HUD stays on top as an overlay */
+.onboarding-guide-hud {
+  z-index: 10002 !important;
 }
 
 /* Lock down all non-guide sections while guide is active */

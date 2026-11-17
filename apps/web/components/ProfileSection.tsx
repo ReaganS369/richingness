@@ -506,7 +506,6 @@ export function ProfileSection() {
   const [newAccountName, setNewAccountName] = useState('');
   const [newAccountType, setNewAccountType] = useState<'checking' | 'savings' | 'credit' | 'cash'>('savings');
   const [newAccountCurrency, setNewAccountCurrency] = useState('INR');
-  const [currencyConfirmed, setCurrencyConfirmed] = useState(false);
   const [showMoreCurrencies, setShowMoreCurrencies] = useState(false);
   const [showEditAccountModal, setShowEditAccountModal] = useState(false);
   const [editingAccountId, setEditingAccountId] = useState('');
@@ -1214,11 +1213,24 @@ export function ProfileSection() {
                                 {acc.name}
                               </span>
                               <span className="text-[10px] text-[#8E8A82] block">
-                                {isExpanded ? 'Tap to collapse breakdown' : 'Tap to inspect envelopes & reallocate'}
+                                {isExpanded ? 'Tap to collapse breakdown' : 'Tap to inspect categories & reallocate'}
                               </span>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              data-guide-target="add-funds"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFundsAccountId(acc.id);
+                                setShowAddFundsModal(true);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-[#4A622F] hover:bg-[#587437] text-white font-bold text-xs flex items-center gap-1 shrink-0 cursor-pointer shadow-sm transition-all"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Add Funds</span>
+                            </button>
                             <div className="text-right">
                               <span className="text-sm font-semibold text-white num-display block">
                                 ₹{acc.amount.toLocaleString('en-IN')}
@@ -1238,7 +1250,7 @@ export function ProfileSection() {
                             <div className="flex items-center justify-between border-b border-[#26241F] pb-2">
                               <div className="flex items-center gap-1.5">
                                 <Layers className="w-3.5 h-3.5 text-[#8EBA55]" />
-                                <span className="text-xs font-bold text-white uppercase tracking-wider">Account Envelopes</span>
+                                <span className="text-xs font-bold text-white uppercase tracking-wider">Account Categories</span>
                               </div>
                               <span className="text-[11px] text-[#8E8A82]">Net Available Funds</span>
                             </div>
@@ -2553,53 +2565,16 @@ export function ProfileSection() {
             }}
             className="space-y-4"
           >
-            {/* Guidance Helper Card with Step-by-Step Directions */}
-            {!newAccountName.trim() ? (
-              <div className="p-3 rounded-2xl bg-[#1C2614] border border-[#3E5227] text-white flex items-center gap-2.5">
-                <span className="text-sm shrink-0">👇</span>
-                <div className="space-y-0.5 min-w-0">
-                  <p className="text-xs font-bold text-white">Step 1 · Name Your Account</p>
-                  <p className="text-2xs text-[#C5E89B]">Tap an example chip below or type an account name.</p>
-                </div>
-              </div>
-            ) : !currencyConfirmed ? (
-              <div className="p-3 rounded-2xl bg-[#1C2614] border border-[#587437] text-white flex items-center gap-2.5 shadow-md">
-                <span className="text-sm shrink-0">👇</span>
-                <div className="space-y-0.5 min-w-0">
-                  <p className="text-xs font-bold text-white">Step 2 · Confirm Currency</p>
-                  <p className="text-2xs text-[#C5E89B]">
-                    Tap <strong className="text-white underline">INR (₹)</strong> below to confirm currency.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="p-3 rounded-2xl bg-[#233319] border border-[#6B8A44] text-white flex items-center gap-2.5 shadow-md">
-                <span className="text-sm shrink-0">👇</span>
-                <div className="space-y-0.5 min-w-0">
-                  <p className="text-xs font-bold text-white">Step 3 · Ready to Create!</p>
-                  <p className="text-2xs text-[#C5E89B]">
-                    All set! Tap <strong>Create Account →</strong> below to start budgeting.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Step 1: Account Name & Chips */}
+            {/* Account Name & Chips */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-2xs font-semibold text-[#8E8A82] uppercase tracking-wider">
-                  Step 1 · Account Name
-                </label>
-                {newAccountName.trim() && (
-                  <span className="text-[10px] text-[#A8E063] font-semibold flex items-center gap-1">
-                    ✓ Ready
-                  </span>
-                )}
-              </div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1.5 tracking-wider">
+                Account Name
+              </label>
               <input
                 type="text"
                 required
                 autoFocus
+                data-guide-target="account-name-input"
                 value={newAccountName}
                 onChange={e => setNewAccountName(e.target.value)}
                 placeholder="e.g. HDFC Checking, Cash Wallet, Savings…"
@@ -2640,49 +2615,31 @@ export function ProfileSection() {
               </div>
             </div>
 
-            {/* Step 2: Currency Pills (No Native Dropdown Popup) */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="block text-2xs font-semibold text-[#8E8A82] uppercase tracking-wider">
-                  Step 2 · Currency
-                </label>
-                {currencyConfirmed ? (
-                  <span className="text-[10px] text-[#A8E063] font-semibold flex items-center gap-1">
-                    ✓ Selected: {newAccountCurrency}
-                  </span>
-                ) : (
-                  <span className="text-[10px] text-[#E8C47A] font-semibold flex items-center gap-1">
-                    Tap to select
-                  </span>
-                )}
-              </div>
+            {/* Currency Pills (No Native Dropdown Popup) */}
+            <div className="space-y-1.5">
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase tracking-wider">
+                Currency
+              </label>
 
               <div className="flex items-center gap-1.5 flex-wrap">
                 {POPULAR_CURRENCIES.map(c => {
-                  const isSelected = newAccountCurrency === c.code && currencyConfirmed;
-                  const isGuidePrompt = !currencyConfirmed && c.code === 'INR' && Boolean(newAccountName.trim());
+                  const isSelected = newAccountCurrency === c.code;
                   return (
                     <button
                       key={c.code}
                       type="button"
+                      data-guide-target={c.code === 'INR' ? 'modal-currency-inr' : undefined}
+                      data-selected={isSelected}
                       onClick={() => {
                         setNewAccountCurrency(c.code);
-                        setCurrencyConfirmed(true);
                       }}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border relative ${
+                      className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
                         isSelected
                           ? 'bg-[#4A622F] text-white border-[#6B8A44] shadow-md'
-                          : isGuidePrompt
-                          ? 'bg-[#232F18] text-[#A8E063] border-[#587437] ring-2 ring-[#A8E063] animate-pulse shadow-glow'
                           : 'bg-[#141310] text-[#A09C94] hover:text-white border-[#2B2925] hover:border-[#4A622F]'
                       }`}
                     >
-                      <span>{c.label}</span>
-                      {isGuidePrompt && (
-                        <span className="text-[9px] bg-[#4A622F] text-white px-1.5 py-0.5 rounded font-bold uppercase ml-0.5">
-                          👈 Tap
-                        </span>
-                      )}
+                      {c.label}
                     </button>
                   );
                 })}
@@ -2712,11 +2669,10 @@ export function ProfileSection() {
                       type="button"
                       onClick={() => {
                         setNewAccountCurrency(c.code);
-                        setCurrencyConfirmed(true);
                         setShowMoreCurrencies(false);
                       }}
                       className={`py-1.5 px-2 rounded-lg text-xs font-medium text-center transition-all cursor-pointer border ${
-                        newAccountCurrency === c.code && currencyConfirmed
+                        newAccountCurrency === c.code
                           ? 'bg-[#4A622F] text-white border-[#6B8A44]'
                           : 'bg-[#1C1A16] text-[#A09C94] hover:text-white border-[#2E2C27]'
                       }`}
@@ -2734,7 +2690,6 @@ export function ProfileSection() {
                 type="button"
                 onClick={() => {
                   setShowAddAccountModal(false);
-                  setCurrencyConfirmed(false);
                   setShowMoreCurrencies(false);
                 }}
                 className="flex-1 py-2.5 rounded-xl bg-[#201F1B] hover:bg-[#2B2924] border border-[#2E2C27] text-[#888] hover:text-white font-semibold text-xs transition-all cursor-pointer"
@@ -2743,20 +2698,15 @@ export function ProfileSection() {
               </button>
               <button
                 type="submit"
-                disabled={!newAccountName.trim() || !currencyConfirmed}
+                data-guide-target="account-submit-btn"
+                disabled={!newAccountName.trim()}
                 className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5 ${
-                  newAccountName.trim() && currencyConfirmed
-                    ? 'bg-[#4A622F] hover:bg-[#587437] text-white ring-2 ring-[#A8E063]/50 animate-pulse'
+                  newAccountName.trim()
+                    ? 'bg-[#4A622F] hover:bg-[#587437] text-white shadow-[#4A622F]/30'
                     : 'bg-[#201F1B] text-[#666] border border-[#2E2C27] cursor-not-allowed opacity-60'
                 }`}
               >
-                <span>
-                  {!newAccountName.trim()
-                    ? 'Step 1: Enter Name Above'
-                    : !currencyConfirmed
-                    ? 'Step 2: Tap INR (₹) Above'
-                    : 'Create Account →'}
-                </span>
+                Create Account
               </button>
             </div>
           </form>

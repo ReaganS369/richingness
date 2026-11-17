@@ -525,7 +525,11 @@ export function ExpandableCategoriesTree({
         // Ignored
       }
     }
-    return null;
+    return [
+      { name: 'Needs', percentage: 50 },
+      { name: 'Wants', percentage: 30 },
+      { name: 'Savings', percentage: 20 }
+    ];
   });
 
   const hasCategories = (savedAllocations && savedAllocations.length > 0) || storeCategories.length > 0;

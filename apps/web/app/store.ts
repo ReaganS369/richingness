@@ -650,6 +650,64 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     await scopedRepo.saveAccount(newAcct);
 
+    // Ensure default 50/30/20 starter categories exist so new users immediately have categories
+    const curCats = await scopedRepo.getCategories();
+    const activeCats = curCats.filter(c => {
+      const anyC = c as unknown as { deletedAt?: Date; isHidden?: boolean };
+      return !anyC.deletedAt && !anyC.isHidden;
+    });
+
+    if (activeCats.length === 0) {
+      const defaultCategories: BudgetCategory[] = [
+        {
+          id: 'cat-needs',
+          parentId: null,
+          name: 'Needs',
+          rolloverMode: 'carry',
+          budgetAmount: 5000n,
+          priority: 1,
+          isIncome: false,
+          isHidden: false,
+          sortOrder: 1
+        },
+        {
+          id: 'cat-wants',
+          parentId: null,
+          name: 'Wants',
+          rolloverMode: 'carry',
+          budgetAmount: 3000n,
+          priority: 2,
+          isIncome: false,
+          isHidden: false,
+          sortOrder: 2
+        },
+        {
+          id: 'cat-savings',
+          parentId: null,
+          name: 'Savings',
+          rolloverMode: 'carry',
+          budgetAmount: 2000n,
+          priority: 3,
+          isIncome: false,
+          isHidden: false,
+          sortOrder: 3
+        }
+      ];
+      for (const cat of defaultCategories) {
+        await scopedRepo.saveCategory(cat);
+      }
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(
+          'richingness_category_allocations',
+          JSON.stringify([
+            { name: 'Needs', percentage: 50 },
+            { name: 'Wants', percentage: 30 },
+            { name: 'Savings', percentage: 20 }
+          ])
+        );
+      }
+    }
+
     if (activeSyncEngine) {
       await activeSyncEngine.enqueueOperation('accounts', 'insert', newAcct as unknown as Record<string, unknown>);
     }
