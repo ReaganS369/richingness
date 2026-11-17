@@ -22,10 +22,10 @@ import { authService } from '../app/store';
 
 export type OnboardingStage =
   | 'loading'
-  | 'page1_access'
+  | 'welcome'
+  | 'new_user_guide_prompt'
   | 'login_modal'
   | 'signup_modal'
-  | 'page2_question'
   | 'guide_slides'
   | 'completed';
 
@@ -53,14 +53,14 @@ export function OnboardingFlow({ onComplete, onOpenSettings: _onOpenSettings }: 
       if (completed === 'true') {
         setStage('completed');
       } else {
-        setStage('page1_access');
+        setStage('welcome');
       }
     }
 
     // Custom event to replay tour from Settings
     const handleReplay = () => {
       setGuideSlide(1);
-      setStage('page2_question');
+      setStage('guide_slides');
     };
 
     window.addEventListener('richingness:replay-tour', handleReplay);
@@ -95,7 +95,7 @@ export function OnboardingFlow({ onComplete, onOpenSettings: _onOpenSettings }: 
     setAuthError(null);
     try {
       await authService.signIn(authEmail, authPassword);
-      // Existing user signed in -> skip guide directly
+      // Existing user signed in -> skip guide directly to dashboard
       finishOnboarding();
     } catch (err: unknown) {
       setAuthError(err instanceof Error ? err.message : 'Invalid credentials. Please try again.');
@@ -110,11 +110,11 @@ export function OnboardingFlow({ onComplete, onOpenSettings: _onOpenSettings }: 
     setAuthError(null);
     try {
       await authService.signUp(authEmail, authPassword, authName || undefined);
-      setAuthSuccessMsg('Account created! Please check your email to confirm your account, or continue as guest for now.');
+      setAuthSuccessMsg('Account created! Please check your email to confirm, or start using your workspace.');
       setAuthLoading(false);
-      // Proceed to Page 2: ask if they want the guide
+      // Offer the guide after sign up
       setTimeout(() => {
-        setStage('page2_question');
+        setStage('new_user_guide_prompt');
       }, 1200);
     } catch (err: unknown) {
       setAuthError(err instanceof Error ? err.message : 'Sign up failed. Please try again.');
@@ -130,9 +130,9 @@ export function OnboardingFlow({ onComplete, onOpenSettings: _onOpenSettings }: 
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-xl animate-fade-in overflow-y-auto">
       
       {/* ═══════════════════════════════════════════════════════════════════════ */}
-      {/* PAGE 1: GUEST ACCOUNT OR LOGIN / SIGN UP                               */}
+      {/* SCREEN 1: CLEAR WELCOME - NEW USER VS EXISTING CUSTOMER                */}
       {/* ═══════════════════════════════════════════════════════════════════════ */}
-      {stage === 'page1_access' && (
+      {stage === 'welcome' && (
         <div className="relative w-full max-w-md bg-gradient-to-b from-[#1C1A17] to-[#131210] border border-white/[0.08] rounded-3xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85)] p-6 sm:p-8 text-white space-y-6 overflow-hidden">
           {/* Subtle ambient glow halo */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-56 h-24 bg-[#4A622F]/20 blur-3xl pointer-events-none rounded-full" />
@@ -141,95 +141,183 @@ export function OnboardingFlow({ onComplete, onOpenSettings: _onOpenSettings }: 
           <div className="text-center space-y-2 relative">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#4A622F]/20 border border-[#587437]/40 text-[#A8E063] text-2xs font-bold uppercase tracking-wider">
               <Sparkles className="w-3 h-3 text-[#A8E063]" />
-              <span>Step 1 · Account Access</span>
+              <span>Financial OS</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-2">
-              Richingness
+              Welcome to Richingness
             </h2>
             <p className="text-xs sm:text-sm text-[#A09C94] leading-relaxed max-w-xs mx-auto">
               Intelligent envelope budgeting crafted to give every rupee a clear purpose.
             </p>
           </div>
 
-          {/* Access Choices */}
-          <div className="space-y-3 relative">
+          {/* Primary Two Choices: New vs Existing */}
+          <div className="space-y-3.5 relative">
             
-            {/* Option A: Continue as Guest */}
+            {/* Option A: New Customer / First Time */}
             <button
               type="button"
-              onClick={() => setStage('page2_question')}
+              onClick={() => setStage('new_user_guide_prompt')}
               className="w-full p-4.5 rounded-2xl bg-gradient-to-r from-[#24211D] to-[#1C1A16] hover:from-[#2C2923] hover:to-[#221F1B] border border-[#4A622F]/70 hover:border-[#6B8D43] transition-all cursor-pointer group flex items-start gap-4 relative shadow-lg shadow-black/40 text-left"
             >
               <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#4A622F] to-[#384B23] text-white flex items-center justify-center shrink-0 mt-0.5 shadow-md group-hover:scale-105 transition-transform">
-                <User className="w-5 h-5 text-white" />
+                <Sparkles className="w-5 h-5 text-white" />
               </div>
               <div className="flex-1 min-w-0 pr-6">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-bold text-white tracking-tight">
-                    Continue as Guest
+                    I&apos;m New to Richingness
                   </span>
                   <span className="px-2 py-0.5 rounded-full bg-[#4A622F]/30 text-[#A8E063] text-[10px] font-bold uppercase tracking-wider">
-                    Instant Access
+                    First Visit
                   </span>
                 </div>
                 <p className="text-xs text-[#A09C94] mt-1 leading-relaxed">
-                  Start immediately with private local storage. No email, password, or registration required.
+                  Start fresh with instant offline guest mode, or take a quick 1-minute visual tour.
                 </p>
               </div>
               <ArrowRight className="w-4 h-4 text-[#A8E063] absolute right-4 top-1/2 -translate-y-1/2 group-hover:translate-x-1 transition-transform shrink-0" />
             </button>
 
-            {/* Option B: Sign In to Existing Account */}
+            {/* Option B: Existing Customer / Already have account */}
             <button
               type="button"
               onClick={() => {
                 setAuthError(null);
                 setStage('login_modal');
               }}
-              className="w-full p-4 rounded-2xl bg-[#191714] hover:bg-[#201E1A] border border-white/[0.08] hover:border-white/[0.15] transition-all cursor-pointer group flex items-start gap-4 text-left"
+              className="w-full p-4.5 rounded-2xl bg-[#191714] hover:bg-[#201E1A] border border-white/[0.08] hover:border-white/[0.15] transition-all cursor-pointer group flex items-start gap-4 text-left relative"
             >
-              <div className="w-10 h-10 rounded-xl bg-white/[0.06] text-[#A09C94] group-hover:text-white flex items-center justify-center shrink-0 mt-0.5 transition-colors">
-                <LogIn className="w-4.5 h-4.5" />
+              <div className="w-11 h-11 rounded-xl bg-white/[0.06] text-[#A09C94] group-hover:text-white flex items-center justify-center shrink-0 mt-0.5 transition-colors">
+                <LogIn className="w-5 h-5" />
               </div>
               <div className="flex-1 min-w-0 pr-6">
-                <span className="text-sm font-semibold text-white tracking-tight block">
-                  Sign In to Cloud Sync
-                </span>
-                <p className="text-xs text-[#8E8A82] mt-0.5 leading-relaxed">
-                  Already have an account? Sync and restore your budgets across multiple devices.
-                </p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-[#8E8A82] group-hover:text-white absolute right-4 top-1/2 -translate-y-1/2 group-hover:translate-x-1 transition-transform shrink-0" />
-            </button>
-
-            {/* Option C: Sign Up / Create Account */}
-            <button
-              type="button"
-              onClick={() => {
-                setAuthError(null);
-                setStage('signup_modal');
-              }}
-              className="w-full p-4 rounded-2xl bg-[#171613] hover:bg-[#1E1C18] border border-white/[0.05] hover:border-white/[0.1] transition-all cursor-pointer group flex items-start gap-4 text-left"
-            >
-              <div className="w-10 h-10 rounded-xl bg-white/[0.04] text-[#8E8A82] group-hover:text-white flex items-center justify-center shrink-0 mt-0.5 transition-colors">
-                <UserPlus className="w-4.5 h-4.5" />
-              </div>
-              <div className="flex-1 min-w-0 pr-6">
-                <span className="text-sm font-semibold text-white tracking-tight block">
-                  Create Cloud Account
-                </span>
-                <p className="text-xs text-[#8E8A82] mt-0.5 leading-relaxed">
-                  Register for real-time encrypted cloud sync and automated backups.
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-white tracking-tight">
+                    I Already Have an Account
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-white/[0.06] text-[#8E8A82] text-[10px] font-medium">
+                    Sign In
+                  </span>
+                </div>
+                <p className="text-xs text-[#8E8A82] mt-1 leading-relaxed">
+                  Sign in with email or Google to restore your synced data. Tutorials will be skipped.
                 </p>
               </div>
               <ChevronRight className="w-4 h-4 text-[#8E8A82] group-hover:text-white absolute right-4 top-1/2 -translate-y-1/2 group-hover:translate-x-1 transition-transform shrink-0" />
             </button>
           </div>
 
-          {/* Privacy Note */}
-          <div className="pt-2 border-t border-white/[0.06] flex items-center justify-center gap-2 text-2xs text-[#7A766E]">
-            <Shield className="w-3.5 h-3.5 text-[#A8E063]" />
-            <span>End-to-end encrypted · Local offline-first architecture</span>
+          {/* Quick Direct Link */}
+          <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs text-[#8E8A82]">
+            <span className="flex items-center gap-1.5 text-2xs text-[#7A766E]">
+              <Shield className="w-3.5 h-3.5 text-[#A8E063]" />
+              <span>Private &amp; offline-first</span>
+            </span>
+            <button
+              type="button"
+              onClick={finishOnboarding}
+              className="text-[#A8E063] hover:underline font-medium cursor-pointer"
+            >
+              Skip directly to dashboard →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {/* SCREEN 2: FOR NEW USERS - WANT A GUIDE OR JUMP STRAIGHT IN?            */}
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {stage === 'new_user_guide_prompt' && (
+        <div className="relative w-full max-w-md bg-gradient-to-b from-[#1C1A17] to-[#131210] border border-white/[0.08] rounded-3xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85)] p-6 sm:p-8 text-white space-y-6 overflow-hidden animate-fade-in">
+          {/* Subtle ambient glow halo */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-20 bg-[#4A622F]/20 blur-3xl pointer-events-none rounded-full" />
+
+          {/* Header */}
+          <div className="text-center space-y-2 relative">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#4A622F]/20 border border-[#587437]/40 text-[#A8E063] text-2xs font-bold uppercase tracking-wider">
+              <Compass className="w-3 h-3 text-[#A8E063]" />
+              <span>Getting Started</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-2">
+              Would you like a quick guide?
+            </h2>
+            <p className="text-xs sm:text-sm text-[#A09C94] leading-relaxed max-w-xs mx-auto">
+              We can give you a 60-second visual walkthrough on how accounts, 50/30/20 envelopes, and smart rebalancing work.
+            </p>
+          </div>
+
+          {/* Options */}
+          <div className="space-y-3 relative">
+            
+            {/* Option A: Yes, Show the Guide */}
+            <button
+              type="button"
+              onClick={() => {
+                setGuideSlide(1);
+                setStage('guide_slides');
+              }}
+              className="w-full p-4.5 rounded-2xl bg-gradient-to-r from-[#24211D] to-[#1C1A16] hover:from-[#2C2923] hover:to-[#221F1B] border border-[#4A622F]/70 hover:border-[#6B8D43] transition-all cursor-pointer group flex items-start gap-4 relative shadow-lg shadow-black/40 text-left"
+            >
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#4A622F] to-[#384B23] text-white flex items-center justify-center shrink-0 mt-0.5 shadow-md group-hover:scale-105 transition-transform">
+                <Compass className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1 min-w-0 pr-6">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-white tracking-tight">
+                    Yes, Show Me the Guide
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-[#4A622F]/30 text-[#A8E063] text-[10px] font-bold uppercase tracking-wider">
+                    Recommended · 60s
+                  </span>
+                </div>
+                <p className="text-xs text-[#A09C94] mt-1 leading-relaxed">
+                  A visual overview of how to manage accounts and envelopes before entering the app.
+                </p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-[#A8E063] absolute right-4 top-1/2 -translate-y-1/2 group-hover:translate-x-1 transition-transform shrink-0" />
+            </button>
+
+            {/* Option B: No, Jump Straight to Dashboard (Guest Mode) */}
+            <button
+              type="button"
+              onClick={finishOnboarding}
+              className="w-full p-4 rounded-2xl bg-[#191714] hover:bg-[#201E1A] border border-white/[0.08] hover:border-white/[0.15] transition-all cursor-pointer group flex items-start gap-4 text-left relative"
+            >
+              <div className="w-10 h-10 rounded-xl bg-white/[0.06] text-[#A09C94] group-hover:text-white flex items-center justify-center shrink-0 mt-0.5 transition-colors">
+                <User className="w-5 h-5 text-[#8E8A82] group-hover:text-[#A8E063] transition-colors" />
+              </div>
+              <div className="flex-1 min-w-0 pr-6">
+                <span className="text-sm font-semibold text-white tracking-tight block">
+                  No, Jump Straight into Guest Mode
+                </span>
+                <p className="text-xs text-[#8E8A82] mt-0.5 leading-relaxed">
+                  Skip the guide and open the empty dashboard. (You can replay the guide anytime from Settings).
+                </p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[#8E8A82] group-hover:text-white absolute right-4 top-1/2 -translate-y-1/2 group-hover:translate-x-1 transition-transform shrink-0" />
+            </button>
+          </div>
+
+          {/* Navigation Controls */}
+          <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs text-[#8E8A82]">
+            <button
+              type="button"
+              onClick={() => setStage('welcome')}
+              className="text-[#8E8A82] hover:text-white transition-colors cursor-pointer"
+            >
+              ← Back
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAuthError(null);
+                setStage('signup_modal');
+              }}
+              className="text-[#A8E063] hover:underline font-medium cursor-pointer"
+            >
+              Create Cloud Account instead →
+            </button>
           </div>
         </div>
       )}
@@ -242,7 +330,7 @@ export function OnboardingFlow({ onComplete, onOpenSettings: _onOpenSettings }: 
           <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
             <button
               type="button"
-              onClick={() => setStage('page1_access')}
+              onClick={() => setStage('welcome')}
               className="flex items-center gap-1.5 text-xs text-[#8E8A82] hover:text-white transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -315,7 +403,7 @@ export function OnboardingFlow({ onComplete, onOpenSettings: _onOpenSettings }: 
           <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
             <button
               type="button"
-              onClick={() => setStage('page1_access')}
+              onClick={() => setStage('new_user_guide_prompt')}
               className="flex items-center gap-1.5 text-xs text-[#8E8A82] hover:text-white transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -380,106 +468,6 @@ export function OnboardingFlow({ onComplete, onOpenSettings: _onOpenSettings }: 
               <span>Create Account &amp; Proceed</span>
             </button>
           </form>
-        </div>
-      )}
-
-      {/* ═══════════════════════════════════════════════════════════════════════ */}
-      {/* PAGE 2: HAVE YOU VISITED OR USED THE SITE BEFORE?                      */}
-      {/* ═══════════════════════════════════════════════════════════════════════ */}
-      {stage === 'page2_question' && (
-        <div className="relative w-full max-w-md bg-gradient-to-b from-[#1C1A17] to-[#131210] border border-white/[0.08] rounded-3xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85)] p-6 sm:p-8 text-white space-y-6 overflow-hidden animate-fade-in">
-          {/* Subtle ambient glow halo */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-20 bg-[#4A622F]/20 blur-3xl pointer-events-none rounded-full" />
-
-          {/* Header */}
-          <div className="text-center space-y-2 relative">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#4A622F]/20 border border-[#587437]/40 text-[#A8E063] text-2xs font-bold uppercase tracking-wider">
-              <Sparkles className="w-3 h-3 text-[#A8E063]" />
-              <span>Step 2 · Experience</span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-2">
-              Have you visited before?
-            </h2>
-            <p className="text-xs sm:text-sm text-[#A09C94] leading-relaxed max-w-xs mx-auto">
-              Tell us your experience level so we know whether you would like an introduction to envelope budgeting.
-            </p>
-          </div>
-
-          {/* The Two Distinguishable Options */}
-          <div className="space-y-3 relative">
-            
-            {/* Choice 1: Existing Customer / Already visited -> Skip Guide directly */}
-            <button
-              type="button"
-              onClick={finishOnboarding}
-              className="w-full p-4 rounded-2xl bg-[#191714] hover:bg-[#201E1A] border border-white/[0.08] hover:border-white/[0.15] transition-all cursor-pointer group flex items-start gap-4 text-left"
-            >
-              <div className="w-10 h-10 rounded-xl bg-white/[0.06] text-[#A09C94] group-hover:text-white flex items-center justify-center shrink-0 mt-0.5 transition-colors">
-                <CheckCircle2 className="w-5 h-5 text-[#8E8A82] group-hover:text-[#A8E063] transition-colors" />
-              </div>
-              <div className="flex-1 min-w-0 pr-6">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-white tracking-tight">
-                    I&apos;ve used this before
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full bg-white/[0.06] text-[#8E8A82] text-[10px] font-semibold">
-                    Existing User
-                  </span>
-                </div>
-                <p className="text-xs text-[#8E8A82] mt-1 leading-relaxed">
-                  I already know how this works. Skip all tutorials and take me straight to the dashboard.
-                </p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-[#8E8A82] group-hover:text-white absolute right-4 top-1/2 -translate-y-1/2 group-hover:translate-x-1 transition-transform shrink-0" />
-            </button>
-
-            {/* Choice 2: New Customer / First Time -> Launch Visual Guide */}
-            <button
-              type="button"
-              onClick={() => {
-                setGuideSlide(1);
-                setStage('guide_slides');
-              }}
-              className="w-full p-4 rounded-2xl bg-gradient-to-r from-[#24211D] to-[#1C1A16] hover:from-[#2C2923] hover:to-[#221F1B] border border-[#4A622F]/70 hover:border-[#6B8D43] transition-all cursor-pointer group flex items-start gap-4 relative shadow-lg shadow-black/40 text-left"
-            >
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#4A622F] to-[#384B23] text-white flex items-center justify-center shrink-0 mt-0.5 shadow-md group-hover:scale-105 transition-transform">
-                <Compass className="w-5 h-5 text-white" />
-              </div>
-              <div className="flex-1 min-w-0 pr-6">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-white tracking-tight">
-                    I&apos;m a new user — Show me the guide
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full bg-[#4A622F]/30 text-[#A8E063] text-[10px] font-bold uppercase tracking-wider">
-                    Recommended
-                  </span>
-                </div>
-                <p className="text-xs text-[#A09C94] mt-1 leading-relaxed">
-                  Take a 1-minute visual walkthrough on how accounts, envelope budgets, and spending work.
-                </p>
-              </div>
-              <ArrowRight className="w-4 h-4 text-[#A8E063] absolute right-4 top-1/2 -translate-y-1/2 group-hover:translate-x-1 transition-transform shrink-0" />
-            </button>
-
-          </div>
-
-          {/* Quick back or direct jump */}
-          <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs text-[#8E8A82]">
-            <button
-              type="button"
-              onClick={() => setStage('page1_access')}
-              className="text-[#8E8A82] hover:text-white transition-colors cursor-pointer"
-            >
-              ← Back to accounts
-            </button>
-            <button
-              type="button"
-              onClick={finishOnboarding}
-              className="text-[#A8E063] hover:underline font-medium cursor-pointer"
-            >
-              Skip to dashboard →
-            </button>
-          </div>
         </div>
       )}
 
