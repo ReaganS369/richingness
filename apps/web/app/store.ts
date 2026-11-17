@@ -108,6 +108,7 @@ interface AppState {
   initAuth: () => void;
   updateProfile: (name: string, email?: string) => Promise<void>;
   resetDatabaseToDefaults: () => Promise<void>;
+  wipeAllSiteData: () => Promise<void>;
   exportAllData: () => Promise<string>;
   importAllData: (jsonData: string) => Promise<{ success: boolean; count: number; error?: string }>;
 
@@ -260,25 +261,25 @@ export const DEFAULT_SCHEDULED_SPENDS: ScheduledSpend[] = [
 ];
 
 function loadStoredIncomeSources(): IncomeSource[] {
-  if (typeof window === 'undefined') return DEFAULT_INCOME_SOURCES;
+  if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_INCOME_KEY);
     if (raw) return JSON.parse(raw);
   } catch {
     // ignore
   }
-  return DEFAULT_INCOME_SOURCES;
+  return [];
 }
 
 function loadStoredScheduledSpends(): ScheduledSpend[] {
-  if (typeof window === 'undefined') return DEFAULT_SCHEDULED_SPENDS;
+  if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_SPENDS_KEY);
     if (raw) return JSON.parse(raw);
   } catch {
     // ignore
   }
-  return DEFAULT_SCHEDULED_SPENDS;
+  return [];
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -314,23 +315,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     repo.subscribe(
       ['accounts', 'categories', 'ledger', 'goals'],
       async () => {
-        let accounts = await scopedRepo.getAccounts();
+        const accounts = await scopedRepo.getAccounts();
         const categories = await scopedRepo.getCategories();
         const ledger = await scopedRepo.getLedger();
         const goals = await scopedRepo.getGoals();
-
-        // Ensure there is always a clean default primary account
-        if (accounts.length === 0) {
-          const defaultAccount: Account = {
-            id: 'acc-primary',
-            name: 'Primary Account',
-            type: 'savings',
-            currency: 'INR'
-          };
-          await scopedRepo.saveAccount(defaultAccount);
-          accounts = [defaultAccount];
-        }
-
         set({ accounts, categories, ledger, goals });
       }
     );
@@ -442,36 +430,64 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ session: updated });
   },
 
-  resetDatabaseToDefaults: async () => {
-    const session = get().session;
-    if (!globalRepository) return;
-    const userKey = getUserKey(session);
-    const scopedRepo = globalRepository.forUser(userKey);
-    
-    // Clear existing via soft-delete
-    const rawRepo = scopedRepo as unknown as {
-      saveAccount: (record: unknown) => Promise<void>;
-      saveCategory: (record: unknown) => Promise<void>;
-      saveTransaction: (record: unknown) => Promise<void>;
-      saveGoal: (record: unknown) => Promise<void>;
-    };
-    const curAccounts = await scopedRepo.getAccounts();
-    for (const a of curAccounts) await rawRepo.saveAccount({ ...a, deletedAt: new Date() });
-    const curCats = await scopedRepo.getCategories();
-    for (const c of curCats) await rawRepo.saveCategory({ ...c, deletedAt: new Date() });
-    const curTxs = await scopedRepo.getLedger();
-    for (const t of curTxs) await rawRepo.saveTransaction({ ...t, deletedAt: new Date() });
-    const curGoals = await scopedRepo.getGoals();
-    for (const g of curGoals) await rawRepo.saveGoal({ ...g, deletedAt: new Date() });
-
-    // Clear localStorage allocation templates and settings
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('richingness_category_allocations_v2');
-      localStorage.removeItem('richingness_unallocated_by_account_v1');
+  wipeAllSiteData: async () => {
+    // 1. Wipe IndexedDB completely
+    try {
+      if (globalRepository && 'closeAndWipe' in (globalRepository as unknown as Record<string, unknown>)) {
+        await (globalRepository as unknown as { closeAndWipe: () => Promise<void> }).closeAndWipe();
+      }
+    } catch (e) {
+      console.warn('Failed to close/wipe repository:', e);
     }
 
-    // Re-initialize with pristine seed
-    await get().initializeStore(userKey);
+    if (typeof window !== 'undefined') {
+      try {
+        if ('indexedDB' in window) {
+          window.indexedDB.deleteDatabase('RichingnessDB');
+          window.indexedDB.deleteDatabase('richingness');
+          if (typeof window.indexedDB.databases === 'function') {
+            const dbs = await window.indexedDB.databases();
+            for (const db of dbs) {
+              if (db.name) window.indexedDB.deleteDatabase(db.name);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to delete IndexedDB databases:', e);
+      }
+
+      // 2. Clear all localStorage and sessionStorage
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch (e) {
+        console.warn('Failed to clear storage:', e);
+      }
+    }
+
+    // 3. Reset in-memory Zustand store
+    set({
+      session: DEFAULT_GUEST_SESSION,
+      syncStatus: 'offline',
+      theme: 'dark',
+      activeTab: 'dashboard',
+      historyAccountFilter: null,
+      accounts: [],
+      categories: [],
+      ledger: [],
+      goals: [],
+      incomeSources: [],
+      scheduledSpends: []
+    });
+
+    // 4. Reload page cleanly
+    if (typeof window !== 'undefined') {
+      window.location.href = window.location.origin;
+    }
+  },
+
+  resetDatabaseToDefaults: async () => {
+    await get().wipeAllSiteData();
   },
 
   exportAllData: async () => {
@@ -649,64 +665,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
 
     await scopedRepo.saveAccount(newAcct);
-
-    // Ensure default 50/30/20 starter categories exist so new users immediately have categories
-    const curCats = await scopedRepo.getCategories();
-    const activeCats = curCats.filter(c => {
-      const anyC = c as unknown as { deletedAt?: Date; isHidden?: boolean };
-      return !anyC.deletedAt && !anyC.isHidden;
-    });
-
-    if (activeCats.length === 0) {
-      const defaultCategories: BudgetCategory[] = [
-        {
-          id: 'cat-needs',
-          parentId: null,
-          name: 'Needs',
-          rolloverMode: 'carry',
-          budgetAmount: 5000n,
-          priority: 1,
-          isIncome: false,
-          isHidden: false,
-          sortOrder: 1
-        },
-        {
-          id: 'cat-wants',
-          parentId: null,
-          name: 'Wants',
-          rolloverMode: 'carry',
-          budgetAmount: 3000n,
-          priority: 2,
-          isIncome: false,
-          isHidden: false,
-          sortOrder: 2
-        },
-        {
-          id: 'cat-savings',
-          parentId: null,
-          name: 'Savings',
-          rolloverMode: 'carry',
-          budgetAmount: 2000n,
-          priority: 3,
-          isIncome: false,
-          isHidden: false,
-          sortOrder: 3
-        }
-      ];
-      for (const cat of defaultCategories) {
-        await scopedRepo.saveCategory(cat);
-      }
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(
-          'richingness_category_allocations',
-          JSON.stringify([
-            { name: 'Needs', percentage: 50 },
-            { name: 'Wants', percentage: 30 },
-            { name: 'Savings', percentage: 20 }
-          ])
-        );
-      }
-    }
 
     if (activeSyncEngine) {
       await activeSyncEngine.enqueueOperation('accounts', 'insert', newAcct as unknown as Record<string, unknown>);
@@ -1262,36 +1220,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   resetAllData: async () => {
-    const session = get().session;
-    if (!globalRepository || !session) return;
-    const scopedRepo = globalRepository.forUser(getUserKey(session));
-    const currentLedger = get().ledger;
-    const currentGoals = get().goals;
-    await scopedRepo.runInTransaction(async (txn) => {
-      for (const op of currentLedger) {
-        await txn.saveTransaction({ ...op, deletedAt: new Date().toISOString() } as unknown as LedgerOperation);
-      }
-      for (const g of currentGoals) {
-        await txn.saveGoal({ ...g, deletedAt: new Date().toISOString() } as unknown as SavingGoal);
-      }
-    });
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.removeItem('richingness_category_allocations_v2');
-        localStorage.removeItem('richingness_unallocated_by_account_v1');
-        localStorage.removeItem('richingness_income_sources_v1');
-        localStorage.removeItem('richingness_scheduled_spends_v1');
-        localStorage.removeItem('richingness_custom_profiles_v1');
-      } catch {
-        // ignore
-      }
-    }
-    set({
-      ledger: [],
-      goals: [],
-      incomeSources: [],
-      scheduledSpends: []
-    });
+    await get().wipeAllSiteData();
   },
 
   getBalances: () => {

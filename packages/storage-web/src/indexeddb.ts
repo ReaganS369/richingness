@@ -83,6 +83,16 @@ export class WebRepository implements IRepository {
       cb();
     }
   }
+
+  public async closeAndWipe(): Promise<void> {
+    this.listeners.clear();
+    try {
+      this.db.close();
+      await this.db.delete();
+    } catch {
+      // ignore
+    }
+  }
 }
 
 class WebScopedRepository implements IScopedRepository {

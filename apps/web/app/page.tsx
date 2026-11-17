@@ -240,7 +240,7 @@ export default function Home() {
     session, activeTab, syncStatus, accounts, goals, ledger, categories,
     historyAccountFilter, setHistoryAccountFilter,
     initAuth, logout, setActiveTab, openSettingsAllocations, setSettingsSubView,
-    addAccount, addCategory, addTransaction, updateAllocation, addGoal,
+    addAccount, addCategory, addTransaction, updateAllocation, syncCategoryAllocations, addGoal,
     borrowFromCategory,
     theme,
     triggerRecovery, getBalances, getNetWorth, getBudgetTree,
@@ -2025,6 +2025,13 @@ export default function Home() {
         totalBalanceRupees={totalBalanceRupees}
         onNavigateTab={(tab) => {
           setActiveTab(tab as TabId);
+        }}
+        onApplyStarterCategories={async () => {
+          await syncCategoryAllocations([
+            { name: 'Needs', percentage: 50 },
+            { name: 'Wants', percentage: 30 },
+            { name: 'Savings', percentage: 20 }
+          ]);
         }}
         onOpenAddAccount={() => {
           setAcctName('');

@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import { useAppStore, authService, IncomeSource, ScheduledSpend } from '../app/store';
 import { formatRupeesToPaise } from '@repo/shared';
-import { AccountCategoriesScreen, CategoryNodeAllocation, DEFAULT_HIERARCHICAL_RULES } from './AccountCategoriesScreen';
+import { AccountCategoriesScreen, CategoryNodeAllocation } from './AccountCategoriesScreen';
 import { getStorageInfo, requestStoragePersistence, StorageInfo } from '../app/storageService';
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -336,6 +336,10 @@ export function ProfileSection() {
 
   // Hierarchical rules tree
   const hierarchicalTree: CategoryNodeAllocation[] = (() => {
+    // If no categories exist in store, do NOT show fake/uncreated categories!
+    if (categories.length === 0) {
+      return [];
+    }
     if (typeof window !== 'undefined') {
       try {
         const raw = localStorage.getItem('richingness_category_allocations_v2');
@@ -349,7 +353,13 @@ export function ProfileSection() {
         // fallback
       }
     }
-    return DEFAULT_HIERARCHICAL_RULES;
+    return categories.map(c => ({
+      id: c.id,
+      name: c.name,
+      percentage: Number(c.budgetAmount) / 100 || 0,
+      level: 1,
+      children: []
+    }));
   })();
 
   // Edit Income Source Modal State (Clickable Income Streams)
@@ -801,17 +811,8 @@ export function ProfileSection() {
   };
 
   const handleResetDefaults = async () => {
-    if (window.confirm('Reset database to default Figma starter data?')) {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('richingness_live_tour');
-        localStorage.removeItem('richingness_onboarding_completed');
-        localStorage.removeItem('richingness_onboarding_guide');
-      }
+    if (window.confirm('Reset all cache and wipe all local data? This will reset every single thing on this site.')) {
       await resetDatabaseToDefaults();
-      setProfiles(DEFAULT_PROFILES);
-      setActiveProfileId('prof-guest');
-      setShowPrivacyModal(false);
-      showToast('Database reset to defaults!');
     }
   };
 
@@ -1257,7 +1258,16 @@ export function ProfileSection() {
 
                             {/* Envelopes Table with Net Math */}
                             <div className="space-y-1.5">
-                              {hierarchicalTree.map(rootNode => renderEnvelopeNode(rootNode, pool, 0))}
+                              {hierarchicalTree.length > 0 ? (
+                                hierarchicalTree.map(rootNode => renderEnvelopeNode(rootNode, pool, 0))
+                              ) : (
+                                <div className="p-3 bg-[#191814] rounded-lg border border-[#2D2A24] text-center space-y-1">
+                                  <p className="text-xs text-[#8E8A82]">No categories created yet.</p>
+                                  <p className="text-[10px] text-[#666]">
+                                    All account funds ({acc.amount > 0 ? `₹${acc.amount.toLocaleString('en-IN')}` : '₹0'}) are in General Balance.
+                                  </p>
+                                </div>
+                              )}
 
                               {/* General Funds (Single unspread category) */}
                               {unallocated > 0 && (

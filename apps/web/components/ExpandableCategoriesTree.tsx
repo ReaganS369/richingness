@@ -525,14 +525,10 @@ export function ExpandableCategoriesTree({
         // Ignored
       }
     }
-    return [
-      { name: 'Needs', percentage: 50 },
-      { name: 'Wants', percentage: 30 },
-      { name: 'Savings', percentage: 20 }
-    ];
+    return [];
   });
 
-  const hasCategories = (savedAllocations && savedAllocations.length > 0) || storeCategories.length > 0;
+  const hasCategories = storeCategories.length > 0 || (savedAllocations && savedAllocations.length > 0);
 
   // Read unallocated buffer from localStorage (money pulled into Default Buffer outside percentage spread)
   const totalUnallocated = (() => {

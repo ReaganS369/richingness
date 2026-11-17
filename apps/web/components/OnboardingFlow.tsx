@@ -30,6 +30,7 @@ interface OnboardingFlowProps {
   onOpenAddFunds?: () => void;
   onOpenSpend?: () => void;
   onOpenAddCategory?: () => void;
+  onApplyStarterCategories?: () => Promise<void> | void;
   onComplete?: () => void;
   onOpenSettings?: () => void;
   onNavigateTab?: (tab: 'dashboard' | 'settings' | 'transactions') => void;
@@ -37,12 +38,13 @@ interface OnboardingFlowProps {
 
 export function OnboardingFlow({
   accountsCount = 0,
-  categoriesCount: _categoriesCount = 0,
+  categoriesCount = 0,
   totalBalanceRupees = 0,
   onOpenAddAccount: _onOpenAddAccount,
   onOpenAddFunds: _onOpenAddFunds,
   onOpenSpend: _onOpenSpend,
   onOpenAddCategory: _onOpenAddCategory,
+  onApplyStarterCategories,
   onComplete,
   onOpenSettings: _onOpenSettings,
   onNavigateTab
@@ -397,10 +399,15 @@ export function OnboardingFlow({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setGuideStep(3)}
+                    onClick={async () => {
+                      if (categoriesCount === 0 && onApplyStarterCategories) {
+                        await onApplyStarterCategories();
+                      }
+                      setGuideStep(3);
+                    }}
                     className="py-1.5 px-3.5 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-[#4A622F]/30 cursor-pointer transition-all active:scale-[0.98]"
                   >
-                    <span>Next: Add Funds →</span>
+                    <span>Apply 50/30/20 & Next →</span>
                   </button>
                 </div>
               </div>
