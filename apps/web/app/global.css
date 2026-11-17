@@ -8,43 +8,43 @@
   --font-mono:    "JetBrains Mono", monospace;
 
   /* Colors — Base surfaces */
-  --color-bg:             #070710;
-  --color-bg-deep:        #040408;
-  --color-surface:        #0E0E1A;
-  --color-surface-raised: #151523;
-  --color-surface-overlay:#1C1C2E;
-  --color-surface-hover:  #1E1E32;
+  --color-bg:             #11100E;
+  --color-bg-deep:        #0E0D0B;
+  --color-surface:        #161512;
+  --color-surface-raised: #1D1B17;
+  --color-surface-overlay:#24221D;
+  --color-surface-hover:  #292721;
 
   /* Colors — Borders */
-  --color-border:         #1E1E35;
-  --color-border-subtle:  #141428;
-  --color-border-focus:   #7C5CFC;
-  --color-border-hover:   #2E2E4A;
+  --color-border:         #2B2923;
+  --color-border-subtle:  #211F1A;
+  --color-border-focus:   #A8E063;
+  --color-border-hover:   #3D3A31;
 
   /* Colors — Primary */
-  --color-primary:        #7C5CFC;
-  --color-primary-light:  #9D7DFF;
-  --color-primary-dark:   #5B3FD4;
-  --color-primary-glow:   rgba(124,92,252,0.15);
-  --color-primary-faint:  rgba(124,92,252,0.06);
+  --color-primary:        #4A622F;
+  --color-primary-light:  #5B783A;
+  --color-primary-dark:   #394C24;
+  --color-primary-glow:   rgba(74,98,47,0.25);
+  --color-primary-faint:  rgba(74,98,47,0.08);
 
   /* Colors — Semantic */
-  --color-success:        #10D9A0;
-  --color-success-light:  #34EDB8;
-  --color-success-muted:  rgba(16,217,160,0.12);
-  --color-warning:        #F5A623;
-  --color-warning-muted:  rgba(245,166,35,0.12);
-  --color-danger:         #F04F54;
-  --color-danger-muted:   rgba(240,79,84,0.12);
-  --color-info:           #4F9BFF;
-  --color-info-muted:     rgba(79,155,255,0.12);
+  --color-success:        #729B36;
+  --color-success-light:  #A8E063;
+  --color-success-muted:  rgba(168,224,99,0.12);
+  --color-warning:        #D97706;
+  --color-warning-muted:  rgba(217,119,6,0.12);
+  --color-danger:         #DC2626;
+  --color-danger-muted:   rgba(220,38,38,0.12);
+  --color-info:           #4A622F;
+  --color-info-muted:     rgba(74,98,47,0.12);
 
   /* Colors — Text */
-  --color-text-primary:   #F0F0FC;
-  --color-text-secondary: #7E7EA0;
-  --color-text-muted:     #3E3E5A;
-  --color-text-inverse:   #070710;
-  --color-text-accent:    #9D7DFF;
+  --color-text-primary:   #FFFFFF;
+  --color-text-secondary: #C4C0B9;
+  --color-text-muted:     #938E85;
+  --color-text-inverse:   #11100E;
+  --color-text-accent:    #A8E063;
 
   /* Colors — Accent palette */
   --color-violet:  #8B5CF6;
@@ -65,16 +65,16 @@
   /* Shadows */
   --shadow-xs:          0 1px 2px rgba(0,0,0,0.4);
   --shadow-sm:          0 2px 4px rgba(0,0,0,0.5);
-  --shadow-md:          0 4px 12px rgba(0,0,0,0.5);
-  --shadow-lg:          0 8px 24px rgba(0,0,0,0.6);
-  --shadow-xl:          0 16px 48px rgba(0,0,0,0.7);
-  --shadow-glow:        0 0 20px rgba(124,92,252,0.25);
-  --shadow-glow-sm:     0 0 10px rgba(124,92,252,0.15);
-  --shadow-glow-lg:     0 0 40px rgba(124,92,252,0.35);
-  --shadow-glow-success:0 0 20px rgba(16,217,160,0.25);
-  --shadow-glow-danger: 0 0 20px rgba(240,79,84,0.25);
-  --shadow-card:        0 0 0 1px rgba(255,255,255,0.04), 0 4px 16px rgba(0,0,0,0.5);
-  --shadow-card-hover:  0 0 0 1px rgba(124,92,252,0.2), 0 8px 32px rgba(0,0,0,0.6);
+  --shadow-md:          0 4px 10px rgba(0,0,0,0.32);
+  --shadow-lg:          0 6px 14px rgba(0,0,0,0.38);
+  --shadow-xl:          0 8px 18px rgba(0,0,0,0.44);
+  --shadow-glow:        0 0 14px rgba(168,224,99,0.16);
+  --shadow-glow-sm:     0 0 8px rgba(168,224,99,0.12);
+  --shadow-glow-lg:     0 0 24px rgba(168,224,99,0.2);
+  --shadow-glow-success:0 0 14px rgba(168,224,99,0.16);
+  --shadow-glow-danger: 0 0 14px rgba(220,38,38,0.16);
+  --shadow-card:        0 3px 8px rgba(0,0,0,0.28);
+  --shadow-card-hover:  0 6px 12px rgba(0,0,0,0.34);
 
   /* Animations */
   --animate-fade-in:    fadeIn 0.2s ease-out both;
@@ -97,12 +97,12 @@
     to   { opacity: 1; transform: scale(1); }
   }
   @keyframes glowPulse {
-    0%, 100% { box-shadow: 0 0 12px rgba(124,92,252,0.2); }
-    50%       { box-shadow: 0 0 28px rgba(124,92,252,0.45); }
+    0%, 100% { box-shadow: 0 0 8px rgba(168,224,99,0.12); }
+    50%       { box-shadow: 0 0 18px rgba(168,224,99,0.24); }
   }
   @keyframes pulseRing {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(124,92,252,0.4); }
-    50%       { box-shadow: 0 0 0 8px rgba(124,92,252,0); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(168,224,99,0.35); }
+    50%       { box-shadow: 0 0 0 8px rgba(168,224,99,0); }
   }
 }
 
@@ -112,6 +112,7 @@
 
   html {
     height: 100%;
+    font-size: 16px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -123,7 +124,7 @@
     padding: 0;
     font-family: "Inter", sans-serif;
     background-color: #161512;
-    color: #F0F0FC;
+    color: #FFFFFF;
     overflow: hidden;
   }
 
@@ -132,8 +133,20 @@
   }
 
   ::selection {
-    background: rgba(124, 92, 252, 0.3);
-    color: #F0F0FC;
+    background: rgba(168, 224, 99, 0.3);
+    color: #FFFFFF;
+  }
+
+  :where(button, [href], input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid #A8E063;
+    outline-offset: 2px;
+  }
+
+  button:disabled,
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    cursor: not-allowed;
   }
 }
 
@@ -181,10 +194,8 @@ html, body {
 /* ── Modal Open Freeze Background Scroll ── */
 body.modal-open,
 body.modal-open .app-root-shell,
-body.modal-open .app-workspace-shell,
-body.modal-open .app-main-scroll {
+body.modal-open .app-workspace-shell {
   overflow: hidden !important;
-  touch-action: none !important;
   overscroll-behavior: none !important;
 }
 
@@ -238,19 +249,8 @@ body.modal-open .app-main-scroll {
 }
 
 /* Gradient text */
-.text-gradient-primary {
-  background: linear-gradient(135deg, #9D7DFF 0%, #7C5CFC 50%, #5B3FD4 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.text-gradient-success {
-  background: linear-gradient(135deg, #34EDB8 0%, #10D9A0 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
+.text-gradient-primary { color: #A8E063; }
+.text-gradient-success { color: #A8E063; }
 
 /* Mesh bg */
 .bg-mesh {
@@ -306,23 +306,12 @@ body.modal-open .app-main-scroll {
 }
 
 .nav-item-inactive { color: #7E7EA0; }
-.nav-item-inactive:hover { color: #F0F0FC; background: #1E1E32; }
+.nav-item-inactive:hover { color: #FFFFFF; background: #292721; }
 
 .nav-item-active {
-  color: #F0F0FC;
-  background: linear-gradient(90deg, rgba(124,92,252,0.15) 0%, rgba(124,92,252,0.04) 100%);
-  box-shadow: inset 0 0 0 1px rgba(124,92,252,0.2);
-}
-.nav-item-active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 60%;
-  background: linear-gradient(180deg, #9D7DFF, #7C5CFC);
-  border-radius: 0 2px 2px 0;
+  color: #FFFFFF;
+  background: rgba(74, 98, 47, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(168, 224, 99, 0.24);
 }
 
 /* Focus ring */
@@ -537,38 +526,33 @@ html.theme-light .bg-\[\#E87A24\] * {
   color: #FFFFFF !important;
 }
 
-/* Onboarding HUD stays on top as an overlay */
+/* Onboarding guide overlay & spotlighting */
 .onboarding-guide-hud {
-  z-index: 10002 !important;
+  z-index: 10015 !important;
 }
 
-/* Lock down all non-guide sections while guide is active */
+body[data-guide-step],
 body[data-guide-step] main {
-  pointer-events: none !important;
+  touch-action: pan-y !important;
+  pointer-events: auto !important;
 }
 
-body[data-guide-step] .app-bottom-nav {
-  pointer-events: none !important;
-  opacity: 0.35 !important;
-  cursor: not-allowed !important;
-}
-
-/* Real button guide spotlight animation & selective click enable */
-[data-guide-target] {
-  transition: all 0.3s ease;
-}
-
-body[data-guide-step="1"] [data-guide-target="add-account"],
-body[data-guide-step="2"] [data-guide-target="create-category"],
-body[data-guide-step="3"] [data-guide-target="add-funds"],
-body[data-guide-step="4"] [data-guide-target="spend"] {
+/* Pulsing green spotlight for active targets */
+body[data-guide-step="1"]:not(.modal-open) [data-guide-target="add-account"],
+body[data-guide-step="2"]:not(.modal-open) [data-guide-target="create-category"],
+body[data-guide-step="3"]:not(.modal-open) [data-guide-target="add-funds"],
+body[data-guide-step="4"]:not(.modal-open) [data-guide-target="spend"],
+body[data-guide-substep="name"] [data-guide-target="account-name-input"],
+body[data-guide-substep="currency"] [data-guide-target="account-currency-select"],
+body[data-guide-substep="submit"] [data-guide-target="account-submit-btn"] {
   position: relative !important;
-  z-index: 40 !important;
+  z-index: 10002 !important;
   pointer-events: auto !important;
   cursor: pointer !important;
-  outline: 2px solid #A8E063 !important;
-  box-shadow: 0 0 0 4px rgba(168, 224, 99, 0.35), 0 0 25px rgba(168, 224, 99, 0.6) !important;
-  animation: guide-spotlight-pulse 2s infinite ease-in-out !important;
+  outline: 3px solid #A8E063 !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 4px rgba(168, 224, 99, 0.4), 0 0 25px rgba(168, 224, 99, 0.7) !important;
+  animation: guide-spotlight-pulse 1.8s infinite ease-in-out !important;
 }
 
 @keyframes guide-spotlight-pulse {
@@ -579,6 +563,17 @@ body[data-guide-step="4"] [data-guide-target="spend"] {
   50% {
     box-shadow: 0 0 0 6px rgba(168, 224, 99, 0.65), 0 0 28px rgba(168, 224, 99, 0.85);
     transform: scale(1.02);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

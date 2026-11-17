@@ -83,7 +83,7 @@ export function OnboardingFlow({
   // Track live modal state for overlay guidance without polluting underlying modal markup
   const [modalOpen, setModalOpen] = useState(false);
   const [modalHasName, setModalHasName] = useState(false);
-  const [modalInrSelected, setModalInrSelected] = useState(false);
+  const [modalCurrencyConfirmed, setModalCurrencyConfirmed] = useState(false);
 
   useEffect(() => {
     if (stage !== 'live_guide') return;
@@ -94,9 +94,13 @@ export function OnboardingFlow({
       if (isMOpen) {
         const nameInput = document.querySelector('[data-guide-target="account-name-input"]') as HTMLInputElement | null;
         setModalHasName(Boolean(nameInput && nameInput.value.trim().length > 0));
-        const inrBtn = document.querySelector('[data-guide-target="modal-currency-inr"][data-selected="true"]');
-        setModalInrSelected(Boolean(inrBtn));
+      } else {
+        setModalCurrencyConfirmed(false);
       }
+    };
+
+    const handleCurrencyEvent = () => {
+      setModalCurrencyConfirmed(true);
     };
 
     checkModal();
@@ -104,13 +108,67 @@ export function OnboardingFlow({
     obs.observe(document.body, { attributes: true, subtree: true, childList: true });
     window.addEventListener('input', checkModal);
     window.addEventListener('click', checkModal);
+    window.addEventListener('change', checkModal);
+    window.addEventListener('guide:currency-selected', handleCurrencyEvent);
 
     return () => {
       obs.disconnect();
       window.removeEventListener('input', checkModal);
       window.removeEventListener('click', checkModal);
+      window.removeEventListener('change', checkModal);
+      window.removeEventListener('guide:currency-selected', handleCurrencyEvent);
     };
   }, [stage]);
+
+  // Set substep indicator for dynamic spotlight
+  useEffect(() => {
+    if (stage === 'live_guide' && guideStep === 1 && modalOpen) {
+      if (!modalHasName) {
+        document.body.setAttribute('data-guide-substep', 'name');
+      } else if (!modalCurrencyConfirmed) {
+        document.body.setAttribute('data-guide-substep', 'currency');
+      } else {
+        document.body.setAttribute('data-guide-substep', 'submit');
+      }
+    } else {
+      document.body.removeAttribute('data-guide-substep');
+    }
+    return () => {
+      document.body.removeAttribute('data-guide-substep');
+    };
+  }, [stage, guideStep, modalOpen, modalHasName, modalCurrencyConfirmed]);
+
+  // Auto-scroll target into view so user never loses where to click or fill
+  useEffect(() => {
+    if (stage !== 'live_guide') return;
+
+    let targetSelector: string | null = null;
+    if (guideStep === 1) {
+      if (modalOpen) {
+        if (!modalHasName) targetSelector = '[data-guide-target="account-name-input"]';
+        else if (!modalCurrencyConfirmed) targetSelector = '[data-guide-target="account-currency-select"]';
+        else targetSelector = '[data-guide-target="account-submit-btn"]';
+      } else {
+        targetSelector = '[data-guide-target="add-account"]';
+      }
+    } else if (guideStep === 2) {
+      targetSelector = '[data-guide-target="create-category"]';
+    } else if (guideStep === 3) {
+      targetSelector = '[data-guide-target="add-funds"]';
+    } else if (guideStep === 4) {
+      targetSelector = '[data-guide-target="spend"]';
+    }
+
+    if (targetSelector) {
+      const timer = setTimeout(() => {
+        const el = document.querySelector(targetSelector!);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 250);
+      return () => clearTimeout(timer);
+    }
+  }, [stage, guideStep, modalOpen, modalHasName, modalCurrencyConfirmed]);
 
   useEffect(() => {
     if (stage === 'live_guide' && initialAccountsCount === null) {
@@ -311,7 +369,7 @@ export function OnboardingFlow({
                 onClick={finishOnboarding}
                 className="text-xs text-[#8E8A82] hover:text-white flex items-center gap-1 px-2 py-0.5 rounded-lg hover:bg-white/[0.06] transition-colors cursor-pointer"
               >
-                <span>Exit</span>
+                <span>Skip</span>
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -330,10 +388,10 @@ export function OnboardingFlow({
                   <div className="p-2.5 rounded-xl bg-[#232F1A] border border-[#3E5227] text-white space-y-1">
                     <p className="text-xs font-semibold text-[#A8E063]">
                       {!modalHasName
-                        ? '👇 Step 1: Tap a preset chip below (e.g. + HDFC Bank) or type a name.'
-                        : !modalInrSelected
-                        ? '👇 Step 2: Select INR (₹) below to set currency.'
-                        : '👇 Step 3: All set! Tap "Create Account" below to continue.'}
+                        ? '👇 Step 1: Type an account name (e.g. Cash Wallet or HDFC Bank)'
+                        : !modalCurrencyConfirmed
+                        ? '👇 Step 2: Click the Currency dropdown and select INR (₹)'
+                        : '✨ Step 3: All set! Tap "Create Account" below to continue.'}
                     </p>
                   </div>
                 ) : (

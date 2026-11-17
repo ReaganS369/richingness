@@ -235,11 +235,11 @@ function Modal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-3.5 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+      className="fixed inset-0 z-[10010] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in overflow-hidden"
       onClick={onClose}
     >
       <div
-        className="bg-[#1C1A16] border border-[#2F2C25] rounded-2xl w-full max-w-sm sm:max-w-md text-white shadow-2xl animate-scale-in flex flex-col max-h-[85vh] overflow-hidden"
+        className="bg-[#1C1A16] border border-[#2F2C25] rounded-2xl w-full max-w-sm sm:max-w-md text-white shadow-2xl animate-scale-in flex flex-col max-h-[90dvh] overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -253,7 +253,7 @@ function Modal({
           </button>
         </div>
         {/* Content body */}
-        <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain">
+        <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain flex-1">
           {children}
         </div>
       </div>
@@ -516,7 +516,6 @@ export function ProfileSection() {
   const [newAccountName, setNewAccountName] = useState('');
   const [newAccountType, setNewAccountType] = useState<'checking' | 'savings' | 'credit' | 'cash'>('savings');
   const [newAccountCurrency, setNewAccountCurrency] = useState('INR');
-  const [showMoreCurrencies, setShowMoreCurrencies] = useState(false);
   const [showEditAccountModal, setShowEditAccountModal] = useState(false);
   const [editingAccountId, setEditingAccountId] = useState('');
   const [editingAccountName, setEditingAccountName] = useState('');
@@ -958,7 +957,7 @@ export function ProfileSection() {
   }
 
   return (
-    <div className="w-full md:max-w-xl lg:max-w-2xl md:mx-auto space-y-4 text-white pb-6 select-none animate-fade-up px-1 sm:px-0">
+    <div className="w-full md:max-w-xl lg:max-w-2xl md:mx-auto space-y-4 text-white pb-6 animate-fade-up px-1 sm:px-0">
 
       {/* ── Toast Notification ── */}
       {feedbackMsg && (
@@ -2575,7 +2574,7 @@ export function ProfileSection() {
             }}
             className="space-y-4"
           >
-            {/* Account Name & Chips */}
+            {/* Account Name */}
             <div>
               <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1.5 tracking-wider">
                 Account Name
@@ -2588,110 +2587,54 @@ export function ProfileSection() {
                 value={newAccountName}
                 onChange={e => setNewAccountName(e.target.value)}
                 placeholder="e.g. HDFC Checking, Cash Wallet, Savings…"
-                className={`w-full bg-[#12110E] border rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none transition-all ${
-                  newAccountName.trim()
-                    ? 'border-[#4A622F] ring-1 ring-[#4A622F]'
-                    : 'border-[#2B2925] focus:border-[#4A622F]'
-                }`}
+                className="w-full bg-[#12110E] border border-[#2B2925] focus:border-[#4A622F] rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none transition-all"
               />
-
-              {/* Quick Example Chips */}
-              <div className="mt-2.5 space-y-1.5">
-                <p className="text-[10px] text-[#8E8A82] font-semibold">Tap to fill an example:</p>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {[
-                    { name: 'HDFC Bank', type: 'savings' as const },
-                    { name: 'Cash Wallet', type: 'cash' as const },
-                    { name: 'UPI / GPay', type: 'checking' as const },
-                    { name: 'SBI Savings', type: 'savings' as const },
-                  ].map(preset => (
-                    <button
-                      key={preset.name}
-                      type="button"
-                      onClick={() => {
-                        setNewAccountName(preset.name);
-                        setNewAccountType(preset.type);
-                      }}
-                      className={`px-2.5 py-1 rounded-lg text-2xs font-semibold transition-all cursor-pointer border ${
-                        newAccountName === preset.name
-                          ? 'bg-[#4A622F] text-white border-[#6B8A44] shadow-sm'
-                          : 'bg-[#1C1A16] text-[#A09C94] hover:text-white border-[#2E2C27] hover:border-[#4A622F]'
-                      }`}
-                    >
-                      + {preset.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
 
-            {/* Currency Pills (No Native Dropdown Popup) */}
-            <div className="space-y-1.5">
-              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase tracking-wider">
+            {/* Account Type */}
+            <div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1.5 tracking-wider">
+                Account Type
+              </label>
+              <select
+                data-guide-target="account-type-select"
+                value={newAccountType}
+                onChange={e => setNewAccountType(e.target.value as 'savings' | 'checking' | 'credit' | 'cash')}
+                className="w-full bg-[#12110E] border border-[#2B2925] focus:border-[#4A622F] rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none transition-all cursor-pointer"
+              >
+                <option value="savings">Savings Account</option>
+                <option value="checking">Checking / Current Account</option>
+                <option value="credit">Credit Card</option>
+                <option value="cash">Cash / Physical Wallet</option>
+              </select>
+            </div>
+
+            {/* Currency Dropdown */}
+            <div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1.5 tracking-wider">
                 Currency
               </label>
-
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {POPULAR_CURRENCIES.map(c => {
-                  const isSelected = newAccountCurrency === c.code;
-                  return (
-                    <button
-                      key={c.code}
-                      type="button"
-                      data-guide-target={c.code === 'INR' ? 'modal-currency-inr' : undefined}
-                      data-selected={isSelected}
-                      onClick={() => {
-                        setNewAccountCurrency(c.code);
-                      }}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
-                        isSelected
-                          ? 'bg-[#4A622F] text-white border-[#6B8A44] shadow-md'
-                          : 'bg-[#141310] text-[#A09C94] hover:text-white border-[#2B2925] hover:border-[#4A622F]'
-                      }`}
-                    >
-                      {c.label}
-                    </button>
-                  );
-                })}
-
-                {/* + More Button */}
-                <button
-                  type="button"
-                  onClick={() => setShowMoreCurrencies(!showMoreCurrencies)}
-                  className={`px-2.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center gap-1 ${
-                    showMoreCurrencies
-                      ? 'bg-[#2B2925] text-white border-[#4A622F]'
-                      : 'bg-[#141310] text-[#8E8A82] hover:text-white border-[#2B2925]'
-                  }`}
-                  title="More currencies"
-                >
-                  <Plus className={`w-3.5 h-3.5 transition-transform ${showMoreCurrencies ? 'rotate-45' : ''}`} />
-                  <span>{showMoreCurrencies ? 'Less' : 'More'}</span>
-                </button>
-              </div>
-
-              {/* Expanded More Currencies Grid */}
-              {showMoreCurrencies && (
-                <div className="p-2.5 rounded-xl bg-[#141310] border border-[#2B2925] grid grid-cols-3 gap-1.5 animate-fade-in">
-                  {MORE_CURRENCIES.map(c => (
-                    <button
-                      key={c.code}
-                      type="button"
-                      onClick={() => {
-                        setNewAccountCurrency(c.code);
-                        setShowMoreCurrencies(false);
-                      }}
-                      className={`py-1.5 px-2 rounded-lg text-xs font-medium text-center transition-all cursor-pointer border ${
-                        newAccountCurrency === c.code
-                          ? 'bg-[#4A622F] text-white border-[#6B8A44]'
-                          : 'bg-[#1C1A16] text-[#A09C94] hover:text-white border-[#2E2C27]'
-                      }`}
-                    >
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <select
+                data-guide-target="account-currency-select"
+                value={newAccountCurrency}
+                onChange={e => {
+                  setNewAccountCurrency(e.target.value);
+                  if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('guide:currency-selected', { detail: e.target.value }));
+                  }
+                }}
+                className="w-full bg-[#12110E] border border-[#2B2925] focus:border-[#4A622F] rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none transition-all cursor-pointer"
+              >
+                <option value="INR">INR (₹) - Indian Rupee</option>
+                <option value="USD">USD ($) - US Dollar</option>
+                <option value="EUR">EUR (€) - Euro</option>
+                <option value="GBP">GBP (£) - British Pound</option>
+                <option value="AED">AED (د.إ) - UAE Dirham</option>
+                <option value="SGD">SGD (S$) - Singapore Dollar</option>
+                <option value="CAD">CAD (C$) - Canadian Dollar</option>
+                <option value="AUD">AUD (A$) - Australian Dollar</option>
+                <option value="JPY">JPY (¥) - Japanese Yen</option>
+              </select>
             </div>
 
             {/* Actions: Cancel & Create Account */}
@@ -2700,7 +2643,6 @@ export function ProfileSection() {
                 type="button"
                 onClick={() => {
                   setShowAddAccountModal(false);
-                  setShowMoreCurrencies(false);
                 }}
                 className="flex-1 py-2.5 rounded-xl bg-[#201F1B] hover:bg-[#2B2924] border border-[#2E2C27] text-[#888] hover:text-white font-semibold text-xs transition-all cursor-pointer"
               >

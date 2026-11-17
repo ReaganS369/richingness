@@ -45,7 +45,7 @@ import {
   recommendRecovery
 } from '@repo/module-budget';
 import { Account, aggregateMonthlyCashFlow } from '@repo/module-finance';
-import { ProfileSection, POPULAR_CURRENCIES, MORE_CURRENCIES } from '../components/ProfileSection';
+import { ProfileSection } from '../components/ProfileSection';
 import { ExpandableCategoriesTree } from '../components/ExpandableCategoriesTree';
 import { OnboardingFlow } from '../components/OnboardingFlow';
 
@@ -166,11 +166,14 @@ function Modal({ title, onClose, children, icon }: {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in overflow-hidden"
       onClick={onClose}
     >
       <div
-        className="relative w-full sm:max-w-md bg-[#1B1A17] border border-[#2B2923] rounded-t-[24px] sm:rounded-[20px] shadow-2xl animate-scale-in flex flex-col max-h-[85vh] overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="app-modal-title"
+        className="relative flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-2xl border border-[#2B2923] bg-[#1B1A17] shadow-2xl animate-scale-in sm:max-w-md"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -181,17 +184,18 @@ function Modal({ title, onClose, children, icon }: {
                 {icon}
               </div>
             )}
-            <h3 className="font-bold text-base text-white tracking-tight">{title}</h3>
+            <h3 id="app-modal-title" className="font-bold text-base text-white tracking-tight">{title}</h3>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-7 h-7 rounded-full bg-white/[0.06] hover:bg-white/[0.1] flex items-center justify-center text-[#8E8A82] hover:text-white transition-all cursor-pointer"
+            aria-label={`Close ${title}`}
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-[#A09C94] transition-colors hover:bg-white/[0.08] hover:text-white"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="px-5 py-4 overflow-y-auto overscroll-contain">{children}</div>
+        <div className="overflow-y-auto overscroll-contain px-5 py-4">{children}</div>
       </div>
     </div>,
     document.body
@@ -209,6 +213,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 const inputCls = "w-full bg-[#211F1B] border border-[#2F2C25] focus:border-[#4A622F] rounded-xl px-4 py-3 text-white placeholder-[#6E6A62] outline-none transition-all duration-150 text-sm focus:ring-1 focus:ring-[#4A622F]";
+const selectCls = "w-full bg-[#211F1B] border border-[#2F2C25] focus:border-[#4A622F] rounded-xl px-4 py-3 text-white outline-none transition-all duration-150 text-sm focus:ring-1 focus:ring-[#4A622F] cursor-pointer";
 
 function PrimaryBtn({ children, className = '', ...p }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
@@ -291,7 +296,6 @@ export default function Home() {
   const [acctName,     setAcctName]     = useState('');
   const [acctType,     setAcctType]     = useState<Account['type']>('checking');
   const [acctCurrency, setAcctCurrency] = useState('INR');
-  const [showMoreAcctCurrencies, setShowMoreAcctCurrencies] = useState(false);
 
   const [goalName,    setGoalName]    = useState('');
   const [goalTarget,  setGoalTarget]  = useState('');
@@ -505,7 +509,68 @@ export default function Home() {
       {/* ── WORKSPACE ─────────────────────────────────────────────────── */}
       <div className="app-workspace-shell min-w-0">
 
-        {/* Header (Desktop only - mobile displays clean Figma design without header clutter) */}
+        {/* Mobile keeps every destination within reach, without a dense desktop sidebar. */}
+        <header className="shrink-0 border-b border-[#24211D] bg-[#161512] md:hidden">
+          <div className="flex h-14 items-center justify-between gap-3 px-4">
+            <button
+              type="button"
+              onClick={() => setActiveTab('dashboard')}
+              className="flex min-w-0 items-center gap-2 text-left"
+              aria-label="Go to overview"
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#4A622F] font-display text-sm font-black text-white">R</span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-bold text-white">
+                  {NAV_LINKS.find(link => link.id === activeTab)?.label || 'Overview'}
+                </span>
+                <span className="block text-xs text-[#A09C94]">{monthLabel}</span>
+              </span>
+            </button>
+
+            {activeTab !== 'settings' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setTxType('EXPENSE');
+                  setTxAmount('');
+                  setTxMerchant('');
+                  if (accounts.length > 0) setTxAccountId(accounts[0].id);
+                  if (categories.length > 0) setTxReferenceId(categories[0].id);
+                  setShowAddTxModal(true);
+                }}
+                className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl bg-[#4A622F] px-3 text-xs font-bold text-white transition-colors hover:bg-[#587538]"
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Add
+              </button>
+            )}
+          </div>
+
+          <nav aria-label="Primary navigation" className="flex gap-1 overflow-x-auto px-3 pb-2">
+            {NAV_LINKS.map(link => {
+              const Icon = link.icon;
+              const isActive = activeTab === link.id;
+              return (
+                <button
+                  key={link.id}
+                  type="button"
+                  onClick={() => setActiveTab(link.id as TabId)}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors ${
+                    isActive
+                      ? 'bg-[#4A622F] text-white'
+                      : 'text-[#B8B1A6] hover:bg-white/[0.06] hover:text-white'
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                  {link.label}
+                </button>
+              );
+            })}
+          </nav>
+        </header>
+
+        {/* Desktop workspace header */}
         <header className="hidden md:flex h-14 border-b border-[#24211D] bg-[#161512]/90 backdrop-blur-sm px-4 md:px-6 items-center justify-between shrink-0 z-10 inset-highlight">
           <div className="flex items-center gap-3">
             <div>
@@ -543,6 +608,7 @@ export default function Home() {
             {activeTab !== 'settings' && (
               <>
                 <button
+                  data-guide-target="spend"
                   onClick={() => {
                     setTxType('EXPENSE');
                     setTxAmount('');
@@ -754,6 +820,7 @@ export default function Home() {
                       Transfer
                     </button>
                     <button
+                      data-guide-target="add-account"
                       onClick={() => { setAcctName(''); setShowAddAcctModal(true); }}
                       className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primaryLight text-white text-sm font-semibold transition-all shadow-glow"
                     >
@@ -808,6 +875,7 @@ export default function Home() {
 
                   {/* Add account placeholder */}
                   <button
+                    data-guide-target="add-account"
                     onClick={() => { setAcctName(''); setShowAddAcctModal(true); }}
                     className="rounded-2xl border-2 border-dashed border-border hover:border-primary/40 bg-surface/50 hover:bg-primaryFaint text-textMuted hover:text-primary flex flex-col items-center justify-center gap-2 p-8 transition-all card-lift min-h-[160px]"
                   >
@@ -1726,7 +1794,6 @@ export default function Home() {
           title="Add Account"
           onClose={() => {
             setShowAddAcctModal(false);
-            setShowMoreAcctCurrencies(false);
           }}
           icon={<Wallet className="w-4 h-4" />}
         >
@@ -1736,7 +1803,6 @@ export default function Home() {
               if (acctName) {
                 addAccount(acctName.trim(), acctType, acctCurrency);
                 setShowAddAcctModal(false);
-                setShowMoreAcctCurrencies(false);
               }
             }}
             className="space-y-4"
@@ -1756,104 +1822,52 @@ export default function Home() {
                 placeholder="e.g. HDFC Checking, Cash Wallet, Savings…"
                 className={inputCls}
               />
-
-              {/* Quick Example Chips */}
-              <div className="mt-2.5 space-y-1.5">
-                <p className="text-[10px] text-[#8E8A82] font-semibold">Tap to fill an example:</p>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {[
-                    { name: 'HDFC Bank', type: 'savings' as const },
-                    { name: 'Cash Wallet', type: 'cash' as const },
-                    { name: 'UPI / GPay', type: 'checking' as const },
-                    { name: 'SBI Savings', type: 'savings' as const },
-                  ].map(preset => (
-                    <button
-                      key={preset.name}
-                      type="button"
-                      onClick={() => {
-                        setAcctName(preset.name);
-                        setAcctType(preset.type);
-                      }}
-                      className={`px-2.5 py-1 rounded-lg text-2xs font-semibold transition-all cursor-pointer border ${
-                        acctName === preset.name
-                          ? 'bg-[#4A622F] text-white border-[#6B8A44] shadow-sm'
-                          : 'bg-[#1C1A16] text-[#A09C94] hover:text-white border-[#2E2C27] hover:border-[#4A622F]'
-                      }`}
-                    >
-                      + {preset.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
 
-            {/* Currency Pills */}
-            <div className="space-y-1.5">
-              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase tracking-wider">
+            {/* Account Type */}
+            <div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1.5 tracking-wider">
+                Account Type
+              </label>
+              <select
+                data-guide-target="account-type-select"
+                value={acctType}
+                onChange={e => setAcctType(e.target.value as 'checking' | 'savings' | 'credit' | 'cash')}
+                className={selectCls}
+              >
+                <option value="savings">Savings Account</option>
+                <option value="checking">Checking / Current Account</option>
+                <option value="credit">Credit Card</option>
+                <option value="cash">Cash / Physical Wallet</option>
+              </select>
+            </div>
+
+            {/* Currency Dropdown */}
+            <div>
+              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1.5 tracking-wider">
                 Currency
               </label>
-
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {POPULAR_CURRENCIES.map(c => {
-                  const isSelected = acctCurrency === c.code;
-                  return (
-                    <button
-                      key={c.code}
-                      type="button"
-                      data-guide-target={c.code === 'INR' ? 'modal-currency-inr' : undefined}
-                      data-selected={isSelected}
-                      onClick={() => {
-                        setAcctCurrency(c.code);
-                      }}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
-                        isSelected
-                          ? 'bg-[#4A622F] text-white border-[#6B8A44] shadow-md'
-                          : 'bg-[#141310] text-[#A09C94] hover:text-white border-[#2B2925] hover:border-[#4A622F]'
-                      }`}
-                    >
-                      {c.label}
-                    </button>
-                  );
-                })}
-
-                {/* + More Button */}
-                <button
-                  type="button"
-                  onClick={() => setShowMoreAcctCurrencies(!showMoreAcctCurrencies)}
-                  className={`px-2.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center gap-1 ${
-                    showMoreAcctCurrencies
-                      ? 'bg-[#2B2925] text-white border-[#4A622F]'
-                      : 'bg-[#141310] text-[#8E8A82] hover:text-white border-[#2B2925]'
-                  }`}
-                  title="More currencies"
-                >
-                  <Plus className={`w-3.5 h-3.5 transition-transform ${showMoreAcctCurrencies ? 'rotate-45' : ''}`} />
-                  <span>{showMoreAcctCurrencies ? 'Less' : 'More'}</span>
-                </button>
-              </div>
-
-              {/* Expanded More Currencies Grid */}
-              {showMoreAcctCurrencies && (
-                <div className="p-2.5 rounded-xl bg-[#141310] border border-[#2B2925] grid grid-cols-3 gap-1.5 animate-fade-in">
-                  {MORE_CURRENCIES.map(c => (
-                    <button
-                      key={c.code}
-                      type="button"
-                      onClick={() => {
-                        setAcctCurrency(c.code);
-                        setShowMoreAcctCurrencies(false);
-                      }}
-                      className={`py-1.5 px-2 rounded-lg text-xs font-medium text-center transition-all cursor-pointer border ${
-                        acctCurrency === c.code
-                          ? 'bg-[#4A622F] text-white border-[#6B8A44]'
-                          : 'bg-[#1C1A16] text-[#A09C94] hover:text-white border-[#2E2C27]'
-                      }`}
-                    >
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <select
+                data-guide-target="account-currency-select"
+                value={acctCurrency}
+                onChange={e => {
+                  setAcctCurrency(e.target.value);
+                  if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('guide:currency-selected', { detail: e.target.value }));
+                  }
+                }}
+                className={selectCls}
+              >
+                <option value="INR">INR (₹) - Indian Rupee</option>
+                <option value="USD">USD ($) - US Dollar</option>
+                <option value="EUR">EUR (€) - Euro</option>
+                <option value="GBP">GBP (£) - British Pound</option>
+                <option value="AED">AED (د.إ) - UAE Dirham</option>
+                <option value="SGD">SGD (S$) - Singapore Dollar</option>
+                <option value="CAD">CAD (C$) - Canadian Dollar</option>
+                <option value="AUD">AUD (A$) - Australian Dollar</option>
+                <option value="JPY">JPY (¥) - Japanese Yen</option>
+              </select>
             </div>
 
             <div className="flex gap-3 pt-1">
@@ -1861,7 +1875,6 @@ export default function Home() {
                 type="button"
                 onClick={() => {
                   setShowAddAcctModal(false);
-                  setShowMoreAcctCurrencies(false);
                 }}
               >
                 Cancel
