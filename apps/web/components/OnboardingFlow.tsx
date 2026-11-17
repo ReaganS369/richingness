@@ -10,7 +10,8 @@ import {
   ArrowLeft,
   Loader2,
   CreditCard,
-  CheckCircle2
+  CheckCircle2,
+  Banknote
 } from 'lucide-react';
 import { authService } from '../app/store';
 
@@ -103,7 +104,7 @@ export function OnboardingFlow({
   useEffect(() => {
     if (stage === 'live_guide') {
       document.body.setAttribute('data-guide-step', String(guideStep));
-      const targetTab = guideStep === 1 ? 'settings' : 'dashboard';
+      const targetTab = (guideStep === 1 || guideStep === 3) ? 'settings' : 'dashboard';
       if (lastNavTabRef.current !== targetTab) {
         lastNavTabRef.current = targetTab;
         if (onNavigateTabRef.current) onNavigateTabRef.current(targetTab as 'dashboard' | 'settings');
@@ -235,7 +236,7 @@ export function OnboardingFlow({
             <div className="flex items-center justify-between pb-2.5 border-b border-white/[0.06]">
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5">
-                  {[1, 2, 3].map(step => (
+                  {[1, 2, 3, 4].map(step => (
                     <div
                       key={step}
                       className={`h-1.5 rounded-full transition-all duration-300 ${
@@ -249,7 +250,7 @@ export function OnboardingFlow({
                   ))}
                 </div>
                 <span className="text-2xs font-bold text-[#A8E063] uppercase tracking-wider ml-1">
-                  Tour · Step {guideStep} of 3
+                  Tour · Step {guideStep} of 4
                 </span>
               </div>
               <button
@@ -272,7 +273,7 @@ export function OnboardingFlow({
                   <span>1. Add Your Account</span>
                 </div>
                 <p className="text-xs text-[#D1CECA] leading-relaxed">
-                  👆 Tap the glowing <strong className="text-[#A8E063]">+ Add Account</strong> button above to add your bank, cash, or UPI balance.
+                  👆 Tap the glowing <strong className="text-[#A8E063]">+ Add Account</strong> button above to connect your bank, cash, or UPI balance.
                 </p>
                 <div className="pt-1 flex items-center justify-between gap-2">
                   <button
@@ -304,18 +305,23 @@ export function OnboardingFlow({
               </div>
             )}
 
-            {/* ── Step 2: What Categories Do (Envelopes) ── */}
+            {/* ── Step 2: What Categories Do (Clear Use Cases) ── */}
             {guideStep === 2 && (
               <div className="space-y-2.5 animate-fade-up">
                 <div className="flex items-center gap-2.5 text-white font-bold text-sm">
                   <div className="w-7 h-7 rounded-lg bg-[#4A622F]/30 border border-[#587437]/40 flex items-center justify-center text-[#A8E063] shrink-0">
                     <FolderTree className="w-4 h-4" />
                   </div>
-                  <span>2. Divide Your Balance</span>
+                  <span>2. Your Budget Categories</span>
                 </div>
                 <p className="text-xs text-[#D1CECA] leading-relaxed">
-                  👆 Tap the glowing <strong className="text-[#A8E063]">+ Create Category</strong> button above. Divide your balance into clear use cases: <strong>Needs (50%)</strong> for bills, <strong>Wants (30%)</strong> for fun, and <strong>Savings (20%)</strong> for your future. Know exactly where to spend and manage well!
+                  Divide your balance into 3 clear use cases so you always know where to spend:
                 </p>
+                <div className="text-[11px] bg-white/[0.03] border border-white/[0.08] rounded-xl p-2.5 space-y-1 text-[#D1CECA]">
+                  <p><strong className="text-[#A8E063]">Needs (50%)</strong>: Rent, groceries &amp; bills</p>
+                  <p><strong className="text-[#60A5FA]">Wants (30%)</strong>: Dining, shopping &amp; fun</p>
+                  <p><strong className="text-[#FBBF24]">Savings (20%)</strong>: Emergency &amp; future wealth</p>
+                </div>
                 <div className="pt-1 flex items-center justify-between gap-2">
                   <button
                     type="button"
@@ -329,20 +335,62 @@ export function OnboardingFlow({
                     onClick={() => setGuideStep(3)}
                     className="py-2.5 px-4 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-[#4A622F]/30 cursor-pointer transition-all active:scale-[0.98]"
                   >
+                    <span>Next: Add Funds →</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── Step 3: Add Funds (Salary vs Fixed) ── */}
+            {guideStep === 3 && (
+              <div className="space-y-2.5 animate-fade-up">
+                <div className="flex items-center gap-2.5 text-white font-bold text-sm">
+                  <div className="w-7 h-7 rounded-lg bg-[#4A622F]/30 border border-[#587437]/40 flex items-center justify-center text-[#A8E063] shrink-0">
+                    <Banknote className="w-4 h-4" />
+                  </div>
+                  <span>3. Add Funds (Salary vs Fixed)</span>
+                </div>
+                <p className="text-xs text-[#D1CECA] leading-relaxed">
+                  Deposit money into your account in 2 smart ways:
+                </p>
+                <div className="text-[11px] bg-white/[0.03] border border-white/[0.08] rounded-xl p-2.5 space-y-1.5 text-[#D1CECA]">
+                  <p>
+                    <strong className="text-[#A8E063]">Regular / Salary</strong>: Automatically splits your money into 50/30/20 across your categories!
+                  </p>
+                  <p>
+                    <strong className="text-white">One-Time / Fixed</strong>: Puts funds directly into one category without splitting.
+                  </p>
+                </div>
+                <p className="text-2xs text-[#A8E063]">
+                  👆 Tap the glowing <strong>+ Add Funds</strong> button above to deposit a sample salary (e.g. ₹50,000)!
+                </p>
+                <div className="pt-1 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setGuideStep(2)}
+                    className="py-2.5 px-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs text-[#8E8A82] hover:text-white cursor-pointer"
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGuideStep(4)}
+                    className="py-2.5 px-4 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-[#4A622F]/30 cursor-pointer transition-all active:scale-[0.98]"
+                  >
                     <span>Next: How to Spend →</span>
                   </button>
                 </div>
               </div>
             )}
 
-            {/* ── Step 3: How to Spend Money & Smart Borrowing ── */}
-            {guideStep === 3 && (
+            {/* ── Step 4: How to Spend Money & Smart Borrowing ── */}
+            {guideStep === 4 && (
               <div className="space-y-2.5 animate-fade-up">
                 <div className="flex items-center gap-2.5 text-white font-bold text-sm">
                   <div className="w-7 h-7 rounded-lg bg-[#4A622F]/30 border border-[#587437]/40 flex items-center justify-center text-[#A8E063] shrink-0">
                     <CreditCard className="w-4 h-4" />
                   </div>
-                  <span>3. Spend &amp; Protection</span>
+                  <span>4. Spend &amp; Smart Protection</span>
                 </div>
                 <p className="text-xs text-[#D1CECA] leading-relaxed">
                   👆 Tap the glowing <strong className="text-[#A8E063]">+ Spend</strong> button above when you buy something. If a category runs out, Richingness automatically borrows from Wants so your Savings are never touched!
@@ -350,7 +398,7 @@ export function OnboardingFlow({
                 <div className="pt-1 flex items-center justify-between gap-2">
                   <button
                     type="button"
-                    onClick={() => setGuideStep(2)}
+                    onClick={() => setGuideStep(3)}
                     className="py-2.5 px-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs text-[#8E8A82] hover:text-white cursor-pointer"
                   >
                     ← Back

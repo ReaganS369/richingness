@@ -137,6 +137,21 @@ export const POPULAR_INCOME_PILLS = [
   'Dividends'
 ];
 
+export const POPULAR_CURRENCIES = [
+  { code: 'INR', symbol: '₹', label: 'INR (₹)' },
+  { code: 'USD', symbol: '$', label: 'USD ($)' },
+  { code: 'EUR', symbol: '€', label: 'EUR (€)' },
+  { code: 'GBP', symbol: '£', label: 'GBP (£)' },
+];
+
+export const MORE_CURRENCIES = [
+  { code: 'AED', symbol: 'د.إ', label: 'AED (د.إ)' },
+  { code: 'CAD', symbol: '$', label: 'CAD ($)' },
+  { code: 'AUD', symbol: '$', label: 'AUD ($)' },
+  { code: 'SGD', symbol: '$', label: 'SGD ($)' },
+  { code: 'JPY', symbol: '¥', label: 'JPY (¥)' },
+];
+
 // ── SVG Radial Progress Gauge ───────────────────────────────────────────────
 function CircularProgress({
   percentage,
@@ -204,12 +219,14 @@ function Modal({
     // Prevent background scrolling when modal is open
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    document.body.classList.add('modal-open');
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => {
       document.body.style.overflow = prevOverflow;
+      document.body.classList.remove('modal-open');
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [onClose]);
@@ -489,6 +506,8 @@ export function ProfileSection() {
   const [newAccountName, setNewAccountName] = useState('');
   const [newAccountType, setNewAccountType] = useState<'checking' | 'savings' | 'credit' | 'cash'>('savings');
   const [newAccountCurrency, setNewAccountCurrency] = useState('INR');
+  const [currencyConfirmed, setCurrencyConfirmed] = useState(false);
+  const [showMoreCurrencies, setShowMoreCurrencies] = useState(false);
   const [showEditAccountModal, setShowEditAccountModal] = useState(false);
   const [editingAccountId, setEditingAccountId] = useState('');
   const [editingAccountName, setEditingAccountName] = useState('');
@@ -1347,6 +1366,7 @@ export function ProfileSection() {
                             <div className="pt-2 flex items-center gap-2">
                               <button
                                 type="button"
+                                data-guide-target="add-funds"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setFundsAccountId(acc.id);
@@ -2130,9 +2150,18 @@ export function ProfileSection() {
         >
           <form onSubmit={handleAddFundsSubmit} className="space-y-3.5">
             <div className="bg-[#141B10] border border-[#27351F] rounded-xl p-3 text-xs text-[#C5E89B] space-y-1">
-              <p className="font-semibold text-white">💰 Flexible Fund Allocation</p>
+              <p className="font-semibold text-white flex items-center gap-1.5">
+                <span>💰 Smart Fund Deposit</span>
+                {fundsDepositType === 'REGULAR' && (
+                  <span className="text-[10px] bg-[#4A622F] text-white px-1.5 py-0.5 rounded font-bold uppercase">
+                    50/30/20 Auto-Split
+                  </span>
+                )}
+              </p>
               <p className="text-[11px] text-[#8EA083] leading-relaxed">
-                Choose to either auto-distribute across your envelopes or deposit as a single unspread Default Category buffer.
+                {fundsDepositType === 'REGULAR'
+                  ? 'Regular / Salary deposits automatically divide into Needs (50%), Wants (30%), and Savings (20%) across your categories.'
+                  : 'One-Time deposits add funds directly without splitting, perfect for gifts, refunds, or bonus cash.'}
               </p>
             </div>
 
@@ -2181,7 +2210,7 @@ export function ProfileSection() {
                   }`}
                 >
                   <Layers className="w-3.5 h-3.5" />
-                  <span>Spread Envelopes</span>
+                  <span>Spread Categories</span>
                 </button>
                 <button
                   type="button"
@@ -2198,7 +2227,7 @@ export function ProfileSection() {
               </div>
               <p className="text-[10px] text-[#7E8D74] mt-1 pl-1">
                 {fundsAllocationMode === 'SPREAD'
-                  ? 'Distributes across envelopes according to configured percentage rules.'
+                  ? 'Distributes across categories according to configured 50/30/20 percentage rules.'
                   : 'Single unspread default buffer category — funds stay intact without splitting.'}
               </p>
             </div>
@@ -2243,6 +2272,27 @@ export function ProfileSection() {
                   placeholder="e.g. 25000"
                   className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4A622F] font-bold"
                 />
+                <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] text-[#8E8A82] font-semibold">Quick fill:</span>
+                  {[
+                    { label: '+ ₹5,000', val: '5000' },
+                    { label: '+ ₹10,000', val: '10000' },
+                    { label: '+ ₹25,000', val: '25000' }
+                  ].map(chip => (
+                    <button
+                      key={chip.val}
+                      type="button"
+                      onClick={() => setFundsAmount(chip.val)}
+                      className={`px-2.5 py-1 rounded-lg text-2xs font-semibold transition-all cursor-pointer border ${
+                        fundsAmount === chip.val
+                          ? 'bg-[#4A622F] text-white border-[#6B8A44]'
+                          : 'bg-[#1C1A16] text-[#A09C94] hover:text-white border-[#2E2C27]'
+                      }`}
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             ) : (
               <div>
@@ -2319,6 +2369,33 @@ export function ProfileSection() {
                     className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4A622F] font-bold"
                   />
                 )}
+                {/* Quick Salary Chips */}
+                <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] text-[#8E8A82] font-semibold">Quick fill:</span>
+                  {[
+                    { label: '+ ₹25,000', val: '25000' },
+                    { label: '+ ₹50,000', val: '50000' },
+                    { label: '+ ₹1,00,000', val: '100000' }
+                  ].map(chip => (
+                    <button
+                      key={chip.val}
+                      type="button"
+                      onClick={() => {
+                        setFundsAmount(chip.val);
+                        if (fundsAmountMode === 'CTC') {
+                          setFundsCtcInput(String(Number(chip.val) * 12));
+                        }
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-2xs font-semibold transition-all cursor-pointer border ${
+                        fundsAmount === chip.val
+                          ? 'bg-[#4A622F] text-white border-[#6B8A44]'
+                          : 'bg-[#1C1A16] text-[#A09C94] hover:text-white border-[#2E2C27]'
+                      }`}
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -2476,21 +2553,38 @@ export function ProfileSection() {
             }}
             className="space-y-4"
           >
-            {/* Guidance Helper Card */}
-            <div className="p-3 rounded-2xl bg-[#232B1C] border border-[#3E5227] text-white flex items-start gap-2.5">
-              <div className="w-5 h-5 rounded-full bg-[#4A622F] text-[#A8E063] text-2xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                💡
+            {/* Guidance Helper Card with Step-by-Step Directions */}
+            {!newAccountName.trim() ? (
+              <div className="p-3 rounded-2xl bg-[#1C2614] border border-[#3E5227] text-white flex items-center gap-2.5">
+                <span className="text-sm shrink-0">👇</span>
+                <div className="space-y-0.5 min-w-0">
+                  <p className="text-xs font-bold text-white">Step 1 · Name Your Account</p>
+                  <p className="text-2xs text-[#C5E89B]">Tap an example chip below or type an account name.</p>
+                </div>
               </div>
-              <div className="space-y-0.5 min-w-0">
-                <p className="text-xs font-bold text-white">
-                  Add Your Account
-                </p>
-                <p className="text-2xs text-[#C5E89B] leading-relaxed">
-                  Tap an example below or type a name, verify the account type, and tap <strong>Create Account</strong>.
-                </p>
+            ) : !currencyConfirmed ? (
+              <div className="p-3 rounded-2xl bg-[#1C2614] border border-[#587437] text-white flex items-center gap-2.5 shadow-md">
+                <span className="text-sm shrink-0">👇</span>
+                <div className="space-y-0.5 min-w-0">
+                  <p className="text-xs font-bold text-white">Step 2 · Confirm Currency</p>
+                  <p className="text-2xs text-[#C5E89B]">
+                    Tap <strong className="text-white underline">INR (₹)</strong> below to confirm currency.
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="p-3 rounded-2xl bg-[#233319] border border-[#6B8A44] text-white flex items-center gap-2.5 shadow-md">
+                <span className="text-sm shrink-0">👇</span>
+                <div className="space-y-0.5 min-w-0">
+                  <p className="text-xs font-bold text-white">Step 3 · Ready to Create!</p>
+                  <p className="text-2xs text-[#C5E89B]">
+                    All set! Tap <strong>Create Account →</strong> below to start budgeting.
+                  </p>
+                </div>
+              </div>
+            )}
 
+            {/* Step 1: Account Name & Chips */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-2xs font-semibold text-[#8E8A82] uppercase tracking-wider">
@@ -2546,56 +2640,123 @@ export function ProfileSection() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1 tracking-wider">
-                Step 2 · Account Type
-              </label>
-              <select
-                value={newAccountType}
-                onChange={e => setNewAccountType(e.target.value as 'checking' | 'savings' | 'credit' | 'cash')}
-                className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-[#4A622F]"
-              >
-                <option value="savings">Savings Account</option>
-                <option value="checking">Checking / Current Account</option>
-                <option value="credit">Credit Card / Line</option>
-                <option value="cash">Cash / Physical Wallet</option>
-              </select>
+            {/* Step 2: Currency Pills (No Native Dropdown Popup) */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-2xs font-semibold text-[#8E8A82] uppercase tracking-wider">
+                  Step 2 · Currency
+                </label>
+                {currencyConfirmed ? (
+                  <span className="text-[10px] text-[#A8E063] font-semibold flex items-center gap-1">
+                    ✓ Selected: {newAccountCurrency}
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-[#E8C47A] font-semibold flex items-center gap-1">
+                    Tap to select
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {POPULAR_CURRENCIES.map(c => {
+                  const isSelected = newAccountCurrency === c.code && currencyConfirmed;
+                  const isGuidePrompt = !currencyConfirmed && c.code === 'INR' && Boolean(newAccountName.trim());
+                  return (
+                    <button
+                      key={c.code}
+                      type="button"
+                      onClick={() => {
+                        setNewAccountCurrency(c.code);
+                        setCurrencyConfirmed(true);
+                      }}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border relative ${
+                        isSelected
+                          ? 'bg-[#4A622F] text-white border-[#6B8A44] shadow-md'
+                          : isGuidePrompt
+                          ? 'bg-[#232F18] text-[#A8E063] border-[#587437] ring-2 ring-[#A8E063] animate-pulse shadow-glow'
+                          : 'bg-[#141310] text-[#A09C94] hover:text-white border-[#2B2925] hover:border-[#4A622F]'
+                      }`}
+                    >
+                      <span>{c.label}</span>
+                      {isGuidePrompt && (
+                        <span className="text-[9px] bg-[#4A622F] text-white px-1.5 py-0.5 rounded font-bold uppercase ml-0.5">
+                          👈 Tap
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+
+                {/* + More Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowMoreCurrencies(!showMoreCurrencies)}
+                  className={`px-2.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center gap-1 ${
+                    showMoreCurrencies
+                      ? 'bg-[#2B2925] text-white border-[#4A622F]'
+                      : 'bg-[#141310] text-[#8E8A82] hover:text-white border-[#2B2925]'
+                  }`}
+                  title="More currencies"
+                >
+                  <Plus className={`w-3.5 h-3.5 transition-transform ${showMoreCurrencies ? 'rotate-45' : ''}`} />
+                  <span>{showMoreCurrencies ? 'Less' : 'More'}</span>
+                </button>
+              </div>
+
+              {/* Expanded More Currencies Grid */}
+              {showMoreCurrencies && (
+                <div className="p-2.5 rounded-xl bg-[#141310] border border-[#2B2925] grid grid-cols-3 gap-1.5 animate-fade-in">
+                  {MORE_CURRENCIES.map(c => (
+                    <button
+                      key={c.code}
+                      type="button"
+                      onClick={() => {
+                        setNewAccountCurrency(c.code);
+                        setCurrencyConfirmed(true);
+                        setShowMoreCurrencies(false);
+                      }}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-medium text-center transition-all cursor-pointer border ${
+                        newAccountCurrency === c.code && currencyConfirmed
+                          ? 'bg-[#4A622F] text-white border-[#6B8A44]'
+                          : 'bg-[#1C1A16] text-[#A09C94] hover:text-white border-[#2E2C27]'
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div>
-              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1 tracking-wider">
-                Step 3 · Currency
-              </label>
-              <select
-                value={newAccountCurrency}
-                onChange={e => setNewAccountCurrency(e.target.value)}
-                className="w-full bg-[#12110E] border border-[#2B2925] rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-[#4A622F]"
-              >
-                <option value="INR">INR (₹) - Indian Rupee</option>
-                <option value="USD">USD ($) - US Dollar</option>
-                <option value="EUR">EUR (€) - Euro</option>
-                <option value="GBP">GBP (£) - British Pound</option>
-              </select>
-            </div>
-
+            {/* Actions: Cancel & Create Account */}
             <div className="pt-2 flex gap-2">
               <button
                 type="button"
-                onClick={() => setShowAddAccountModal(false)}
+                onClick={() => {
+                  setShowAddAccountModal(false);
+                  setCurrencyConfirmed(false);
+                  setShowMoreCurrencies(false);
+                }}
                 className="flex-1 py-2.5 rounded-xl bg-[#201F1B] hover:bg-[#2B2924] border border-[#2E2C27] text-[#888] hover:text-white font-semibold text-xs transition-all cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                disabled={!newAccountName.trim()}
+                disabled={!newAccountName.trim() || !currencyConfirmed}
                 className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5 ${
-                  newAccountName.trim()
+                  newAccountName.trim() && currencyConfirmed
                     ? 'bg-[#4A622F] hover:bg-[#587437] text-white ring-2 ring-[#A8E063]/50 animate-pulse'
                     : 'bg-[#201F1B] text-[#666] border border-[#2E2C27] cursor-not-allowed opacity-60'
                 }`}
               >
-                <span>{newAccountName.trim() ? 'Create Account →' : 'Enter Name Above'}</span>
+                <span>
+                  {!newAccountName.trim()
+                    ? 'Step 1: Enter Name Above'
+                    : !currencyConfirmed
+                    ? 'Step 2: Tap INR (₹) Above'
+                    : 'Create Account →'}
+                </span>
               </button>
             </div>
           </form>

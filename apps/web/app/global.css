@@ -563,7 +563,8 @@ body[data-guide-step] .app-bottom-nav {
 
 body[data-guide-step="1"] [data-guide-target="add-account"],
 body[data-guide-step="2"] [data-guide-target="create-category"],
-body[data-guide-step="3"] [data-guide-target="spend"] {
+body[data-guide-step="3"] [data-guide-target="add-funds"],
+body[data-guide-step="4"] [data-guide-target="spend"] {
   position: relative !important;
   z-index: 40 !important;
   pointer-events: auto !important;
