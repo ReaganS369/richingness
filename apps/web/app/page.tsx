@@ -1891,8 +1891,22 @@ export default function Home() {
         </Modal>
       )}
 
-      {/* 2-Step Onboarding Flow (Guest/Login -> Experience Question -> Visual Guide) */}
+      {/* Real Interactive Onboarding Guide */}
       <OnboardingFlow
+        accountsCount={accounts.length}
+        categoriesCount={categories.length}
+        totalBalanceRupees={totalBalanceRupees}
+        onOpenAddAccount={() => {
+          setAcctName('');
+          setShowAddAcctModal(true);
+        }}
+        onOpenSpend={() => {
+          setTxType('EXPENSE');
+          setTxAmount('');
+          setTxMerchant('');
+          if (accounts.length > 0) setTxAccountId(accounts[0].id);
+          setShowAddTxModal(true);
+        }}
         onOpenSettings={() => {
           setActiveTab('settings');
         }}
