@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Wallet,
   FolderTree,
@@ -9,7 +9,6 @@ import {
   X,
   ArrowLeft,
   Loader2,
-  Plus,
   CreditCard,
   CheckCircle2
 } from 'lucide-react';
@@ -32,18 +31,20 @@ interface OnboardingFlowProps {
   onOpenAddCategory?: () => void;
   onComplete?: () => void;
   onOpenSettings?: () => void;
+  onNavigateTab?: (tab: 'dashboard' | 'settings' | 'transactions') => void;
 }
 
 export function OnboardingFlow({
   accountsCount = 0,
   categoriesCount: _categoriesCount = 0,
   totalBalanceRupees: _totalBalanceRupees = 0,
-  onOpenAddAccount,
+  onOpenAddAccount: _onOpenAddAccount,
   onOpenAddFunds: _onOpenAddFunds,
-  onOpenSpend,
+  onOpenSpend: _onOpenSpend,
   onOpenAddCategory: _onOpenAddCategory,
   onComplete,
-  onOpenSettings: _onOpenSettings
+  onOpenSettings: _onOpenSettings,
+  onNavigateTab
 }: OnboardingFlowProps) {
   const [stage, setStage] = useState<OnboardingStage>('loading');
   const [guideStep, setGuideStep] = useState<number>(1);
@@ -93,10 +94,35 @@ export function OnboardingFlow({
     }
   }, [stage, guideStep, accountsCount, initialAccountsCount]);
 
+  const lastNavTabRef = useRef<string | null>(null);
+  const onNavigateTabRef = useRef(onNavigateTab);
+  useEffect(() => {
+    onNavigateTabRef.current = onNavigateTab;
+  }, [onNavigateTab]);
+
+  useEffect(() => {
+    if (stage === 'live_guide') {
+      document.body.setAttribute('data-guide-step', String(guideStep));
+      const targetTab = guideStep === 1 ? 'settings' : 'dashboard';
+      if (lastNavTabRef.current !== targetTab) {
+        lastNavTabRef.current = targetTab;
+        if (onNavigateTabRef.current) onNavigateTabRef.current(targetTab as 'dashboard' | 'settings');
+      }
+    } else {
+      document.body.removeAttribute('data-guide-step');
+      lastNavTabRef.current = null;
+    }
+    return () => {
+      document.body.removeAttribute('data-guide-step');
+    };
+  }, [stage, guideStep]);
+
   const finishOnboarding = () => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('richingness_onboarding_completed', 'true');
     }
+    document.body.removeAttribute('data-guide-step');
+    if (onNavigateTab) onNavigateTab('dashboard');
     setStage('completed');
     if (onComplete) onComplete();
   };
@@ -160,7 +186,7 @@ export function OnboardingFlow({
 
             {/* Clean Dual Buttons */}
             <div className="space-y-3 pt-1">
-              {/* Primary: Launches Real Live Guide */}
+              {/* Primary: Launches Tour */}
               <button
                 type="button"
                 onClick={() => {
@@ -169,7 +195,7 @@ export function OnboardingFlow({
                 }}
                 className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-[#4A622F] to-[#587437] hover:from-[#587437] hover:to-[#6B8D43] text-white font-bold text-sm shadow-xl shadow-[#4A622F]/30 border border-[#769C4B]/40 cursor-pointer transition-all active:scale-[0.98] flex items-center justify-center gap-2 group"
               >
-                <span>Start Live Guide</span>
+                <span>Take Quick Tour</span>
                 <ArrowRight className="w-4 h-4 text-[#A8E063] group-hover:translate-x-1 transition-transform" />
               </button>
 
@@ -200,7 +226,7 @@ export function OnboardingFlow({
         </div>
       )}
 
-      {/* ── 2. REAL LIVE GUIDE: FLOATING INTERACTIVE HUD (SHOWS WHERE TO PRESS) ── */}
+      {/* ── 2. REAL GUIDED TOUR: FLOATING POINTER (NO DUPLICATE BUTTONS) ── */}
       {stage === 'live_guide' && (
         <div className="onboarding-guide-hud fixed bottom-20 sm:bottom-6 left-3 right-3 sm:left-auto sm:right-6 sm:max-w-md z-[9990] animate-fade-up">
           <div className="bg-[#181714]/95 backdrop-blur-2xl border border-white/[0.12] rounded-2xl p-4 sm:p-5 shadow-[0_20px_50px_rgba(0,0,0,0.8)] text-white space-y-3.5 relative">
@@ -223,7 +249,7 @@ export function OnboardingFlow({
                   ))}
                 </div>
                 <span className="text-2xs font-bold text-[#A8E063] uppercase tracking-wider ml-1">
-                  Step {guideStep} of 3
+                  Tour · Step {guideStep} of 3
                 </span>
               </div>
               <button
@@ -231,7 +257,7 @@ export function OnboardingFlow({
                 onClick={finishOnboarding}
                 className="text-xs text-[#8E8A82] hover:text-white flex items-center gap-1 px-2 py-0.5 rounded-lg hover:bg-white/[0.06] transition-colors cursor-pointer"
               >
-                <span>Exit Guide</span>
+                <span>Exit</span>
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -243,28 +269,25 @@ export function OnboardingFlow({
                   <div className="w-7 h-7 rounded-lg bg-[#4A622F]/30 border border-[#587437]/40 flex items-center justify-center text-[#A8E063] shrink-0">
                     <Wallet className="w-4 h-4" />
                   </div>
-                  <span>1. Create Your Account</span>
+                  <span>1. Connect an Account</span>
                 </div>
-                <p className="text-xs text-[#A09C94] leading-relaxed">
-                  All budgeting starts here. Press below to name your primary bank, UPI, or cash account.
+                <p className="text-xs text-[#D1CECA] leading-relaxed">
+                  👆 Tap the glowing <strong className="text-[#A8E063]">+ Add Account</strong> button above to connect your bank, cash, or card balance.
                 </p>
-                <div className="pt-1 flex gap-2">
+                <div className="pt-1 flex items-center justify-between gap-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      if (onOpenAddAccount) onOpenAddAccount();
-                    }}
-                    className="flex-1 py-2.5 px-4 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#4A622F]/30 cursor-pointer transition-all active:scale-[0.98] ring-2 ring-[#A8E063]/50 animate-pulse"
+                    onClick={finishOnboarding}
+                    className="py-2.5 px-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs text-[#8E8A82] hover:text-white cursor-pointer"
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>👉 Press Here: Add Account</span>
+                    Skip Tour
                   </button>
                   <button
                     type="button"
                     onClick={() => setGuideStep(2)}
-                    className="py-2.5 px-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs text-[#8E8A82] hover:text-white cursor-pointer"
+                    className="py-2.5 px-4 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-[#4A622F]/30 cursor-pointer transition-all active:scale-[0.98]"
                   >
-                    Next →
+                    <span>Next: Categories →</span>
                   </button>
                 </div>
               </div>
@@ -277,12 +300,12 @@ export function OnboardingFlow({
                   <div className="w-7 h-7 rounded-lg bg-[#4A622F]/30 border border-[#587437]/40 flex items-center justify-center text-[#A8E063] shrink-0">
                     <FolderTree className="w-4 h-4" />
                   </div>
-                  <span>2. How Categories Work</span>
+                  <span>2. Budget Envelopes</span>
                 </div>
-                <p className="text-xs text-[#A09C94] leading-relaxed">
-                  Categories are envelopes: <strong>Needs (50%)</strong> for bills, <strong>Wants (30%)</strong> for fun, and <strong>Savings (20%)</strong> for your future.
+                <p className="text-xs text-[#D1CECA] leading-relaxed">
+                  👆 Tap the glowing <strong className="text-[#A8E063]">+ Create Category</strong> button above. Envelopes divide funds into <strong>Needs (50%)</strong>, <strong>Wants (30%)</strong>, and <strong>Savings (20%)</strong>.
                 </p>
-                <div className="pt-1 flex gap-2">
+                <div className="pt-1 flex items-center justify-between gap-2">
                   <button
                     type="button"
                     onClick={() => setGuideStep(1)}
@@ -293,9 +316,9 @@ export function OnboardingFlow({
                   <button
                     type="button"
                     onClick={() => setGuideStep(3)}
-                    className="flex-1 py-2.5 px-4 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#4A622F]/30 cursor-pointer transition-all active:scale-[0.98]"
+                    className="py-2.5 px-4 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-[#4A622F]/30 cursor-pointer transition-all active:scale-[0.98]"
                   >
-                    <span>Next: How to Spend Money →</span>
+                    <span>Next: How to Spend →</span>
                   </button>
                 </div>
               </div>
@@ -308,29 +331,26 @@ export function OnboardingFlow({
                   <div className="w-7 h-7 rounded-lg bg-[#4A622F]/30 border border-[#587437]/40 flex items-center justify-center text-[#A8E063] shrink-0">
                     <CreditCard className="w-4 h-4" />
                   </div>
-                  <span>3. Spend &amp; Smart Borrowing</span>
+                  <span>3. Spend &amp; Protection</span>
                 </div>
-                <p className="text-xs text-[#A09C94] leading-relaxed">
-                  When you buy something, tap <strong>Spend</strong>. If an envelope is empty, Richingness borrows from Wants so your Savings stay safe!
+                <p className="text-xs text-[#D1CECA] leading-relaxed">
+                  👆 Tap the glowing <strong className="text-[#A8E063]">+ Spend</strong> button above when you buy something. If an envelope runs out, Richingness automatically borrows from Wants to protect your Savings!
                 </p>
-                <div className="pt-1 flex gap-2">
+                <div className="pt-1 flex items-center justify-between gap-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      if (onOpenSpend) onOpenSpend();
-                    }}
-                    className="flex-1 py-2.5 px-3 rounded-xl bg-white/[0.08] hover:bg-white/[0.12] text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all border border-white/10"
+                    onClick={() => setGuideStep(2)}
+                    className="py-2.5 px-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs text-[#8E8A82] hover:text-white cursor-pointer"
                   >
-                    <Plus className="w-3.5 h-3.5 text-[#A8E063]" />
-                    <span>Try Spend Window</span>
+                    ← Back
                   </button>
                   <button
                     type="button"
                     onClick={finishOnboarding}
-                    className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#4A622F] to-[#587437] hover:from-[#587437] hover:to-[#6B8D43] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-[#4A622F]/30 cursor-pointer transition-all active:scale-[0.98]"
+                    className="py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#4A622F] to-[#587437] hover:from-[#587437] hover:to-[#6B8D43] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-[#4A622F]/30 cursor-pointer transition-all active:scale-[0.98]"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5 text-[#A8E063]" />
-                    <span>Start Budgeting! 🚀</span>
+                    <span>Got It, Start Budgeting! 🚀</span>
                   </button>
                 </div>
               </div>

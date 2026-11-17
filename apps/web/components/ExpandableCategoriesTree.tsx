@@ -777,6 +777,7 @@ export function ExpandableCategoriesTree({
             ) : (
               <button
                 type="button"
+                data-guide-target="spend"
                 onClick={(e) => {
                   e.stopPropagation();
                   if (onSpendCategory) onSpendCategory(node.id, node.name);
@@ -1046,6 +1047,7 @@ export function ExpandableCategoriesTree({
 
               <button
                 type="button"
+                data-guide-target="spend"
                 onClick={() => onSpendCategory && onSpendCategory('cat-default-buffer', 'General Funds')}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#2D2415] hover:bg-[#3D311C] border border-[#524122] text-[#E8C47A] text-xs font-semibold transition-all cursor-pointer shadow-sm active:scale-95"
               >

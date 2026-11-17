@@ -687,6 +687,7 @@ export default function Home() {
                 <div className="w-full flex items-center justify-between pt-1 pb-0 shrink-0">
                   <h2 className="text-base sm:text-lg md:text-xl font-bold text-white tracking-tight">Categories</h2>
                   <button
+                    data-guide-target="create-category"
                     onClick={() => {
                       setCategoryNameInput('');
                       setCategoryBudgetInput('');
@@ -1896,6 +1897,9 @@ export default function Home() {
         accountsCount={accounts.length}
         categoriesCount={categories.length}
         totalBalanceRupees={totalBalanceRupees}
+        onNavigateTab={(tab) => {
+          setActiveTab(tab as TabId);
+        }}
         onOpenAddAccount={() => {
           setAcctName('');
           setShowAddAcctModal(true);

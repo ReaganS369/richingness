@@ -1400,6 +1400,7 @@ export function ProfileSection() {
               <div className="space-y-2 pt-2">
                 <button
                   type="button"
+                  data-guide-target="add-account"
                   onClick={() => setShowAddAccountModal(true)}
                   className="w-full py-3.5 rounded-xl bg-[#242621] hover:bg-[#2F322B] active:scale-[0.99] text-[#DCE8C8] hover:text-white border border-[#3E4A30] font-bold text-sm transition-all shadow-md cursor-pointer text-center flex items-center justify-center gap-2"
                 >
