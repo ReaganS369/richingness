@@ -226,7 +226,11 @@ export function OnboardingFlow({
           selector = '[data-guide-target="add-account"]';
         }
       } else if (guideStep === 2) {
-        selector = '[data-guide-target="create-category"]';
+        if (modalOpen) {
+          selector = '[data-guide-target="category-name-input"]';
+        } else {
+          selector = '[data-guide-target="create-category"]';
+        }
       } else if (guideStep === 3) {
         selector = '[data-guide-target="add-funds"]';
       } else if (guideStep === 4) {
@@ -549,8 +553,8 @@ export function OnboardingFlow({
 
             const spaceBelow = targetRect ? windowHeight - targetRect.bottom : windowHeight;
             const spaceAbove = targetRect ? targetRect.top : 0;
-            // If there is an input (e.g. Account Name input), keep on top so mobile keyboard never covers it!
-            const isInputTarget = modalOpen && modalSubstep === 'name';
+            // If there is an input (e.g. Account Name input, Category input), keep on top so mobile keyboard never covers it!
+            const isInputTarget = modalOpen && (guideStep === 2 || modalSubstep === 'name');
             const placeAtBottom = !isInputTarget && (spaceBelow >= 160 || spaceBelow >= spaceAbove);
 
             const targetCenterX = targetRect ? targetRect.left + targetRect.width / 2 : windowWidth / 2;
@@ -760,14 +764,14 @@ export function OnboardingFlow({
                       </div>
                     )}
 
-                    {guideStep === 2 && (
+                    {guideStep === 2 && !modalOpen && (
                       <div className="space-y-2">
                         <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
                           <FolderTree className="w-4 h-4 text-[#A8E063]" />
                           <span>Set Your Categories</span>
                         </h4>
                         <p className="text-xs text-[#C5C8C0] leading-relaxed">
-                          Split your money into 3 simple buckets: Needs (50%), Wants (30%), and Savings (20%).
+                          Categories organize where your money goes (like Needs, Wants, and Savings). Tap &ldquo;+ Create Category&rdquo; or click Next to add starter categories.
                         </p>
                         <div className="pt-1 flex gap-2">
                           <button
@@ -785,11 +789,24 @@ export function OnboardingFlow({
                               }
                               setGuideStep(3);
                             }}
-                            className="flex-1 py-2 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold transition-all cursor-pointer text-center"
+                            className="flex-1 py-2 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold transition-all cursor-pointer text-center flex items-center justify-center gap-1 shadow-md shadow-[#4A622F]/30"
                           >
-                            Apply 50/30/20 & Next →
+                            <span>Next</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
                           </button>
                         </div>
+                      </div>
+                    )}
+
+                    {guideStep === 2 && modalOpen && (
+                      <div className="space-y-2">
+                        <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
+                          <FolderTree className="w-4 h-4 text-[#A8E063]" />
+                          <span>Name Your Category</span>
+                        </h4>
+                        <p className="text-xs text-[#C5C8C0] leading-relaxed">
+                          Type any category name you want to track (e.g. Rent, Groceries, or Savings), then click Create Category.
+                        </p>
                       </div>
                     )}
 
@@ -813,9 +830,10 @@ export function OnboardingFlow({
                           <button
                             type="button"
                             onClick={() => setGuideStep(4)}
-                            className="flex-1 py-2 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold transition-all cursor-pointer text-center"
+                            className="flex-1 py-2 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold transition-all cursor-pointer text-center flex items-center justify-center gap-1 shadow-md shadow-[#4A622F]/30"
                           >
-                            Next: Spending →
+                            <span>Next</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>

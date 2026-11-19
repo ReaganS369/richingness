@@ -608,7 +608,8 @@ body[data-guide-substep="submit"] .modal-scrollable button:not([data-guide-targe
 
 body[data-guide-substep="name"] [data-guide-target="account-name-input"],
 body[data-guide-substep="currency"] [data-guide-target="currency-inr-btn"],
-body[data-guide-substep="submit"] [data-guide-target="account-submit-btn"] {
+body[data-guide-substep="submit"] [data-guide-target="account-submit-btn"],
+body[data-guide-step="2"].modal-open [data-guide-target="category-name-input"] {
   outline: 2px dashed #A8E063 !important;
   outline-offset: 3px !important;
   box-shadow: 0 0 0 4px rgba(168, 224, 99, 0.22) !important;

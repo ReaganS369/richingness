@@ -1977,6 +1977,7 @@ export default function Home() {
                 type="text"
                 required
                 autoFocus
+                data-guide-target="category-name-input"
                 value={categoryNameInput}
                 onChange={e => setCategoryNameInput(e.target.value)}
                 placeholder="Needs, Rent, Groceries, Dining…"
@@ -1994,7 +1995,7 @@ export default function Home() {
             </Field>
             <div className="flex gap-3 pt-1">
               <SecondaryBtn type="button" onClick={() => setShowAddCategoryModal(false)}>Cancel</SecondaryBtn>
-              <PrimaryBtn type="submit">Create Category</PrimaryBtn>
+              <PrimaryBtn type="submit" data-guide-target="category-submit-btn">Create Category</PrimaryBtn>
             </div>
           </form>
         </Modal>
