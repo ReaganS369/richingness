@@ -425,12 +425,19 @@ select option {
 
 /* Prevent background scrolling when modal is open */
 body.modal-open,
+html.modal-open,
 body.modal-open .app-root-shell,
 body.modal-open .app-workspace-shell,
 body.modal-open .app-main-scroll {
   overflow: hidden !important;
   touch-action: none !important;
   overscroll-behavior: none !important;
+}
+
+body.modal-open .app-bottom-nav {
+  pointer-events: none !important;
+  opacity: 0.2 !important;
+  transition: opacity 0.2s ease;
 }
 
 /* ── Two-Color Palette System (Green Primary + Orange Secondary) ─────────── */
@@ -532,38 +539,85 @@ html.theme-light .bg-\[\#E87A24\] * {
 }
 
 body[data-guide-step],
-body[data-guide-step] main {
-  touch-action: pan-y !important;
-  pointer-events: auto !important;
+html[data-guide-step],
+body[data-guide-step] .app-root-shell,
+body[data-guide-step] .app-workspace-shell,
+body[data-guide-step] .app-main-scroll {
+  overflow: hidden !important;
+  touch-action: none !important;
+  overscroll-behavior: none !important;
 }
 
-/* Pulsing green spotlight for active targets */
+body[data-guide-step] main {
+  overflow: hidden !important;
+  touch-action: none !important;
+}
+
+body[data-guide-step] .app-bottom-nav {
+  pointer-events: none !important;
+  opacity: 0.25 !important;
+}
+
+/* Crisp green dashed outline for active target matching Dtunes gold standard */
 body[data-guide-step="1"]:not(.modal-open) [data-guide-target="add-account"],
 body[data-guide-step="2"]:not(.modal-open) [data-guide-target="create-category"],
 body[data-guide-step="3"]:not(.modal-open) [data-guide-target="add-funds"],
-body[data-guide-step="4"]:not(.modal-open) [data-guide-target="spend"],
-body[data-guide-substep="name"] [data-guide-target="account-name-input"],
-body[data-guide-substep="currency"] [data-guide-target="account-currency-select"],
-body[data-guide-substep="submit"] [data-guide-target="account-submit-btn"] {
+body[data-guide-step="4"]:not(.modal-open) [data-guide-target="spend"] {
   position: relative !important;
   z-index: 10002 !important;
   pointer-events: auto !important;
   cursor: pointer !important;
-  outline: 3px solid #A8E063 !important;
-  outline-offset: 3px !important;
-  box-shadow: 0 0 0 4px rgba(168, 224, 99, 0.4), 0 0 25px rgba(168, 224, 99, 0.7) !important;
-  animation: guide-spotlight-pulse 1.8s infinite ease-in-out !important;
+  outline: 2px dashed #A8E063 !important;
+  outline-offset: 4px !important;
+  box-shadow: 0 0 0 4px rgba(168, 224, 99, 0.22) !important;
 }
 
-@keyframes guide-spotlight-pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 3px rgba(168, 224, 99, 0.4), 0 0 15px rgba(168, 224, 99, 0.4);
-    transform: scale(1);
-  }
-  50% {
-    box-shadow: 0 0 0 6px rgba(168, 224, 99, 0.65), 0 0 28px rgba(168, 224, 99, 0.85);
-    transform: scale(1.02);
-  }
+/* STRICT FOCUS ENFORCEMENT: Dim & disable inactive modal elements specifically */
+body[data-guide-substep="name"] .modal-scrollable select,
+body[data-guide-substep="name"] .modal-scrollable button,
+body[data-guide-substep="name"] .modal-header-close-btn,
+
+body[data-guide-substep="currency"] .modal-scrollable input,
+body[data-guide-substep="currency"] .modal-scrollable button:not([data-guide-target="currency-inr-btn"]),
+body[data-guide-substep="currency"] .modal-header-close-btn,
+
+body[data-guide-substep="submit"] .modal-scrollable input,
+body[data-guide-substep="submit"] .modal-scrollable select,
+body[data-guide-substep="submit"] .modal-header-close-btn,
+body[data-guide-substep="submit"] .modal-scrollable button:not([data-guide-target="account-submit-btn"]) {
+  pointer-events: none !important;
+  opacity: 0.35 !important;
+  cursor: not-allowed !important;
+  transition: opacity 0.2s ease;
+}
+
+/* Active targeted elements ALWAYS have full interaction and vibrant outline */
+[data-guide-target] {
+  position: relative !important;
+  z-index: 10015 !important;
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  cursor: pointer !important;
+}
+
+body[data-guide-substep="name"] [data-guide-target="account-name-input"],
+body[data-guide-substep="currency"] [data-guide-target="currency-inr-btn"],
+body[data-guide-substep="submit"] [data-guide-target="account-submit-btn"] {
+  outline: 2px dashed #A8E063 !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 4px rgba(168, 224, 99, 0.22) !important;
+  pointer-events: auto !important;
+  opacity: 1 !important;
+}
+
+/* Ensure the tour card itself and all its buttons and text are ALWAYS 100% interactive */
+.onboarding-guide-card,
+.onboarding-guide-card *,
+.onboarding-guide-card button,
+.onboarding-guide-card a {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  cursor: pointer !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

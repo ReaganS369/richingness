@@ -15,7 +15,10 @@ import {
   Check,
   X,
   Wallet,
-  Edit2
+  Edit2,
+  PenLine,
+  ShoppingCart,
+  Layers
 } from 'lucide-react';
 import { useAppStore } from '../app/store';
 
@@ -267,6 +270,12 @@ export function AccountCategoriesScreen({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showDiscardExitConfirm, setShowDiscardExitConfirm] = useState(false);
 
+  // Per-category row tab switch: 'spend' | 'edit'
+  const [rowTabs, setRowTabs] = useState<Record<string, 'spend' | 'edit'>>({});
+  // Inline category name editing state
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [editingCatName, setEditingCatName] = useState('');
+
   // Currency Tab State
   const [currencyFilter, setCurrencyFilter] = useState<'all' | 'fiat' | 'crypto'>('all');
   const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>(['INR', 'USD', 'EUR', 'GBP', 'BTC', 'ETH']);
@@ -275,6 +284,32 @@ export function AccountCategoriesScreen({
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
+
+  // Lock scroll and prevent touch bleed-through when any modal is open
+  useEffect(() => {
+    const isAnyModalOpen = showAddCategoryModal || showAddAccountModal || showDiscardExitConfirm || showTemplateModal;
+    if (isAnyModalOpen) {
+      const prevOverflow = document.body.style.overflow;
+      const prevTouchAction = document.body.style.touchAction;
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+      document.body.classList.add('modal-open');
+
+      const preventTouch = (e: TouchEvent) => {
+        const target = e.target as HTMLElement | null;
+        if (target && target.closest('.modal-scrollable')) return;
+        e.preventDefault();
+      };
+      window.addEventListener('touchmove', preventTouch, { passive: false });
+
+      return () => {
+        document.body.style.overflow = prevOverflow;
+        document.body.style.touchAction = prevTouchAction;
+        document.body.classList.remove('modal-open');
+        window.removeEventListener('touchmove', preventTouch);
+      };
+    }
+  }, [showAddCategoryModal, showAddAccountModal, showDiscardExitConfirm, showTemplateModal]);
 
   const handleBackOrCancel = () => {
     if (hasUnsavedChanges) {
@@ -511,6 +546,32 @@ export function AccountCategoriesScreen({
 
     setActiveTree(prev => recursiveRemove(prev));
     showToast('Category removed.');
+  };
+
+  // Rename a category inline
+  const handleRenameCategory = (id: string, newName: string) => {
+    if (!newName.trim()) return;
+    setHasUnsavedChanges(true);
+
+    const recursiveRename = (nodes: CategoryNodeAllocation[], currentDepth = 0): CategoryNodeAllocation[] => {
+      if (currentDepth === navigationPath.length) {
+        return nodes.map(n => n.id === id ? { ...n, name: newName.trim() } : n);
+      }
+      const targetChildId = navigationPath[currentDepth];
+      return nodes.map(node => {
+        if (node.id === targetChildId && node.children) {
+          return {
+            ...node,
+            children: recursiveRename(node.children, currentDepth + 1)
+          };
+        }
+        return node;
+      });
+    };
+
+    setActiveTree(prev => recursiveRename(prev));
+    setEditingCatId(null);
+    showToast(`Renamed to "${newName.trim()}"`);
   };
 
   // Drill down into a category's subcategories
@@ -945,41 +1006,60 @@ export function AccountCategoriesScreen({
             </div>
           </div>
 
-          {/* ── Quick-Switch Category Segmented Bar (Single Tap between Root and Top Categories) ── */}
-          <div className="flex flex-wrap items-center gap-1.5 pb-1 pt-0.5">
-            <button
-              type="button"
-              onClick={() => setNavigationPath([])}
-              className={`px-3 py-1.5 rounded-[10px] text-xs font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 ${
-                navigationPath.length === 0
-                  ? 'bg-[#4A622F] text-white shadow-xs border border-[#5F7C3C]'
-                  : 'bg-[#182114] text-[#829577] hover:text-white border border-[#27351F]'
-              }`}
-            >
-              <span>Root Level</span>
-            </button>
-            {activeTree.map((rootCat, idx) => {
-              const isSelected = navigationPath[0] === rootCat.id;
-              const color = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
-              return (
-                <button
-                  key={rootCat.id}
-                  type="button"
-                  onClick={() => {
-                    handleDrillDown(rootCat);
-                  }}
-                  className={`px-3 py-1.5 rounded-[10px] text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 ${
-                    isSelected
-                      ? 'bg-[#4A622F] text-white shadow-xs border border-[#5F7C3C]'
-                      : 'bg-[#182114] text-[#829577] hover:text-white border border-[#27351F]'
-                  }`}
-                >
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                  <span>{rootCat.name}</span>
-                  <span className="text-[10px] opacity-80 font-bold">{rootCat.percentage}%</span>
-                </button>
-              );
-            })}
+          {/* ── Hierarchy Level Dropdown (Clean Home-Page Style) ── */}
+          <div className="space-y-1 pt-0.5">
+            <label className="text-[11px] font-semibold text-[#7E9173] flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Layers className="w-3 h-3 text-[#A8E063]" />
+                <span>Hierarchy Level</span>
+              </span>
+              <span className="text-[10px] text-[#A8E063] font-bold">
+                {navigationPath.length === 0 ? 'Root (Level 1)' : `Level ${navigationPath.length + 1}`}
+              </span>
+            </label>
+            <div className="relative">
+              <select
+                value={navigationPath.length === 0 ? '__root__' : navigationPath[navigationPath.length - 1]}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '__root__') {
+                    setNavigationPath([]);
+                  } else {
+                    // Find node path to this category
+                    const findPath = (nodes: CategoryNodeAllocation[], targetId: string, current: string[] = []): string[] | null => {
+                      for (const n of nodes) {
+                        if (n.id === targetId) return [...current, n.id];
+                        if (n.children && n.children.length > 0) {
+                          const p = findPath(n.children, targetId, [...current, n.id]);
+                          if (p) return p;
+                        }
+                      }
+                      return null;
+                    };
+                    const path = findPath(activeTree, val);
+                    if (path) {
+                      setNavigationPath(path);
+                    }
+                  }
+                }}
+                className="w-full bg-[#161E12] border border-[#2B3921] focus:border-[#4A622F] rounded-[12px] px-3.5 py-2.5 text-xs font-semibold text-white outline-none cursor-pointer appearance-none pr-8 transition-colors shadow-xs"
+              >
+                <option value="__root__">📁 Level 1: All Categories (Root)</option>
+                {activeTree.map(cat => (
+                  <React.Fragment key={cat.id}>
+                    <option value={cat.id}>
+                      ↳ {cat.name} ({cat.percentage}%) {cat.children && cat.children.length > 0 ? `· ${cat.children.length} subs` : ''}
+                    </option>
+                    {cat.children && cat.children.map(sub => (
+                      <option key={sub.id} value={sub.id}>
+                        &nbsp;&nbsp;&nbsp;&nbsp;↳ {sub.name} ({sub.percentage}% of {cat.name})
+                      </option>
+                    ))}
+                  </React.Fragment>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7E9173] pointer-events-none" />
+            </div>
           </div>
 
           {/* ── Refined Breadcrumb & Level Path ── */}
@@ -1082,106 +1162,262 @@ export function AccountCategoriesScreen({
               const color = CATEGORY_COLORS[index % CATEGORY_COLORS.length];
               const childCount = category.children?.length || 0;
               const hasChildren = childCount > 0;
+              const rowTab = rowTabs[category.id] || 'spend';
 
               return (
                 <div
                   key={category.id}
-                  className="bg-[#171F13] border border-[#26331F] rounded-[14px] p-3.5 space-y-3 transition-all shadow-sm"
+                  className="bg-[#171F13] border border-[#26331F] rounded-[14px] overflow-hidden transition-all shadow-sm"
                 >
-                  
-                  {/* Category Title Row: Color Indicator + Name + Subcategory Link + [Version 2 Value Box] + Delete */}
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2.5 min-w-0">
+                  {/* Category Header Row: Color + Name / Inline Edit + Spend/Edit Segmented Tabs */}
+                  <div className="flex items-center justify-between px-3.5 pt-3 pb-2.5 gap-2 border-b border-[#202B1A]">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       <div
-                        className="w-2 h-2 rounded-full shrink-0"
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
                         style={{ backgroundColor: color }}
                       />
-                      <span className="font-semibold text-white/95 text-sm truncate">
-                        {category.name}
-                      </span>
-
-                      {/* Subcategory Navigation */}
-                      <button
-                        type="button"
-                        onClick={() => handleDrillDown(category)}
-                        className={`text-xs font-medium flex items-center gap-1 py-0.5 px-2 rounded-lg transition-colors cursor-pointer ${
-                          hasChildren
-                            ? 'text-[#A8E063] hover:bg-white/[0.04]'
-                            : 'text-[#6C7E61] hover:text-[#A8E063] hover:bg-white/[0.03]'
-                        }`}
-                        title={hasChildren ? `View ${childCount} subcategories` : `Add subcategories`}
-                      >
-                        {hasChildren ? (
-                          <>
-                            <span>{childCount} subs</span>
-                            <ChevronRight className="w-3 h-3 text-[#A8E063]" />
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="w-2.5 h-2.5" />
-                            <span>Sub</span>
-                          </>
-                        )}
-                      </button>
+                      {editingCatId === category.id ? (
+                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                          <input
+                            autoFocus
+                            type="text"
+                            value={editingCatName}
+                            onChange={e => setEditingCatName(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') handleRenameCategory(category.id, editingCatName);
+                              if (e.key === 'Escape') setEditingCatId(null);
+                            }}
+                            className="bg-[#10160D] border border-[#4A622F] rounded-lg px-2.5 py-1 text-xs font-semibold text-white outline-none w-full max-w-[150px]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRenameCategory(category.id, editingCatName)}
+                            className="p-1 rounded-md bg-[#4A622F] hover:bg-[#587538] text-white cursor-pointer active:scale-95"
+                            title="Save name"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingCatId(null)}
+                            className="p-1 rounded-md bg-[#20271A] hover:bg-white/10 text-[#8E8A82] cursor-pointer active:scale-95"
+                            title="Cancel"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="font-semibold text-white/95 text-sm truncate">
+                          {category.name}
+                        </span>
+                      )}
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      {/* Remove category */}
+                    {/* Spend / Edit Segmented Control */}
+                    <div className="flex items-center bg-[#10160D] border border-[#2B3921] rounded-[8px] p-0.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setRowTabs(prev => ({ ...prev, [category.id]: 'spend' }))}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-[6px] text-[11px] font-semibold transition-all cursor-pointer ${
+                          rowTab === 'spend'
+                            ? 'bg-[#4A622F] text-white shadow-xs'
+                            : 'text-[#829577] hover:text-white'
+                        }`}
+                      >
+                        <ShoppingCart className="w-3 h-3" />
+                        <span>Spend</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRowTabs(prev => ({ ...prev, [category.id]: 'edit' }));
+                          setEditingCatId(null);
+                        }}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-[6px] text-[11px] font-semibold transition-all cursor-pointer ${
+                          rowTab === 'edit'
+                            ? 'bg-[#4A622F] text-white shadow-xs'
+                            : 'text-[#829577] hover:text-white'
+                        }`}
+                      >
+                        <Edit2 className="w-3 h-3" />
+                        <span>Edit</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* ── SPEND TAB VIEW ── */}
+                  {rowTab === 'spend' && (
+                    <div className="p-3.5 space-y-3">
+                      {/* Subcategory Link */}
+                      <div className="flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => handleDrillDown(category)}
+                          className={`text-xs font-medium flex items-center gap-1 py-1 px-2.5 rounded-lg transition-colors cursor-pointer ${
+                            hasChildren
+                              ? 'text-[#A8E063] bg-[#222E1A] hover:bg-[#2B3B21]'
+                              : 'text-[#7D8F72] hover:text-[#A8E063] hover:bg-white/[0.04]'
+                          }`}
+                        >
+                          {hasChildren ? (
+                            <>
+                              <span>{childCount} subcategories</span>
+                              <ChevronRight className="w-3.5 h-3.5 text-[#A8E063]" />
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="w-3 h-3" />
+                              <span>Add Subcategories</span>
+                            </>
+                          )}
+                        </button>
+                        <span className="text-xs text-[#829577]">
+                          Allocation: <strong className="text-white font-bold">{category.percentage}%</strong>
+                        </span>
+                      </div>
+
+                      {/* Stepper Pill */}
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-[11px] text-[#7E9173] font-medium">Adjust Level Share:</span>
+                        <div className="flex items-center bg-[#11170D] border border-[#2B3921] rounded-[10px] overflow-hidden shadow-inner shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => updatePercentageNonDestructive(category.id, category.percentage - 5)}
+                            className="w-10 h-8 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/[0.07] active:bg-white/[0.15] text-base font-bold transition-all cursor-pointer active:scale-95"
+                            title="Decrease 5%"
+                          >
+                            −
+                          </button>
+                          <div className="w-14 h-8 flex items-center justify-center border-x border-[#2B3921] bg-[#0E130B] px-1">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              value={category.percentage}
+                              onChange={(e) => {
+                                const clean = e.target.value.replace(/\D/g, '');
+                                updatePercentageNonDestructive(category.id, clean === '' ? 0 : Number(clean));
+                              }}
+                              className="no-spin w-8 bg-transparent text-white text-center outline-none font-bold text-xs"
+                            />
+                            <span className="text-[#7E9173] text-[11px] font-semibold">%</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => updatePercentageNonDestructive(category.id, category.percentage + 5)}
+                            className="w-10 h-8 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/[0.07] active:bg-white/[0.15] text-base font-bold transition-all cursor-pointer active:scale-95"
+                            title="Increase 5%"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── EDIT TAB VIEW ── */}
+                  {rowTab === 'edit' && (
+                    <div className="p-3.5 space-y-3 animate-fade-in">
+                      {/* 1. Edit Name Row */}
+                      <div className="space-y-1">
+                        <span className="text-[11px] text-[#7E9173] font-semibold">Rename Category</span>
+                        <div className="flex items-center gap-2">
+                          {editingCatId === category.id ? (
+                            <div className="flex items-center gap-1.5 flex-1">
+                              <input
+                                autoFocus
+                                type="text"
+                                value={editingCatName}
+                                onChange={e => setEditingCatName(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') handleRenameCategory(category.id, editingCatName);
+                                  if (e.key === 'Escape') setEditingCatId(null);
+                                }}
+                                className="flex-1 bg-[#10160D] border border-[#4A622F] rounded-lg px-3 py-1.5 text-xs text-white outline-none font-semibold"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRenameCategory(category.id, editingCatName)}
+                                className="px-2.5 py-1.5 rounded-lg bg-[#4A622F] hover:bg-[#587538] text-white text-xs font-semibold cursor-pointer active:scale-95 flex items-center gap-1"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Save</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingCatId(null)}
+                                className="p-1.5 rounded-lg bg-[#20271A] hover:bg-white/10 text-[#8E8A82] cursor-pointer"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingCatId(category.id);
+                                setEditingCatName(category.name);
+                              }}
+                              className="flex-1 flex items-center justify-between bg-[#12180E] border border-[#2B3822] hover:border-[#4A622F] rounded-lg px-3 py-2 text-xs text-white font-semibold transition-colors cursor-pointer"
+                            >
+                              <span>{category.name}</span>
+                              <div className="flex items-center gap-1 text-[11px] text-[#A8E063]">
+                                <PenLine className="w-3 h-3" />
+                                <span>Edit Name</span>
+                              </div>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 2. Allocation Stepper */}
+                      <div className="space-y-1">
+                        <span className="text-[11px] text-[#7E9173] font-semibold">Allocation Percentage</span>
+                        <div className="flex items-center justify-between bg-[#11170D] border border-[#2B3921] rounded-[10px] overflow-hidden p-1 shadow-inner">
+                          <button
+                            type="button"
+                            onClick={() => updatePercentageNonDestructive(category.id, category.percentage - 5)}
+                            className="w-10 h-8 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/[0.07] active:bg-white/[0.15] text-base font-bold transition-all cursor-pointer active:scale-95"
+                          >
+                            −
+                          </button>
+                          <div className="flex items-center justify-center px-3">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              value={category.percentage}
+                              onChange={(e) => {
+                                const clean = e.target.value.replace(/\D/g, '');
+                                updatePercentageNonDestructive(category.id, clean === '' ? 0 : Number(clean));
+                              }}
+                              className="no-spin w-10 bg-transparent text-white text-center outline-none font-bold text-xs"
+                            />
+                            <span className="text-[#7E9173] text-[11px] font-semibold">%</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => updatePercentageNonDestructive(category.id, category.percentage + 5)}
+                            className="w-10 h-8 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/[0.07] active:bg-white/[0.15] text-base font-bold transition-all cursor-pointer active:scale-95"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 3. Delete Category Button */}
                       {activeLevelNodes.length > 1 && (
                         <button
                           type="button"
                           onClick={() => handleRemoveCategory(category.id)}
-                          className="text-[#56684E] hover:text-rose-400 p-1 rounded-lg hover:bg-white/[0.04] transition-colors cursor-pointer"
-                          title="Remove category"
+                          className="w-full py-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-rose-400 hover:text-rose-300 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors active:scale-98"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete Category</span>
                         </button>
                       )}
                     </div>
-                  </div>
-
-                  {/* ═════════════════════════════════════════════════════════════ */}
-                  {/* Tactile ±5% Stepper Pill                                     */}
-                  {/* ═════════════════════════════════════════════════════════════ */}
-                  <div className="flex items-center justify-between gap-3 pt-0.5">
-                    <div className="text-xs text-[#829577] min-w-0 truncate">
-                      Allocation: <span className="text-white font-bold">{category.percentage}%</span>
-                    </div>
-
-                    {/* Integrated Stepper Pill */}
-                    <div className="flex items-center bg-[#11170D] border border-[#2B3921] rounded-[10px] overflow-hidden shadow-inner shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => updatePercentageNonDestructive(category.id, category.percentage - 5)}
-                        className="w-11 h-9 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/[0.07] active:bg-white/[0.15] text-lg font-bold transition-all cursor-pointer active:scale-95"
-                        title="Decrease 5%"
-                      >
-                        −
-                      </button>
-                      <div className="w-14 h-9 flex items-center justify-center border-x border-[#2B3921] bg-[#0E130B] px-1">
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          value={category.percentage}
-                          onChange={(e) => {
-                            const clean = e.target.value.replace(/\D/g, '');
-                            updatePercentageNonDestructive(category.id, clean === '' ? 0 : Number(clean));
-                          }}
-                          className="no-spin w-8 bg-transparent text-white text-center outline-none font-bold text-xs"
-                        />
-                        <span className="text-[#7E9173] text-[11px] font-semibold">%</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => updatePercentageNonDestructive(category.id, category.percentage + 5)}
-                        className="w-11 h-9 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/[0.07] active:bg-white/[0.15] text-lg font-bold transition-all cursor-pointer active:scale-95"
-                        title="Increase 5%"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
+                  )}
 
                 </div>
               );
@@ -1247,12 +1483,15 @@ export function AccountCategoriesScreen({
               <button
                 type="button"
                 onClick={handleSaveAllocation}
-                disabled={isSavingAllocation}
-                className={`flex-[2] py-3.5 rounded-[12px] bg-[#F2811D] hover:bg-[#FF8E2E] active:scale-[0.99] text-[#11130E] font-bold text-sm shadow-md transition-all cursor-pointer text-center ${
-                  isSavingAllocation ? 'opacity-60 cursor-not-allowed' : ''
+                disabled={isSavingAllocation || activeLevelNodes.length === 0}
+                className={`flex-[2] py-3.5 rounded-[12px] bg-[#F2811D] hover:bg-[#FF8E2E] active:scale-[0.99] text-[#11130E] font-bold text-sm shadow-md transition-all text-center ${
+                  (isSavingAllocation || activeLevelNodes.length === 0)
+                    ? 'opacity-50 cursor-not-allowed bg-[#704822] text-white/60'
+                    : 'cursor-pointer'
                 }`}
+                title={activeLevelNodes.length === 0 ? 'Add at least one category before saving' : ''}
               >
-                {isSavingAllocation ? 'Saving...' : 'Save allocation'}
+                {isSavingAllocation ? 'Saving...' : activeLevelNodes.length === 0 ? 'Add a category first' : 'Save allocation'}
               </button>
             </div>
 
@@ -1545,67 +1784,86 @@ export function AccountCategoriesScreen({
       {/* ── 2. Add Category Modal ── */}
       {showAddCategoryModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in overscroll-contain"
-          style={{ touchAction: 'none' }}
-          onTouchMove={(e) => {
-            if (e.target === e.currentTarget) e.preventDefault();
+          className="fixed inset-0 z-[10010] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in overflow-hidden touch-none select-none"
+          onClick={() => {
+            if (typeof document !== 'undefined' && document.body.hasAttribute('data-guide-step')) return;
+            if (newCategoryName.trim()) {
+              setShowDiscardExitConfirm(true);
+            } else {
+              setShowAddCategoryModal(false);
+            }
           }}
         >
           <div
-            className="relative w-full max-w-sm bg-[#161D12] border border-[#2B3822] rounded-2xl p-5 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto overscroll-contain"
-            style={{ touchAction: 'pan-y' }}
+            className="relative w-full max-w-sm bg-[#161D12] border border-[#2B3822] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[82dvh] my-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-[#27351F] pb-3">
-              <h3 className="font-bold text-sm text-white">
-                {parentNode ? `Add Subcategory inside ${parentNode.name}` : 'Add Category Rule'}
-              </h3>
+            <div className="p-5 space-y-4 overflow-y-auto modal-scrollable flex-1">
+              <div className="flex items-center justify-between border-b border-[#27351F] pb-3">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-sm text-white">
+                    {parentNode ? `Add Subcategory inside ${parentNode.name}` : 'Add Category Rule'}
+                  </h3>
+                  {typeof document !== 'undefined' && document.body.hasAttribute('data-guide-step') && (
+                    <span className="text-[10px] font-bold text-[#A8E063] bg-[#23301B] px-2 py-0.5 rounded-full border border-[#3A4E2A]">
+                      Step 2 of 4
+                    </span>
+                  )}
+                </div>
+                {!(typeof document !== 'undefined' && document.body.hasAttribute('data-guide-step')) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (newCategoryName.trim()) {
+                        setShowDiscardExitConfirm(true);
+                      } else {
+                        setShowAddCategoryModal(false);
+                      }
+                    }}
+                    className="w-7 h-7 rounded-lg text-[#888] hover:text-white hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs text-[#7D8F72] font-semibold">
+                  {parentNode ? 'Subcategory Name' : 'Category Name'}
+                </label>
+                <input
+                  type="text"
+                  placeholder={parentNode ? "e.g. Groceries, Car Loan, Streaming" : "e.g. Needs, Wants, Savings"}
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  className="w-full bg-[#1A2214] border border-[#2B3822] focus:border-[#4A622F] rounded-xl px-3.5 py-3 text-xs text-white outline-none"
+                  autoFocus
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddCategoryAtCurrentLevel()}
+                />
+              </div>
+            </div>
+
+            {/* Sticky bottom button buffer */}
+            <div className="flex gap-2 p-4 bg-[#141A10] border-t border-[#232F1B] shrink-0">
+              {!(typeof document !== 'undefined' && document.body.hasAttribute('data-guide-step')) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (newCategoryName.trim()) {
+                      setShowDiscardExitConfirm(true);
+                    } else {
+                      setShowAddCategoryModal(false);
+                    }
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-[#20271A] hover:bg-[#283221] text-xs font-semibold text-[#888] hover:text-white cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => {
-                  if (newCategoryName.trim()) {
-                    setShowDiscardExitConfirm(true);
-                  } else {
-                    setShowAddCategoryModal(false);
-                  }
-                }}
-                className="text-[#888] hover:text-white p-1 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs text-[#7D8F72] font-semibold">
-                {parentNode ? 'Subcategory Name' : 'Category Name'}
-              </label>
-              <input
-                type="text"
-                placeholder={parentNode ? "e.g. Groceries, Car Loan, Streaming" : "e.g. Needs, Wants, Savings"}
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                className="w-full bg-[#1A2214] border border-[#2B3822] focus:border-[#4A622F] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none"
-                autoFocus
-                onKeyDown={(e) => e.key === 'Enter' && handleAddCategoryAtCurrentLevel()}
-              />
-            </div>
-            <div className="flex gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  if (newCategoryName.trim()) {
-                    setShowDiscardExitConfirm(true);
-                  } else {
-                    setShowAddCategoryModal(false);
-                  }
-                }}
-                className="flex-1 py-2 rounded-xl bg-[#20271A] text-xs font-semibold text-[#888] hover:text-white cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
                 onClick={handleAddCategoryAtCurrentLevel}
                 disabled={!newCategoryName.trim()}
-                className="flex-1 py-2 rounded-xl bg-[#4A622F] hover:bg-[#587538] disabled:opacity-50 text-xs font-bold text-white cursor-pointer"
+                className={`${(typeof document !== 'undefined' && document.body.hasAttribute('data-guide-step')) ? 'w-full' : 'flex-1'} py-2.5 rounded-xl bg-[#4A622F] hover:bg-[#587538] disabled:opacity-50 text-xs font-bold text-white cursor-pointer transition-all active:scale-98 shadow-sm`}
               >
                 Add Category
               </button>
@@ -1617,67 +1875,62 @@ export function AccountCategoriesScreen({
       {/* ── 3. Add Account Modal ── */}
       {showAddAccountModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in overscroll-contain"
-          style={{ touchAction: 'none' }}
-          onTouchMove={(e) => {
-            if (e.target === e.currentTarget) e.preventDefault();
+          className="fixed inset-0 z-[10010] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in overflow-hidden touch-none select-none"
+          onClick={() => {
+            if (typeof document !== 'undefined' && document.body.hasAttribute('data-guide-step')) return;
+            setShowAddAccountModal(false);
           }}
         >
           <div
-            className="relative w-full max-w-sm bg-[#161D12] border border-[#2B3822] rounded-2xl p-5 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto overscroll-contain"
-            style={{ touchAction: 'pan-y' }}
+            className="relative w-full max-w-sm bg-[#161D12] border border-[#2B3822] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[82dvh] my-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-[#27351F] pb-3">
-              <h3 className="font-bold text-sm text-white">Add New Account</h3>
-              <button onClick={() => setShowAddAccountModal(false)} className="text-[#888] hover:text-white p-1 cursor-pointer">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-[#7D8F72] font-semibold">Account Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. ICICI Bank, SBI Savings"
-                  value={newAccountName}
-                  onChange={(e) => setNewAccountName(e.target.value)}
-                  className="w-full bg-[#1A2214] border border-[#2B3822] focus:border-[#4A622F] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none mt-1"
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="text-xs text-[#7D8F72] font-semibold">Account Type</label>
-                <select
-                  value={newAccountType}
-                  onChange={(e) => setNewAccountType(e.target.value as 'checking' | 'savings' | 'credit' | 'cash')}
-                  className="w-full bg-[#1A2214] border border-[#2B3822] focus:border-[#4A622F] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none mt-1 cursor-pointer"
+            <div className="p-5 space-y-4 overflow-y-auto modal-scrollable flex-1">
+              <div className="flex items-center justify-between border-b border-[#27351F] pb-3">
+                <h3 className="font-bold text-sm text-white">Add New Account</h3>
+                <button
+                  onClick={() => setShowAddAccountModal(false)}
+                  className="w-7 h-7 rounded-lg text-[#888] hover:text-white hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer"
                 >
-                  <option value="savings">Savings Account</option>
-                  <option value="checking">Checking Account</option>
-                  <option value="credit">Credit Card</option>
-                  <option value="cash">Cash / Physical Wallet</option>
-                </select>
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-[#7D8F72] font-semibold">Account Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. ICICI Bank, SBI Savings"
+                    value={newAccountName}
+                    onChange={(e) => setNewAccountName(e.target.value)}
+                    className="w-full bg-[#1A2214] border border-[#2B3822] focus:border-[#4A622F] rounded-xl px-3.5 py-3 text-xs text-white outline-none mt-1"
+                    autoFocus
+                  />
+                </div>
               </div>
             </div>
-            <div className="flex gap-2 pt-2">
+
+            {/* Sticky button buffer */}
+            <div className="flex gap-2 p-4 bg-[#141A10] border-t border-[#232F1B] shrink-0">
               <button
+                type="button"
                 onClick={() => setShowAddAccountModal(false)}
-                className="flex-1 py-2 rounded-xl bg-[#20271A] text-xs font-semibold text-[#888] hover:text-white cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl bg-[#20271A] hover:bg-[#283221] text-xs font-semibold text-[#888] hover:text-white cursor-pointer transition-colors"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={async () => {
                   if (newAccountName.trim()) {
-                    await addAccount(newAccountName.trim(), newAccountType, 'INR');
+                    await addAccount(newAccountName.trim(), 'savings', 'INR');
                     setShowAddAccountModal(false);
                     setNewAccountName('');
                     showToast(`Account "${newAccountName}" created!`);
                   }
                 }}
                 disabled={!newAccountName.trim()}
-                className="flex-1 py-2 rounded-xl bg-[#4A622F] hover:bg-[#587538] disabled:opacity-50 text-xs font-bold text-white cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl bg-[#4A622F] hover:bg-[#587538] disabled:opacity-50 text-xs font-bold text-white cursor-pointer transition-all active:scale-98 shadow-sm"
               >
                 Create Account
               </button>

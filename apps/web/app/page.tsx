@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   useAppStore,
@@ -45,7 +45,7 @@ import {
   recommendRecovery
 } from '@repo/module-budget';
 import { Account, aggregateMonthlyCashFlow } from '@repo/module-finance';
-import { ProfileSection } from '../components/ProfileSection';
+import { ProfileSection, POPULAR_CURRENCIES, MORE_CURRENCIES } from '../components/ProfileSection';
 import { ExpandableCategoriesTree } from '../components/ExpandableCategoriesTree';
 import { OnboardingFlow } from '../components/OnboardingFlow';
 
@@ -147,33 +147,65 @@ function Modal({ title, onClose, children, icon }: {
   title: string; onClose: () => void; children: React.ReactNode; icon?: React.ReactNode;
 }) {
   const [mounted, setMounted] = useState(false);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
+  const [isGuideActive, setIsGuideActive] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    const checkGuide = () => {
+      setIsGuideActive(typeof document !== 'undefined' && document.body.hasAttribute('data-guide-step'));
+    };
+    checkGuide();
+
+    const obs = new MutationObserver(checkGuide);
+    obs.observe(document.body, { attributes: true, attributeFilter: ['data-guide-step'] });
+
     const prevOverflow = document.body.style.overflow;
+    const prevTouchAction = document.body.style.touchAction;
     document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
     document.body.classList.add('modal-open');
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+
+    const h = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !document.body.hasAttribute('data-guide-step')) {
+        onCloseRef.current?.();
+      }
+    };
     window.addEventListener('keydown', h);
+
+    const preventTouch = (e: TouchEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('.modal-scrollable')) return;
+      e.preventDefault();
+    };
+    window.addEventListener('touchmove', preventTouch, { passive: false });
+
     return () => {
       document.body.style.overflow = prevOverflow;
+      document.body.style.touchAction = prevTouchAction;
       document.body.classList.remove('modal-open');
       window.removeEventListener('keydown', h);
+      window.removeEventListener('touchmove', preventTouch);
+      obs.disconnect();
     };
-  }, [onClose]);
+  }, []);
 
   if (!mounted) return null;
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in overflow-hidden"
-      onClick={onClose}
+      className="fixed inset-0 z-[10010] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in overflow-hidden touch-none select-none"
+      onClick={isGuideActive ? undefined : () => onCloseRef.current?.()}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="app-modal-title"
-        className="relative flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-2xl border border-[#2B2923] bg-[#1B1A17] shadow-2xl animate-scale-in sm:max-w-md"
+        className="relative flex max-h-[82dvh] w-full flex-col overflow-hidden rounded-2xl border border-[#2B2923] bg-[#1B1A17] shadow-2xl animate-scale-in sm:max-w-md my-auto"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -188,14 +220,14 @@ function Modal({ title, onClose, children, icon }: {
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => onCloseRef.current?.()}
             aria-label={`Close ${title}`}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-[#A09C94] transition-colors hover:bg-white/[0.08] hover:text-white"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-[#A09C94] transition-colors hover:bg-white/[0.08] hover:text-white cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="overflow-y-auto overscroll-contain px-5 py-4">{children}</div>
+        <div className="overflow-y-auto overscroll-contain modal-scrollable px-5 py-4 flex-1">{children}</div>
       </div>
     </div>,
     document.body
@@ -296,6 +328,7 @@ export default function Home() {
   const [acctName,     setAcctName]     = useState('');
   const [acctType,     setAcctType]     = useState<Account['type']>('checking');
   const [acctCurrency, setAcctCurrency] = useState('INR');
+  const [showMoreAcctCurrencies, setShowMoreAcctCurrencies] = useState(false);
 
   const [goalName,    setGoalName]    = useState('');
   const [goalTarget,  setGoalTarget]  = useState('');
@@ -1824,50 +1857,77 @@ export default function Home() {
               />
             </div>
 
-            {/* Account Type */}
-            <div>
-              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1.5 tracking-wider">
-                Account Type
-              </label>
-              <select
-                data-guide-target="account-type-select"
-                value={acctType}
-                onChange={e => setAcctType(e.target.value as 'checking' | 'savings' | 'credit' | 'cash')}
-                className={selectCls}
-              >
-                <option value="savings">Savings Account</option>
-                <option value="checking">Checking / Current Account</option>
-                <option value="credit">Credit Card</option>
-                <option value="cash">Cash / Physical Wallet</option>
-              </select>
-            </div>
-
-            {/* Currency Dropdown */}
+            {/* Currency Selection Pills (Original Design) */}
             <div>
               <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1.5 tracking-wider">
                 Currency
               </label>
-              <select
-                data-guide-target="account-currency-select"
-                value={acctCurrency}
-                onChange={e => {
-                  setAcctCurrency(e.target.value);
-                  if (typeof window !== 'undefined') {
-                    window.dispatchEvent(new CustomEvent('guide:currency-selected', { detail: e.target.value }));
-                  }
-                }}
-                className={selectCls}
-              >
-                <option value="INR">INR (₹) - Indian Rupee</option>
-                <option value="USD">USD ($) - US Dollar</option>
-                <option value="EUR">EUR (€) - Euro</option>
-                <option value="GBP">GBP (£) - British Pound</option>
-                <option value="AED">AED (د.إ) - UAE Dirham</option>
-                <option value="SGD">SGD (S$) - Singapore Dollar</option>
-                <option value="CAD">CAD (C$) - Canadian Dollar</option>
-                <option value="AUD">AUD (A$) - Australian Dollar</option>
-                <option value="JPY">JPY (¥) - Japanese Yen</option>
-              </select>
+              <div className="flex flex-wrap gap-2">
+                {POPULAR_CURRENCIES.map(c => {
+                  const isSelected = acctCurrency === c.code;
+                  return (
+                    <button
+                      key={c.code}
+                      type="button"
+                      data-guide-target={c.code === 'INR' ? 'currency-inr-btn' : undefined}
+                      onClick={() => {
+                        setAcctCurrency(c.code);
+                        if (typeof window !== 'undefined') {
+                          window.dispatchEvent(new CustomEvent('guide:currency-selected', { detail: c.code }));
+                        }
+                      }}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border relative ${
+                        isSelected
+                          ? 'bg-[#4A622F] text-white border-[#6B8A44] shadow-md shadow-[#4A622F]/30'
+                          : 'bg-[#141310] text-[#A09C94] hover:text-white border-[#2B2925] hover:border-[#4A622F]'
+                      }`}
+                    >
+                      <span>{c.label}</span>
+                    </button>
+                  );
+                })}
+
+                {/* + More Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowMoreAcctCurrencies(!showMoreAcctCurrencies)}
+                  className={`px-2.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center gap-1 ${
+                    showMoreAcctCurrencies
+                      ? 'bg-[#2B2925] text-white border-[#4A622F]'
+                      : 'bg-[#141310] text-[#8E8A82] hover:text-white border-[#2B2925]'
+                  }`}
+                  title="More currencies"
+                >
+                  <Plus className={`w-3.5 h-3.5 transition-transform ${showMoreAcctCurrencies ? 'rotate-45' : ''}`} />
+                  <span>{showMoreAcctCurrencies ? 'Less' : 'More'}</span>
+                </button>
+              </div>
+
+              {/* Expanded More Currencies Grid */}
+              {showMoreAcctCurrencies && (
+                <div className="p-2.5 mt-2 rounded-xl bg-[#141310] border border-[#2B2925] grid grid-cols-3 gap-1.5 animate-fade-in">
+                  {MORE_CURRENCIES.map(c => (
+                    <button
+                      key={c.code}
+                      type="button"
+                      onClick={() => {
+                        setAcctCurrency(c.code);
+                        setShowMoreAcctCurrencies(false);
+                        if (typeof window !== 'undefined') {
+                          window.dispatchEvent(new CustomEvent('guide:currency-selected', { detail: c.code }));
+                        }
+                      }}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-medium text-center transition-all cursor-pointer border ${
+                        acctCurrency === c.code
+                          ? 'bg-[#4A622F] text-white border-[#6B8A44]'
+                          : 'bg-[#1C1A16] text-[#A09C94] hover:text-white border-[#2E2C27]'
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3 pt-1">
@@ -1879,7 +1939,12 @@ export default function Home() {
               >
                 Cancel
               </SecondaryBtn>
-              <PrimaryBtn type="submit" data-guide-target="account-submit-btn" disabled={!acctName.trim()}>
+              <PrimaryBtn
+                type="submit"
+                data-guide-target="account-submit-btn"
+                disabled={!acctName.trim()}
+                className="flex-1"
+              >
                 Create Account
               </PrimaryBtn>
             </div>

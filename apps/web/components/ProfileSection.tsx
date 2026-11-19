@@ -213,47 +213,78 @@ function Modal({
   children: React.ReactNode;
 }) {
   const [mounted, setMounted] = useState(false);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
+  const [isGuideActive, setIsGuideActive] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    const checkGuide = () => {
+      setIsGuideActive(typeof document !== 'undefined' && document.body.hasAttribute('data-guide-step'));
+    };
+    checkGuide();
+
+    const obs = new MutationObserver(checkGuide);
+    obs.observe(document.body, { attributes: true, attributeFilter: ['data-guide-step'] });
+
     // Prevent background scrolling when modal is open
     const prevOverflow = document.body.style.overflow;
+    const prevTouchAction = document.body.style.touchAction;
     document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
     document.body.classList.add('modal-open');
+
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !document.body.hasAttribute('data-guide-step')) {
+        onCloseRef.current?.();
+      }
     };
     window.addEventListener('keydown', onKeyDown);
+
+    // Strictly block touch drag on background
+    const preventTouch = (e: TouchEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('.modal-scrollable')) return;
+      e.preventDefault();
+    };
+    window.addEventListener('touchmove', preventTouch, { passive: false });
+
     return () => {
       document.body.style.overflow = prevOverflow;
+      document.body.style.touchAction = prevTouchAction;
       document.body.classList.remove('modal-open');
       window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('touchmove', preventTouch);
+      obs.disconnect();
     };
-  }, [onClose]);
+  }, []);
 
   if (!mounted) return null;
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[10010] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in overflow-hidden"
-      onClick={onClose}
+      className="fixed inset-0 z-[10010] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in overflow-hidden touch-none select-none"
+      onClick={isGuideActive ? undefined : () => onCloseRef.current?.()}
     >
       <div
-        className="bg-[#1C1A16] border border-[#2F2C25] rounded-2xl w-full max-w-sm sm:max-w-md text-white shadow-2xl animate-scale-in flex flex-col max-h-[90dvh] overflow-hidden"
+        className="bg-[#1C1A16] border border-[#2F2C25] rounded-2xl w-full max-w-sm sm:max-w-md text-white shadow-2xl animate-scale-in flex flex-col max-h-[82dvh] overflow-hidden my-auto"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-[#282620] shrink-0">
           <h3 className="font-semibold text-sm sm:text-base text-white tracking-tight">{title}</h3>
           <button
-            onClick={onClose}
+            onClick={() => onCloseRef.current?.()}
             className="w-7 h-7 rounded-lg text-[#8E8A82] hover:text-white hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
         {/* Content body */}
-        <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain flex-1">
+        <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain modal-scrollable flex-1">
           {children}
         </div>
       </div>
@@ -516,6 +547,7 @@ export function ProfileSection() {
   const [newAccountName, setNewAccountName] = useState('');
   const [newAccountType, setNewAccountType] = useState<'checking' | 'savings' | 'credit' | 'cash'>('savings');
   const [newAccountCurrency, setNewAccountCurrency] = useState('INR');
+  const [showMoreCurrencies, setShowMoreCurrencies] = useState(false);
   const [showEditAccountModal, setShowEditAccountModal] = useState(false);
   const [editingAccountId, setEditingAccountId] = useState('');
   const [editingAccountName, setEditingAccountName] = useState('');
@@ -2591,50 +2623,77 @@ export function ProfileSection() {
               />
             </div>
 
-            {/* Account Type */}
-            <div>
-              <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1.5 tracking-wider">
-                Account Type
-              </label>
-              <select
-                data-guide-target="account-type-select"
-                value={newAccountType}
-                onChange={e => setNewAccountType(e.target.value as 'savings' | 'checking' | 'credit' | 'cash')}
-                className="w-full bg-[#12110E] border border-[#2B2925] focus:border-[#4A622F] rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none transition-all cursor-pointer"
-              >
-                <option value="savings">Savings Account</option>
-                <option value="checking">Checking / Current Account</option>
-                <option value="credit">Credit Card</option>
-                <option value="cash">Cash / Physical Wallet</option>
-              </select>
-            </div>
-
-            {/* Currency Dropdown */}
+            {/* Currency Selection Pills (Original Design) */}
             <div>
               <label className="block text-2xs font-semibold text-[#8E8A82] uppercase mb-1.5 tracking-wider">
                 Currency
               </label>
-              <select
-                data-guide-target="account-currency-select"
-                value={newAccountCurrency}
-                onChange={e => {
-                  setNewAccountCurrency(e.target.value);
-                  if (typeof window !== 'undefined') {
-                    window.dispatchEvent(new CustomEvent('guide:currency-selected', { detail: e.target.value }));
-                  }
-                }}
-                className="w-full bg-[#12110E] border border-[#2B2925] focus:border-[#4A622F] rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none transition-all cursor-pointer"
-              >
-                <option value="INR">INR (₹) - Indian Rupee</option>
-                <option value="USD">USD ($) - US Dollar</option>
-                <option value="EUR">EUR (€) - Euro</option>
-                <option value="GBP">GBP (£) - British Pound</option>
-                <option value="AED">AED (د.إ) - UAE Dirham</option>
-                <option value="SGD">SGD (S$) - Singapore Dollar</option>
-                <option value="CAD">CAD (C$) - Canadian Dollar</option>
-                <option value="AUD">AUD (A$) - Australian Dollar</option>
-                <option value="JPY">JPY (¥) - Japanese Yen</option>
-              </select>
+              <div className="flex flex-wrap gap-2">
+                {POPULAR_CURRENCIES.map(c => {
+                  const isSelected = newAccountCurrency === c.code;
+                  return (
+                    <button
+                      key={c.code}
+                      type="button"
+                      data-guide-target={c.code === 'INR' ? 'currency-inr-btn' : undefined}
+                      onClick={() => {
+                        setNewAccountCurrency(c.code);
+                        if (typeof window !== 'undefined') {
+                          window.dispatchEvent(new CustomEvent('guide:currency-selected', { detail: c.code }));
+                        }
+                      }}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border relative ${
+                        isSelected
+                          ? 'bg-[#4A622F] text-white border-[#6B8A44] shadow-md shadow-[#4A622F]/30'
+                          : 'bg-[#141310] text-[#A09C94] hover:text-white border-[#2B2925] hover:border-[#4A622F]'
+                      }`}
+                    >
+                      <span>{c.label}</span>
+                    </button>
+                  );
+                })}
+
+                {/* + More Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowMoreCurrencies(!showMoreCurrencies)}
+                  className={`px-2.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center gap-1 ${
+                    showMoreCurrencies
+                      ? 'bg-[#2B2925] text-white border-[#4A622F]'
+                      : 'bg-[#141310] text-[#8E8A82] hover:text-white border-[#2B2925]'
+                  }`}
+                  title="More currencies"
+                >
+                  <Plus className={`w-3.5 h-3.5 transition-transform ${showMoreCurrencies ? 'rotate-45' : ''}`} />
+                  <span>{showMoreCurrencies ? 'Less' : 'More'}</span>
+                </button>
+              </div>
+
+              {/* Expanded More Currencies Grid */}
+              {showMoreCurrencies && (
+                <div className="p-2.5 mt-2 rounded-xl bg-[#141310] border border-[#2B2925] grid grid-cols-3 gap-1.5 animate-fade-in">
+                  {MORE_CURRENCIES.map(c => (
+                    <button
+                      key={c.code}
+                      type="button"
+                      onClick={() => {
+                        setNewAccountCurrency(c.code);
+                        setShowMoreCurrencies(false);
+                        if (typeof window !== 'undefined') {
+                          window.dispatchEvent(new CustomEvent('guide:currency-selected', { detail: c.code }));
+                        }
+                      }}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-medium text-center transition-all cursor-pointer border ${
+                        newAccountCurrency === c.code
+                          ? 'bg-[#4A622F] text-white border-[#6B8A44]'
+                          : 'bg-[#1C1A16] text-[#A09C94] hover:text-white border-[#2E2C27]'
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Actions: Cancel & Create Account */}
@@ -2652,7 +2711,7 @@ export function ProfileSection() {
                 type="submit"
                 data-guide-target="account-submit-btn"
                 disabled={!newAccountName.trim()}
-                className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5 ${
+                className={`flex-1 py-3 rounded-xl font-bold text-xs transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5 ${
                   newAccountName.trim()
                     ? 'bg-[#4A622F] hover:bg-[#587437] text-white shadow-[#4A622F]/30'
                     : 'bg-[#201F1B] text-[#666] border border-[#2E2C27] cursor-not-allowed opacity-60'

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -11,7 +11,10 @@ import {
   Loader2,
   CreditCard,
   CheckCircle2,
-  Banknote
+  Banknote,
+  ArrowDown,
+  ArrowUp,
+  Plus
 } from 'lucide-react';
 import { authService } from '../app/store';
 
@@ -80,73 +83,198 @@ export function OnboardingFlow({
   // Only advance from Step 1 if the user explicitly created an account or clicked Next
   const [initialAccountsCount, setInitialAccountsCount] = useState<number | null>(null);
 
-  // Track live modal state for overlay guidance without polluting underlying modal markup
+  // Modal sub-step state for in-modal interactive pointer guidance
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalHasName, setModalHasName] = useState(false);
-  const [modalCurrencyConfirmed, setModalCurrencyConfirmed] = useState(false);
+  const [modalSubstep, setModalSubstep] = useState<'name' | 'currency' | 'submit'>('name');
 
+  // Track target element rect for spotlight and arrow callout
+  const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [tooltipHeight, setTooltipHeight] = useState(210);
+
+  // Measure tooltip actual rendered height dynamically
+  useEffect(() => {
+    if (tooltipRef.current) {
+      const h = tooltipRef.current.offsetHeight;
+      if (h > 50 && h !== tooltipHeight) {
+        setTooltipHeight(h);
+      }
+    }
+  });
+
+  // Reset modal substep whenever modal opens/closes
+  useEffect(() => {
+    if (!modalOpen) {
+      setModalSubstep('name');
+    }
+  }, [modalOpen]);
+
+  // Track whether user has typed anything into the account name input
+  const [hasTypedName, setHasTypedName] = useState(false);
+
+  useEffect(() => {
+    if (!modalOpen) {
+      setHasTypedName(false);
+      return;
+    }
+
+    const checkInput = () => {
+      const inputEl = document.querySelector('[data-guide-target="account-name-input"]') as HTMLInputElement | null;
+      setHasTypedName(!!inputEl && inputEl.value.trim().length > 0);
+    };
+
+    checkInput();
+    window.addEventListener('input', checkInput);
+    window.addEventListener('keyup', checkInput);
+    window.addEventListener('change', checkInput);
+
+    return () => {
+      window.removeEventListener('input', checkInput);
+      window.removeEventListener('keyup', checkInput);
+      window.removeEventListener('change', checkInput);
+    };
+  }, [modalOpen, modalSubstep]);
+
+  // Track whether user has chosen INR in currency substep
+  const [inrConfirmed, setInrConfirmed] = useState(false);
+
+  useEffect(() => {
+    const handleCurrency = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail === 'INR') {
+        setInrConfirmed(true);
+        setModalSubstep('submit');
+      }
+    };
+    window.addEventListener('guide:currency-selected', handleCurrency);
+    return () => window.removeEventListener('guide:currency-selected', handleCurrency);
+  }, []);
+
+  // Strict scroll lock when tour is active
+  useEffect(() => {
+    if (stage === 'live_guide') {
+      const prevOverflow = document.body.style.overflow;
+      const prevTouchAction = document.body.style.touchAction;
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+      document.body.classList.add('guide-no-scroll');
+
+      const preventScroll = (e: TouchEvent | WheelEvent) => {
+        const target = e.target as HTMLElement | null;
+        if (target && (target.closest('.onboarding-guide-hud') || target.closest('[role="dialog"]') || target.closest('.modal-scrollable'))) {
+          return;
+        }
+        e.preventDefault();
+      };
+
+      window.addEventListener('touchmove', preventScroll, { passive: false });
+      window.addEventListener('wheel', preventScroll, { passive: false });
+
+      return () => {
+        document.body.style.overflow = prevOverflow;
+        document.body.style.touchAction = prevTouchAction;
+        document.body.classList.remove('guide-no-scroll');
+        window.removeEventListener('touchmove', preventScroll);
+        window.removeEventListener('wheel', preventScroll);
+      };
+    }
+  }, [stage]);
+
+  // Track live modal state instantaneously via MutationObserver
   useEffect(() => {
     if (stage !== 'live_guide') return;
 
     const checkModal = () => {
       const isMOpen = document.body.classList.contains('modal-open');
       setModalOpen(isMOpen);
-      if (isMOpen) {
-        const nameInput = document.querySelector('[data-guide-target="account-name-input"]') as HTMLInputElement | null;
-        setModalHasName(Boolean(nameInput && nameInput.value.trim().length > 0));
-      } else {
-        setModalCurrencyConfirmed(false);
-      }
-    };
-
-    const handleCurrencyEvent = () => {
-      setModalCurrencyConfirmed(true);
     };
 
     checkModal();
     const obs = new MutationObserver(checkModal);
     obs.observe(document.body, { attributes: true, subtree: true, childList: true });
-    window.addEventListener('input', checkModal);
-    window.addEventListener('click', checkModal);
-    window.addEventListener('change', checkModal);
-    window.addEventListener('guide:currency-selected', handleCurrencyEvent);
 
-    return () => {
-      obs.disconnect();
-      window.removeEventListener('input', checkModal);
-      window.removeEventListener('click', checkModal);
-      window.removeEventListener('change', checkModal);
-      window.removeEventListener('guide:currency-selected', handleCurrencyEvent);
-    };
+    return () => obs.disconnect();
   }, [stage]);
 
-  // Set substep indicator for dynamic spotlight
+  // Set substep indicator on body for CSS spotlight
   useEffect(() => {
     if (stage === 'live_guide' && guideStep === 1 && modalOpen) {
-      if (!modalHasName) {
-        document.body.setAttribute('data-guide-substep', 'name');
-      } else if (!modalCurrencyConfirmed) {
-        document.body.setAttribute('data-guide-substep', 'currency');
-      } else {
-        document.body.setAttribute('data-guide-substep', 'submit');
-      }
+      document.body.setAttribute('data-guide-substep', modalSubstep);
     } else {
       document.body.removeAttribute('data-guide-substep');
     }
     return () => {
       document.body.removeAttribute('data-guide-substep');
     };
-  }, [stage, guideStep, modalOpen, modalHasName, modalCurrencyConfirmed]);
+  }, [stage, guideStep, modalOpen, modalSubstep]);
 
-  // Auto-scroll target into view so user never loses where to click or fill
+  // ZERO-DELAY target position tracker (Immediate synchronous + RAF + MutationObserver)
+  useEffect(() => {
+    if (stage !== 'live_guide') {
+      setTargetRect(null);
+      return;
+    }
+
+    const updateTargetRect = () => {
+      let selector: string | null = null;
+      if (guideStep === 1) {
+        if (modalOpen) {
+          if (modalSubstep === 'name') selector = '[data-guide-target="account-name-input"]';
+          else if (modalSubstep === 'currency') selector = '[data-guide-target="currency-inr-btn"]';
+          else selector = '[data-guide-target="account-submit-btn"]';
+        } else {
+          selector = '[data-guide-target="add-account"]';
+        }
+      } else if (guideStep === 2) {
+        selector = '[data-guide-target="create-category"]';
+      } else if (guideStep === 3) {
+        selector = '[data-guide-target="add-funds"]';
+      } else if (guideStep === 4) {
+        selector = '[data-guide-target="spend"]';
+      }
+
+      if (selector) {
+        const el = document.querySelector(selector);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            setTargetRect(rect);
+            return;
+          }
+        }
+      }
+      setTargetRect(null);
+    };
+
+    // Immediate calculation with 0 delay
+    updateTargetRect();
+    const rafId = requestAnimationFrame(updateTargetRect);
+
+    const obs = new MutationObserver(updateTargetRect);
+    obs.observe(document.body, { attributes: true, subtree: true, childList: true });
+    window.addEventListener('resize', updateTargetRect);
+    window.addEventListener('scroll', updateTargetRect, { capture: true });
+
+    const fastInterval = setInterval(updateTargetRect, 80);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      obs.disconnect();
+      clearInterval(fastInterval);
+      window.removeEventListener('resize', updateTargetRect);
+      window.removeEventListener('scroll', updateTargetRect, { capture: true });
+    };
+  }, [stage, guideStep, modalOpen, modalSubstep]);
+
+  // Smooth scroll target into view immediately when it changes
   useEffect(() => {
     if (stage !== 'live_guide') return;
 
     let targetSelector: string | null = null;
     if (guideStep === 1) {
       if (modalOpen) {
-        if (!modalHasName) targetSelector = '[data-guide-target="account-name-input"]';
-        else if (!modalCurrencyConfirmed) targetSelector = '[data-guide-target="account-currency-select"]';
+        if (modalSubstep === 'name') targetSelector = '[data-guide-target="account-name-input"]';
+        else if (modalSubstep === 'currency') targetSelector = '[data-guide-target="currency-inr-btn"]';
         else targetSelector = '[data-guide-target="account-submit-btn"]';
       } else {
         targetSelector = '[data-guide-target="add-account"]';
@@ -160,15 +288,12 @@ export function OnboardingFlow({
     }
 
     if (targetSelector) {
-      const timer = setTimeout(() => {
-        const el = document.querySelector(targetSelector!);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 250);
-      return () => clearTimeout(timer);
+      const el = document.querySelector(targetSelector);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     }
-  }, [stage, guideStep, modalOpen, modalHasName, modalCurrencyConfirmed]);
+  }, [stage, guideStep, modalOpen, modalSubstep]);
 
   useEffect(() => {
     if (stage === 'live_guide' && initialAccountsCount === null) {
@@ -270,7 +395,7 @@ export function OnboardingFlow({
 
   return (
     <>
-      {/* ── 1. CLEAN MINIMALIST ENTRY MODAL ── */}
+      {/* â”€â”€ 1. CLEAN MINIMALIST ENTRY MODAL â”€â”€ */}
       {stage === 'welcome' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-2xl animate-fade-in">
           {/* Subtle ambient lighting */}
@@ -338,241 +463,399 @@ export function OnboardingFlow({
         </div>
       )}
 
-      {/* ── 2. REAL GUIDED TOUR: FLOATING TOP OVERLAY (NEVER COVERS BUTTONS) ── */}
+      {/* ── 2. REAL GUIDED TOUR: SLEEK SINGLE COACHMARK TOOLTIP (DTUNES STYLE) ── */}
       {stage === 'live_guide' && (
-        <div className="onboarding-guide-hud fixed top-3 left-3 right-3 sm:top-5 sm:left-auto sm:right-6 sm:max-w-md z-[10002] animate-fade-down">
-          <div className="bg-[#181714]/95 backdrop-blur-2xl border border-[#4A622F]/40 rounded-2xl p-3.5 sm:p-4 shadow-[0_20px_50px_rgba(0,0,0,0.85)] text-white space-y-2.5 relative">
-            
-            {/* Top Bar with Step Progress & Skip */}
-            <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5">
-                  {[1, 2, 3, 4].map(step => (
-                    <div
-                      key={step}
-                      className={`h-1.5 rounded-full transition-all duration-300 ${
-                        step === guideStep
-                          ? 'w-7 bg-[#A8E063]'
-                          : step < guideStep
-                          ? 'w-3 bg-[#4A622F]'
-                          : 'w-3 bg-white/10'
-                      }`}
+        <>
+          {/* Full-screen Darkening Backdrop with SVG Spotlight Cutout */}
+          <svg
+            className="fixed inset-0 z-[10000] w-full h-full pointer-events-auto"
+            style={{ width: '100vw', height: '100vh' }}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+            }}
+          >
+            <defs>
+              <mask id="guide-spotlight-mask">
+                {/* Everything white is covered by the dark overlay */}
+                <rect width="100%" height="100%" fill="white" />
+                {/* Target cutout in black cuts a 100% transparent spotlight window */}
+                {targetRect && (
+                  <rect
+                    x={targetRect.left - 4}
+                    y={targetRect.top - 4}
+                    width={targetRect.width + 8}
+                    height={targetRect.height + 8}
+                    rx={14}
+                    ry={14}
+                    fill="black"
+                  />
+                )}
+              </mask>
+            </defs>
+            {/* Dark scrim with the cutout hole */}
+            <rect
+              width="100%"
+              height="100%"
+              fill="rgba(0, 0, 0, 0.82)"
+              mask="url(#guide-spotlight-mask)"
+            />
+            {/* Dashed green highlight ring around cutout */}
+            {targetRect && (
+              <rect
+                x={targetRect.left - 4}
+                y={targetRect.top - 4}
+                width={targetRect.width + 8}
+                height={targetRect.height + 8}
+                rx={14}
+                ry={14}
+                fill="none"
+                stroke="#A8E063"
+                strokeWidth={2}
+                strokeDasharray="6,4"
+              />
+            )}
+          </svg>
+
+          {/* Transparent click catcher over target */}
+          {!modalOpen && targetRect && (
+            <div
+              style={{
+                position: 'fixed',
+                top: `${targetRect.top}px`,
+                left: `${targetRect.left}px`,
+                width: `${targetRect.width}px`,
+                height: `${targetRect.height}px`,
+                zIndex: 10005,
+                cursor: 'pointer'
+              }}
+              onClick={() => {
+                let selector = '[data-guide-target="add-account"]';
+                if (guideStep === 2) selector = '[data-guide-target="create-category"]';
+                else if (guideStep === 3) selector = '[data-guide-target="add-funds"]';
+                else if (guideStep === 4) selector = '[data-guide-target="spend"]';
+                const el = document.querySelector(selector) as HTMLElement | null;
+                if (el) el.click();
+              }}
+              aria-label="Click highlighted target"
+            />
+          )}
+
+          {/* ONE Unified Coachmark Tooltip Bubble (Dtunes / FinX Style) */}
+          {(() => {
+            const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 390;
+            const windowHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
+            const tooltipWidth = Math.min(290, windowWidth - 32);
+
+            const spaceBelow = targetRect ? windowHeight - targetRect.bottom : windowHeight;
+            const spaceAbove = targetRect ? targetRect.top : 0;
+            // If there is an input (e.g. Account Name input), keep on top so mobile keyboard never covers it!
+            const isInputTarget = modalOpen && modalSubstep === 'name';
+            const placeAtBottom = !isInputTarget && (spaceBelow >= 160 || spaceBelow >= spaceAbove);
+
+            const targetCenterX = targetRect ? targetRect.left + targetRect.width / 2 : windowWidth / 2;
+
+            // Determine left/right corner: if target is on left, place box in corner; otherwise opposite
+            const cardLeft = targetCenterX < windowWidth * 0.45
+              ? Math.max(16, windowWidth - tooltipWidth - 16)
+              : 16;
+
+            const cardTop = placeAtBottom
+              ? windowHeight - 24 - tooltipHeight
+              : 36;
+
+            // Curved arrow geometry:
+            // Start at top of card (if card is at bottom) or bottom of card (if card is at top)
+            const arrowStartX = cardLeft + (targetCenterX > cardLeft + tooltipWidth / 2 ? tooltipWidth * 0.75 : tooltipWidth * 0.35);
+            const arrowStartY = placeAtBottom ? cardTop : cardTop + tooltipHeight;
+
+            // Arrow endpoint: strictly stops 14px away from target button/input so tip NEVER touches the button!
+            const arrowEndX = targetCenterX;
+            const arrowEndY = placeAtBottom
+              ? (targetRect ? targetRect.bottom + 14 : cardTop - 30)
+              : (targetRect ? targetRect.top - 14 : cardTop + tooltipHeight + 30);
+
+            const deltaX = arrowEndX - arrowStartX;
+            const deltaY = arrowEndY - arrowStartY;
+
+            // Natural smooth Bézier swoop
+            const cp1X = arrowStartX + deltaX * 0.05;
+            const cp1Y = arrowStartY + (placeAtBottom ? -Math.abs(deltaY) * 0.55 : Math.abs(deltaY) * 0.55);
+            const cp2X = arrowEndX - deltaX * 0.15;
+            const cp2Y = arrowEndY + (placeAtBottom ? Math.abs(deltaY) * 0.35 : -Math.abs(deltaY) * 0.35);
+
+            const curvePath = `M ${arrowStartX} ${arrowStartY} C ${cp1X} ${cp1Y}, ${cp2X} ${cp2Y}, ${arrowEndX} ${arrowEndY}`;
+
+            return (
+              <>
+                {/* Full-screen SVG for elegant curved arrow */}
+                {targetRect && (
+                  <svg
+                    className="fixed inset-0 pointer-events-none"
+                    style={{ width: '100vw', height: '100vh', zIndex: modalOpen ? 10025 : 10008 }}
+                  >
+                    <defs>
+                      <marker
+                        id="guide-curved-arrowhead"
+                        markerWidth="9"
+                        markerHeight="9"
+                        refX="5"
+                        refY="4.5"
+                        orient="auto"
+                      >
+                        <path d="M1,1.5 L7.5,4.5 L1,7.5 Z" fill="#A8E063" />
+                      </marker>
+                    </defs>
+                    <path
+                      d={curvePath}
+                      fill="none"
+                      stroke="#A8E063"
+                      strokeWidth={2.5}
+                      strokeDasharray="6 4"
+                      strokeLinecap="round"
+                      markerEnd="url(#guide-curved-arrowhead)"
                     />
-                  ))}
-                </div>
-                <span className="text-2xs font-bold text-[#A8E063] uppercase tracking-wider ml-1">
-                  Tour · Step {guideStep} of 4
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={finishOnboarding}
-                className="text-xs text-[#8E8A82] hover:text-white flex items-center gap-1 px-2 py-0.5 rounded-lg hover:bg-white/[0.06] transition-colors cursor-pointer"
-              >
-                <span>Skip</span>
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {/* ── Step 1: Real Account Creation ── */}
-            {guideStep === 1 && (
-              <div className="space-y-2 animate-fade-up">
-                <div className="flex items-center gap-2 text-white font-bold text-xs sm:text-sm">
-                  <div className="w-6 h-6 rounded-lg bg-[#4A622F]/30 border border-[#587437]/40 flex items-center justify-center text-[#A8E063] shrink-0">
-                    <Wallet className="w-3.5 h-3.5" />
-                  </div>
-                  <span>1. Add Your Account</span>
-                </div>
-                
-                {modalOpen ? (
-                  <div className="p-2.5 rounded-xl bg-[#232F1A] border border-[#3E5227] text-white space-y-1">
-                    <p className="text-xs font-semibold text-[#A8E063]">
-                      {!modalHasName
-                        ? '👇 Step 1: Type an account name (e.g. Cash Wallet or HDFC Bank)'
-                        : !modalCurrencyConfirmed
-                        ? '👇 Step 2: Click the Currency dropdown and select INR (₹)'
-                        : '✨ Step 3: All set! Tap "Create Account" below to continue.'}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-xs text-[#D1CECA] leading-relaxed">
-                    👇 Tap the glowing <strong className="text-[#A8E063]">+ Add Account</strong> button below to connect your primary bank, cash, or UPI balance.
-                  </p>
+                  </svg>
                 )}
 
-                <div className="pt-0.5 flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={finishOnboarding}
-                    className="py-1.5 px-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs text-[#8E8A82] hover:text-white cursor-pointer"
-                  >
-                    Skip Tour
-                  </button>
-                  {initialAccountsCount !== null && accountsCount > initialAccountsCount ? (
-                    <button
-                      type="button"
-                      onClick={() => setGuideStep(2)}
-                      className="py-1.5 px-3.5 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-[#4A622F]/30 cursor-pointer transition-all active:scale-[0.98]"
-                    >
-                      <span>Next: Categories →</span>
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled
-                      title="Add an account first to proceed to categories"
-                      className="py-1.5 px-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-[#7A7770] text-xs font-semibold flex items-center justify-center gap-1.5 cursor-not-allowed opacity-60"
-                    >
-                      <span>Add account first</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* ── Step 2: What Categories Do (Clear Use Cases) ── */}
-            {guideStep === 2 && (
-              <div className="space-y-2 animate-fade-up">
-                <div className="flex items-center gap-2 text-white font-bold text-xs sm:text-sm">
-                  <div className="w-6 h-6 rounded-lg bg-[#4A622F]/30 border border-[#587437]/40 flex items-center justify-center text-[#A8E063] shrink-0">
-                    <FolderTree className="w-3.5 h-3.5" />
-                  </div>
-                  <span>2. Your Budget Categories</span>
-                </div>
-                <p className="text-xs text-[#D1CECA] leading-relaxed">
-                  Divide your balance into 3 clear use cases so you always know where to spend:
-                </p>
-                <div className="text-[11px] bg-white/[0.03] border border-white/[0.08] rounded-xl p-2 space-y-1 text-[#D1CECA]">
-                  <p><strong className="text-[#A8E063]">Needs (50%)</strong>: Rent, groceries &amp; bills</p>
-                  <p><strong className="text-[#60A5FA]">Wants (30%)</strong>: Dining, shopping &amp; fun</p>
-                  <p><strong className="text-[#FBBF24]">Savings (20%)</strong>: Emergency &amp; future wealth</p>
-                </div>
-                <div className="pt-0.5 flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setGuideStep(1)}
-                    className="py-1.5 px-2.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs text-[#8E8A82] hover:text-white cursor-pointer"
-                  >
-                    ← Back
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (categoriesCount === 0 && onApplyStarterCategories) {
-                        await onApplyStarterCategories();
-                      }
-                      setGuideStep(3);
-                    }}
-                    className="py-1.5 px-3.5 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-[#4A622F]/30 cursor-pointer transition-all active:scale-[0.98]"
-                  >
-                    <span>Apply 50/30/20 & Next →</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* ── Step 3: Add Funds (Salary vs Fixed) ── */}
-            {guideStep === 3 && (
-              <div className="space-y-2 animate-fade-up">
-                <div className="flex items-center gap-2 text-white font-bold text-xs sm:text-sm">
-                  <div className="w-6 h-6 rounded-lg bg-[#4A622F]/30 border border-[#587437]/40 flex items-center justify-center text-[#A8E063] shrink-0">
-                    <Banknote className="w-3.5 h-3.5" />
-                  </div>
-                  <span>3. Add Funds (Salary vs Fixed)</span>
-                </div>
-                
-                {modalOpen ? (
-                  <div className="p-2.5 rounded-xl bg-[#232F1A] border border-[#3E5227] text-white space-y-1">
-                    <p className="text-xs font-semibold text-[#A8E063]">
-                      💡 Keep &quot;Regular / Salary&quot; selected, tap &quot;+ ₹50,000&quot;, and tap Deposit to see your 50/30/20 auto-split!
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-xs text-[#D1CECA] leading-relaxed">
-                      Deposit money into your account in 2 smart ways:
-                    </p>
-                    <div className="text-[11px] bg-white/[0.03] border border-white/[0.08] rounded-xl p-2 space-y-1 text-[#D1CECA]">
-                      <p>
-                        <strong className="text-[#A8E063]">Regular / Salary</strong>: Auto-splits into 50/30/20 across your categories!
-                      </p>
-                      <p>
-                        <strong className="text-white">One-Time / Fixed</strong>: Puts funds directly into one category.
-                      </p>
+                {/* Card Container in Bottom Corner */}
+                <div
+                  ref={tooltipRef}
+                  style={{
+                    position: 'fixed',
+                    left: `${cardLeft}px`,
+                    ...(placeAtBottom ? { bottom: '24px' } : { top: `${cardTop}px` }),
+                    zIndex: modalOpen ? 10030 : 10006
+                  }}
+                  className="w-[280px] sm:w-[290px] onboarding-guide-card animate-fade-in select-none relative"
+                >
+                  {/* Tooltip Card (shadow-none so no shadow interferes with highlighted target) */}
+                  <div className="bg-[#181C15] border border-[#3E5227] rounded-[20px] p-4 shadow-none text-white space-y-3">
+                    {/* Header: Step counter + Skip All */}
+                    <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
+                      <span className="text-[11px] font-bold text-[#A8E063] tracking-wider uppercase bg-[#23301B] px-2.5 py-0.5 rounded-full border border-[#3A4E2A]">
+                        {modalOpen ? `Step 1 • ${modalSubstep === 'name' ? '1/3' : modalSubstep === 'currency' ? '2/3' : '3/3'}` : `${guideStep} of 4`}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={finishOnboarding}
+                        className="text-xs font-semibold text-[#8E8A82] hover:text-white px-2 py-0.5 rounded-md hover:bg-white/10 transition-colors cursor-pointer"
+                      >
+                        Skip All
+                      </button>
                     </div>
-                    <p className="text-2xs text-[#A8E063]">
-                      👇 Tap glowing <strong>+ Add Funds</strong> below to deposit a sample salary (e.g. ₹50,000)!
-                    </p>
-                  </>
-                )}
 
-                <div className="pt-0.5 flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setGuideStep(2)}
-                    className="py-1.5 px-2.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs text-[#8E8A82] hover:text-white cursor-pointer"
-                  >
-                    ← Back
-                  </button>
-                  {totalBalanceRupees > 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => setGuideStep(4)}
-                      className="py-1.5 px-3.5 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-[#4A622F]/30 cursor-pointer transition-all active:scale-[0.98]"
-                    >
-                      <span>Next: How to Spend →</span>
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled
-                      title="Deposit a sample salary first to see categories funded"
-                      className="py-1.5 px-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-[#7A7770] text-xs font-semibold flex items-center justify-center gap-1.5 cursor-not-allowed opacity-60"
-                    >
-                      <span>Deposit salary first</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
+                    {/* Body Content based on Step */}
+                    {guideStep === 1 && !modalOpen && (
+                      <div className="space-y-1.5">
+                        <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
+                          <Wallet className="w-4 h-4 text-[#A8E063]" />
+                          <span>Create Your First Account</span>
+                        </h4>
+                        <p className="text-xs text-[#C5C8C0] leading-relaxed">
+                          This is your manual vault. Here are some examples to name your account: Bank Name, Cash, or Savings.
+                        </p>
+                        <p className="text-2xs text-[#A8E063] font-medium pt-0.5">
+                          👇 Tap &ldquo;+ Add Account&rdquo; below to start.
+                        </p>
+                      </div>
+                    )}
 
-            {/* ── Step 4: How to Spend Money & Smart Borrowing ── */}
-            {guideStep === 4 && (
-              <div className="space-y-2 animate-fade-up">
-                <div className="flex items-center gap-2 text-white font-bold text-xs sm:text-sm">
-                  <div className="w-6 h-6 rounded-lg bg-[#4A622F]/30 border border-[#587437]/40 flex items-center justify-center text-[#A8E063] shrink-0">
-                    <CreditCard className="w-3.5 h-3.5" />
+                    {/* Step 1 Inside Modal: Substep 1 - Name */}
+                    {guideStep === 1 && modalOpen && modalSubstep === 'name' && (
+                      <div className="space-y-2">
+                        <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
+                          <Wallet className="w-4 h-4 text-[#A8E063]" />
+                          <span>Name Your Account</span>
+                        </h4>
+                        <p className="text-xs text-[#C5C8C0] leading-relaxed">
+                          Type any name you want to track your money. Here are some examples: Bank Name, Cash, or Wallet.
+                        </p>
+                        <div className="pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (hasTypedName) setModalSubstep('currency');
+                            }}
+                            disabled={!hasTypedName}
+                            className={`w-full py-2 rounded-xl text-xs font-bold transition-all shadow-md text-center flex items-center justify-center gap-1 ${
+                              hasTypedName
+                                ? 'bg-[#4A622F] hover:bg-[#587437] text-white cursor-pointer shadow-[#4A622F]/30'
+                                : 'bg-[#252822] text-[#6A6E64] opacity-50 cursor-not-allowed border border-white/[0.06]'
+                            }`}
+                          >
+                            <span>Next</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Step 1 Inside Modal: Substep 2 - Currency */}
+                    {guideStep === 1 && modalOpen && modalSubstep === 'currency' && (
+                      <div className="space-y-2">
+                        <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
+                          <Banknote className="w-4 h-4 text-[#A8E063]" />
+                          <span>Choose Currency</span>
+                        </h4>
+                        <p className="text-xs text-[#C5C8C0] leading-relaxed">
+                          Tap INR (₹) below to set Indian Rupee. You need to choose INR to continue.
+                        </p>
+                        <div className="pt-1 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setModalSubstep('name')}
+                            className="py-1.5 px-3 rounded-xl bg-white/[0.05] text-xs text-[#8E8A82] hover:text-white cursor-pointer"
+                          >
+                            ← Back
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (inrConfirmed) setModalSubstep('submit');
+                            }}
+                            disabled={!inrConfirmed}
+                            className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all shadow-md text-center flex items-center justify-center gap-1 ${
+                              inrConfirmed
+                                ? 'bg-[#4A622F] hover:bg-[#587437] text-white cursor-pointer shadow-[#4A622F]/30'
+                                : 'bg-[#252822] text-[#6A6E64] opacity-50 cursor-not-allowed border border-white/[0.06]'
+                            }`}
+                          >
+                            <span>Next</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Step 1 Inside Modal: Substep 3 - Submit */}
+                    {guideStep === 1 && modalOpen && modalSubstep === 'submit' && (
+                      <div className="space-y-2">
+                        <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-[#A8E063]" />
+                          <span>Save Account</span>
+                        </h4>
+                        <p className="text-xs text-[#C5C8C0] leading-relaxed">
+                          Click Create Account below to save this account into your vault.
+                        </p>
+                        <div className="pt-1 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setModalSubstep('currency')}
+                            className="py-1.5 px-3 rounded-xl bg-white/[0.05] text-xs text-[#8E8A82] hover:text-white cursor-pointer"
+                          >
+                            ← Back
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const btn = document.querySelector('[data-guide-target="account-submit-btn"]') as HTMLButtonElement | null;
+                              if (btn) btn.click();
+                            }}
+                            className="flex-1 py-2 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold transition-all shadow-md cursor-pointer text-center"
+                          >
+                            Create Account ✓
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {guideStep === 2 && (
+                      <div className="space-y-2">
+                        <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
+                          <FolderTree className="w-4 h-4 text-[#A8E063]" />
+                          <span>Set Your Categories</span>
+                        </h4>
+                        <p className="text-xs text-[#C5C8C0] leading-relaxed">
+                          Split your money into 3 simple buckets: Needs (50%), Wants (30%), and Savings (20%).
+                        </p>
+                        <div className="pt-1 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setGuideStep(1)}
+                            className="py-1.5 px-3 rounded-xl bg-white/[0.05] text-xs text-[#8E8A82] hover:text-white cursor-pointer"
+                          >
+                            ← Back
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (categoriesCount === 0 && onApplyStarterCategories) {
+                                await onApplyStarterCategories();
+                              }
+                              setGuideStep(3);
+                            }}
+                            className="flex-1 py-2 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold transition-all cursor-pointer text-center"
+                          >
+                            Apply 50/30/20 & Next →
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {guideStep === 3 && (
+                      <div className="space-y-2">
+                        <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
+                          <Banknote className="w-4 h-4 text-[#A8E063]" />
+                          <span>Add Your Funds</span>
+                        </h4>
+                        <p className="text-xs text-[#C5C8C0] leading-relaxed">
+                          Enter your starting balance or salary manually. Richingness will divide it across your buckets.
+                        </p>
+                        <div className="pt-1 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setGuideStep(2)}
+                            className="py-1.5 px-3 rounded-xl bg-white/[0.05] text-xs text-[#8E8A82] hover:text-white cursor-pointer"
+                          >
+                            ← Back
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setGuideStep(4)}
+                            className="flex-1 py-2 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold transition-all cursor-pointer text-center"
+                          >
+                            Next: Spending →
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {guideStep === 4 && (
+                      <div className="space-y-2">
+                        <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
+                          <CreditCard className="w-4 h-4 text-[#A8E063]" />
+                          <span>Track Your Spending</span>
+                        </h4>
+                        <p className="text-xs text-[#C5C8C0] leading-relaxed">
+                          Log daily expenses as you spend. If a category runs out, it borrows from Wants to keep Savings safe.
+                        </p>
+                        <div className="pt-1 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setGuideStep(3)}
+                            className="py-1.5 px-3 rounded-xl bg-white/[0.05] text-xs text-[#8E8A82] hover:text-white cursor-pointer"
+                          >
+                            ← Back
+                          </button>
+                          <button
+                            type="button"
+                            onClick={finishOnboarding}
+                            className="flex-1 py-2 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold transition-all shadow-md cursor-pointer text-center"
+                          >
+                            Start Budgeting! 🚀
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <span>4. Spend &amp; Smart Protection</span>
                 </div>
-                <p className="text-xs text-[#D1CECA] leading-relaxed">
-                  👇 Tap the glowing <strong className="text-[#A8E063]">+ Spend</strong> button on any category below when you buy something. If a category runs out, Richingness automatically borrows from Wants so your Savings are never touched!
-                </p>
-                <div className="pt-0.5 flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setGuideStep(3)}
-                    className="py-1.5 px-2.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs text-[#8E8A82] hover:text-white cursor-pointer"
-                  >
-                    ← Back
-                  </button>
-                  <button
-                    type="button"
-                    onClick={finishOnboarding}
-                    className="py-1.5 px-3.5 rounded-xl bg-gradient-to-r from-[#4A622F] to-[#587437] hover:from-[#587437] hover:to-[#6B8D43] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-[#4A622F]/30 cursor-pointer transition-all active:scale-[0.98]"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#A8E063]" />
-                    <span>Got It, Start Budgeting! 🚀</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-          </div>
-        </div>
+              </>
+            );
+          })()}
+        </>
       )}
-
-      {/* ── 3. CLEAN SIGN IN MODAL ── */}
+      {/* â”€â”€ 3. CLEAN SIGN IN MODAL â”€â”€ */}
       {stage === 'login_modal' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-2xl animate-fade-in">
           <div className="relative w-full max-w-sm bg-gradient-to-b from-[#1C1A16] to-[#12110E] border border-white/10 rounded-[32px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85)] p-6 sm:p-7 space-y-4 animate-scale-in text-white">
