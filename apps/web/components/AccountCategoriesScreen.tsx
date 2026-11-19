@@ -1889,8 +1889,18 @@ export function AccountCategoriesScreen({
               <div className="flex items-center justify-between border-b border-[#27351F] pb-3">
                 <h3 className="font-bold text-sm text-white">Add New Account</h3>
                 <button
-                  onClick={() => setShowAddAccountModal(false)}
-                  className="w-7 h-7 rounded-lg text-[#888] hover:text-white hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer"
+                  type="button"
+                  disabled={typeof document !== 'undefined' && document.body.hasAttribute('data-guide-step')}
+                  aria-disabled={typeof document !== 'undefined' && document.body.hasAttribute('data-guide-step')}
+                  onClick={() => {
+                    if (typeof document !== 'undefined' && document.body.hasAttribute('data-guide-step')) return;
+                    setShowAddAccountModal(false);
+                  }}
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors modal-header-close-btn ${
+                    typeof document !== 'undefined' && document.body.hasAttribute('data-guide-step')
+                      ? 'opacity-20 cursor-not-allowed pointer-events-none text-[#555]'
+                      : 'text-[#888] hover:text-white hover:bg-white/10 cursor-pointer'
+                  }`}
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1914,8 +1924,16 @@ export function AccountCategoriesScreen({
             <div className="flex gap-2 p-4 bg-[#141A10] border-t border-[#232F1B] shrink-0">
               <button
                 type="button"
-                onClick={() => setShowAddAccountModal(false)}
-                className="flex-1 py-2.5 rounded-xl bg-[#20271A] hover:bg-[#283221] text-xs font-semibold text-[#888] hover:text-white cursor-pointer transition-colors"
+                disabled={typeof document !== 'undefined' && document.body.hasAttribute('data-guide-step')}
+                onClick={() => {
+                  if (typeof document !== 'undefined' && document.body.hasAttribute('data-guide-step')) return;
+                  setShowAddAccountModal(false);
+                }}
+                className={`flex-1 py-2.5 rounded-xl border text-xs font-semibold transition-colors ${
+                  typeof document !== 'undefined' && document.body.hasAttribute('data-guide-step')
+                    ? 'bg-[#181E13] border-[#222A1B] text-[#555] cursor-not-allowed pointer-events-none'
+                    : 'bg-[#20271A] hover:bg-[#283221] border-transparent text-[#888] hover:text-white cursor-pointer'
+                }`}
               >
                 Cancel
               </button>

@@ -573,6 +573,12 @@ body[data-guide-step="4"]:not(.modal-open) [data-guide-target="spend"] {
 }
 
 /* STRICT FOCUS ENFORCEMENT: Dim & disable inactive modal elements specifically */
+body[data-guide-step] .modal-header-close-btn {
+  pointer-events: none !important;
+  opacity: 0.2 !important;
+  cursor: not-allowed !important;
+}
+
 body[data-guide-substep="name"] .modal-scrollable select,
 body[data-guide-substep="name"] .modal-scrollable button,
 body[data-guide-substep="name"] .modal-header-close-btn,

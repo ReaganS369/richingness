@@ -277,8 +277,15 @@ function Modal({
         <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-[#282620] shrink-0">
           <h3 className="font-semibold text-sm sm:text-base text-white tracking-tight">{title}</h3>
           <button
-            onClick={() => onCloseRef.current?.()}
-            className="w-7 h-7 rounded-lg text-[#8E8A82] hover:text-white hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer"
+            type="button"
+            disabled={isGuideActive}
+            aria-disabled={isGuideActive}
+            onClick={isGuideActive ? undefined : () => onCloseRef.current?.()}
+            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors modal-header-close-btn ${
+              isGuideActive
+                ? 'opacity-20 cursor-not-allowed pointer-events-none text-[#555]'
+                : 'text-[#8E8A82] hover:text-white hover:bg-white/10 cursor-pointer'
+            }`}
           >
             <X className="w-4 h-4" />
           </button>
@@ -2578,6 +2585,7 @@ export function ProfileSection() {
         <Modal
           title="Add New Account"
           onClose={() => {
+            if (typeof document !== 'undefined' && document.body.hasAttribute('data-guide-step')) return;
             if (newAccountName.trim() !== '') {
               setUnsavedWarning({
                 isOpen: true,
@@ -2700,10 +2708,16 @@ export function ProfileSection() {
             <div className="pt-2 flex gap-2">
               <button
                 type="button"
+                disabled={typeof document !== 'undefined' && document.body.hasAttribute('data-guide-step')}
                 onClick={() => {
+                  if (typeof document !== 'undefined' && document.body.hasAttribute('data-guide-step')) return;
                   setShowAddAccountModal(false);
                 }}
-                className="flex-1 py-2.5 rounded-xl bg-[#201F1B] hover:bg-[#2B2924] border border-[#2E2C27] text-[#888] hover:text-white font-semibold text-xs transition-all cursor-pointer"
+                className={`flex-1 py-2.5 rounded-xl border font-semibold text-xs transition-all ${
+                  typeof document !== 'undefined' && document.body.hasAttribute('data-guide-step')
+                    ? 'bg-[#171613] border-[#22201C] text-[#555] cursor-not-allowed pointer-events-none'
+                    : 'bg-[#201F1B] hover:bg-[#2B2924] border-[#2E2C27] text-[#888] hover:text-white cursor-pointer'
+                }`}
               >
                 Cancel
               </button>

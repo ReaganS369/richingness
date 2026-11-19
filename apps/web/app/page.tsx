@@ -220,9 +220,15 @@ function Modal({ title, onClose, children, icon }: {
           </div>
           <button
             type="button"
-            onClick={() => onCloseRef.current?.()}
+            disabled={isGuideActive}
+            aria-disabled={isGuideActive}
+            onClick={isGuideActive ? undefined : () => onCloseRef.current?.()}
             aria-label={`Close ${title}`}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-[#A09C94] transition-colors hover:bg-white/[0.08] hover:text-white cursor-pointer"
+            className={`flex min-h-11 min-w-11 items-center justify-center rounded-lg transition-colors modal-header-close-btn ${
+              isGuideActive
+                ? 'opacity-20 cursor-not-allowed pointer-events-none text-[#555]'
+                : 'text-[#A09C94] hover:bg-white/[0.08] hover:text-white cursor-pointer'
+            }`}
           >
             <X className="w-4 h-4" />
           </button>
