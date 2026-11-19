@@ -53,7 +53,22 @@ export function OnboardingFlow({
   onNavigateTab
 }: OnboardingFlowProps) {
   const [stage, setStage] = useState<OnboardingStage>('loading');
-  const [guideStep, setGuideStep] = useState<number>(1);
+  const [guideStep, setGuideStep] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('richingness_tour_step');
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (parsed >= 1 && parsed <= 4) return parsed;
+      }
+    }
+    return accountsCount > 0 ? 2 : 1;
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('richingness_tour_step', String(guideStep));
+    }
+  }, [guideStep]);
 
   // Auth form states
   const [authEmail, setAuthEmail] = useState('');
@@ -72,7 +87,7 @@ export function OnboardingFlow({
     }
 
     const handleReplay = () => {
-      setGuideStep(1);
+      setGuideStep(accountsCount > 0 ? 2 : 1);
       setStage('live_guide');
     };
 
@@ -103,24 +118,33 @@ export function OnboardingFlow({
   });
 
   // Reset modal substep whenever modal opens/closes
+  const [categoryModalSubstep, setCategoryModalSubstep] = useState<'name' | 'submit'>('name');
+  const [hasTypedCategory, setHasTypedCategory] = useState(false);
+
   useEffect(() => {
     if (!modalOpen) {
       setModalSubstep('name');
+      setCategoryModalSubstep('name');
+      setHasTypedCategory(false);
     }
   }, [modalOpen]);
 
-  // Track whether user has typed anything into the account name input
+  // Track whether user has typed anything into the account name input or category name input
   const [hasTypedName, setHasTypedName] = useState(false);
 
   useEffect(() => {
     if (!modalOpen) {
       setHasTypedName(false);
+      setHasTypedCategory(false);
       return;
     }
 
     const checkInput = () => {
       const inputEl = document.querySelector('[data-guide-target="account-name-input"]') as HTMLInputElement | null;
       setHasTypedName(!!inputEl && inputEl.value.trim().length > 0);
+
+      const catInputEl = document.querySelector('[data-guide-target="category-name-input"]') as HTMLInputElement | null;
+      setHasTypedCategory(!!catInputEl && catInputEl.value.trim().length > 0);
     };
 
     checkInput();
@@ -133,7 +157,7 @@ export function OnboardingFlow({
       window.removeEventListener('keyup', checkInput);
       window.removeEventListener('change', checkInput);
     };
-  }, [modalOpen, modalSubstep]);
+  }, [modalOpen, modalSubstep, categoryModalSubstep]);
 
   // Track whether user has chosen INR in currency substep
   const [inrConfirmed, setInrConfirmed] = useState(false);
@@ -198,15 +222,19 @@ export function OnboardingFlow({
 
   // Set substep indicator on body for CSS spotlight
   useEffect(() => {
-    if (stage === 'live_guide' && guideStep === 1 && modalOpen) {
-      document.body.setAttribute('data-guide-substep', modalSubstep);
+    if (stage === 'live_guide' && modalOpen) {
+      if (guideStep === 1) {
+        document.body.setAttribute('data-guide-substep', modalSubstep);
+      } else if (guideStep === 2) {
+        document.body.setAttribute('data-guide-substep', `cat-${categoryModalSubstep}`);
+      }
     } else {
       document.body.removeAttribute('data-guide-substep');
     }
     return () => {
       document.body.removeAttribute('data-guide-substep');
     };
-  }, [stage, guideStep, modalOpen, modalSubstep]);
+  }, [stage, guideStep, modalOpen, modalSubstep, categoryModalSubstep]);
 
   // ZERO-DELAY target position tracker (Immediate synchronous + RAF + MutationObserver)
   useEffect(() => {
@@ -227,7 +255,11 @@ export function OnboardingFlow({
         }
       } else if (guideStep === 2) {
         if (modalOpen) {
-          selector = '[data-guide-target="category-name-input"]';
+          if (hasTypedCategory) {
+            selector = '[data-guide-target="category-submit-btn"]';
+          } else {
+            selector = '[data-guide-target="category-name-input"]';
+          }
         } else {
           selector = '[data-guide-target="create-category"]';
         }
@@ -306,15 +338,10 @@ export function OnboardingFlow({
   }, [stage, initialAccountsCount, accountsCount]);
 
   useEffect(() => {
-    if (
-      stage === 'live_guide' &&
-      guideStep === 1 &&
-      initialAccountsCount !== null &&
-      accountsCount > initialAccountsCount
-    ) {
+    if (stage === 'live_guide' && guideStep === 1 && accountsCount > 0) {
       setGuideStep(2);
     }
-  }, [stage, guideStep, accountsCount, initialAccountsCount]);
+  }, [stage, guideStep, accountsCount]);
 
   // Auto-advance from Step 3 when funds are deposited
   const [initialBalance, setInitialBalance] = useState<number | null>(null);
@@ -361,6 +388,7 @@ export function OnboardingFlow({
   const finishOnboarding = () => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('richingness_onboarding_completed', 'true');
+      localStorage.removeItem('richingness_tour_step');
     }
     document.body.removeAttribute('data-guide-step');
     if (onNavigateTab) onNavigateTab('dashboard');
@@ -638,7 +666,9 @@ export function OnboardingFlow({
                     {/* Header: Step counter + Skip All */}
                     <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
                       <span className="text-[11px] font-bold text-[#A8E063] tracking-wider uppercase bg-[#23301B] px-2.5 py-0.5 rounded-full border border-[#3A4E2A]">
-                        {modalOpen ? `Step 1 • ${modalSubstep === 'name' ? '1/3' : modalSubstep === 'currency' ? '2/3' : '3/3'}` : `${guideStep} of 4`}
+                        {modalOpen && guideStep === 1
+                          ? `Step 1 • ${modalSubstep === 'name' ? '1/3' : modalSubstep === 'currency' ? '2/3' : '3/3'}`
+                          : `Step ${guideStep} of 4`}
                       </span>
                       <button
                         type="button"
@@ -771,41 +801,37 @@ export function OnboardingFlow({
                           <span>Set Your Categories</span>
                         </h4>
                         <p className="text-xs text-[#C5C8C0] leading-relaxed">
-                          Categories organize where your money goes (like Needs, Wants, and Savings). Tap &ldquo;+ Create Category&rdquo; or click Next to add starter categories.
+                          Categories organize where your money goes (like Needs, Wants, and Savings). Tap &ldquo;+ Create Category&rdquo; above to add your first category.
                         </p>
                         <div className="pt-1 flex gap-2">
                           <button
                             type="button"
-                            onClick={() => setGuideStep(1)}
-                            className="py-1.5 px-3 rounded-xl bg-white/[0.05] text-xs text-[#8E8A82] hover:text-white cursor-pointer"
+                            onClick={() => {
+                              if (accountsCount === 0) setGuideStep(1);
+                            }}
+                            disabled={accountsCount > 0}
+                            className={`py-1.5 px-3 rounded-xl text-xs transition-colors ${
+                              accountsCount > 0
+                                ? 'opacity-30 cursor-not-allowed text-[#666] bg-transparent'
+                                : 'bg-white/[0.05] text-[#8E8A82] hover:text-white cursor-pointer'
+                            }`}
                           >
                             ← Back
-                          </button>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (categoriesCount === 0 && onApplyStarterCategories) {
-                                await onApplyStarterCategories();
-                              }
-                              setGuideStep(3);
-                            }}
-                            className="flex-1 py-2 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold transition-all cursor-pointer text-center flex items-center justify-center gap-1 shadow-md shadow-[#4A622F]/30"
-                          >
-                            <span>Next</span>
-                            <ArrowRight className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>
                     )}
 
                     {guideStep === 2 && modalOpen && (
-                      <div className="space-y-2">
+                      <div className="space-y-1.5">
                         <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
                           <FolderTree className="w-4 h-4 text-[#A8E063]" />
-                          <span>Name Your Category</span>
+                          <span>{hasTypedCategory ? 'Save Your Category' : 'Name Your Category'}</span>
                         </h4>
                         <p className="text-xs text-[#C5C8C0] leading-relaxed">
-                          Type any category name you want to track (e.g. Rent, Groceries, or Savings), then click Create Category.
+                          {hasTypedCategory
+                            ? 'Tap «Create Category» below to save it.'
+                            : 'Type any category name you want to track (e.g. Rent, Groceries, or Savings).'}
                         </p>
                       </div>
                     )}
@@ -817,7 +843,7 @@ export function OnboardingFlow({
                           <span>Add Your Funds</span>
                         </h4>
                         <p className="text-xs text-[#C5C8C0] leading-relaxed">
-                          Enter your starting balance or salary manually. Richingness will divide it across your buckets.
+                          Enter your starting balance or salary manually. Tap &ldquo;+ Add Funds&rdquo; below to start.
                         </p>
                         <div className="pt-1 flex gap-2">
                           <button
@@ -826,14 +852,6 @@ export function OnboardingFlow({
                             className="py-1.5 px-3 rounded-xl bg-white/[0.05] text-xs text-[#8E8A82] hover:text-white cursor-pointer"
                           >
                             ← Back
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setGuideStep(4)}
-                            className="flex-1 py-2 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold transition-all cursor-pointer text-center flex items-center justify-center gap-1 shadow-md shadow-[#4A622F]/30"
-                          >
-                            <span>Next</span>
-                            <ArrowRight className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>

@@ -153,6 +153,7 @@ function Modal({ title, onClose, children, icon }: {
   });
 
   const [isGuideActive, setIsGuideActive] = useState(false);
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -160,6 +161,16 @@ function Modal({ title, onClose, children, icon }: {
       setIsGuideActive(typeof document !== 'undefined' && document.body.hasAttribute('data-guide-step'));
     };
     checkGuide();
+
+    const updateVp = () => {
+      if (typeof window !== 'undefined' && window.visualViewport) {
+        setViewportHeight(window.visualViewport.height);
+      }
+    };
+    updateVp();
+    window.visualViewport?.addEventListener('resize', updateVp);
+    window.visualViewport?.addEventListener('scroll', updateVp);
+    window.addEventListener('resize', updateVp);
 
     const obs = new MutationObserver(checkGuide);
     obs.observe(document.body, { attributes: true, attributeFilter: ['data-guide-step'] });
@@ -190,6 +201,9 @@ function Modal({ title, onClose, children, icon }: {
       document.body.classList.remove('modal-open');
       window.removeEventListener('keydown', h);
       window.removeEventListener('touchmove', preventTouch);
+      window.visualViewport?.removeEventListener('resize', updateVp);
+      window.visualViewport?.removeEventListener('scroll', updateVp);
+      window.removeEventListener('resize', updateVp);
       obs.disconnect();
     };
   }, []);
@@ -198,14 +212,21 @@ function Modal({ title, onClose, children, icon }: {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[10010] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in overflow-hidden touch-none select-none"
+      className="fixed inset-0 z-[10010] flex items-center justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-md animate-fade-in overflow-y-auto overscroll-contain select-none"
+      style={{
+        height: viewportHeight ? `${viewportHeight}px` : '100dvh',
+        maxHeight: viewportHeight ? `${viewportHeight}px` : '100dvh'
+      }}
       onClick={isGuideActive ? undefined : () => onCloseRef.current?.()}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="app-modal-title"
-        className="relative flex max-h-[82dvh] w-full flex-col overflow-hidden rounded-2xl border border-[#2B2923] bg-[#1B1A17] shadow-2xl animate-scale-in sm:max-w-md my-auto"
+        className="relative flex w-full flex-col overflow-hidden rounded-2xl border border-[#2B2923] bg-[#1B1A17] shadow-2xl animate-scale-in sm:max-w-md my-auto"
+        style={{
+          maxHeight: viewportHeight ? `${Math.min(viewportHeight - 24, 620)}px` : '82dvh'
+        }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}

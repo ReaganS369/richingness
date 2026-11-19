@@ -219,6 +219,7 @@ function Modal({
   });
 
   const [isGuideActive, setIsGuideActive] = useState(false);
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -226,6 +227,16 @@ function Modal({
       setIsGuideActive(typeof document !== 'undefined' && document.body.hasAttribute('data-guide-step'));
     };
     checkGuide();
+
+    const updateVp = () => {
+      if (typeof window !== 'undefined' && window.visualViewport) {
+        setViewportHeight(window.visualViewport.height);
+      }
+    };
+    updateVp();
+    window.visualViewport?.addEventListener('resize', updateVp);
+    window.visualViewport?.addEventListener('scroll', updateVp);
+    window.addEventListener('resize', updateVp);
 
     const obs = new MutationObserver(checkGuide);
     obs.observe(document.body, { attributes: true, attributeFilter: ['data-guide-step'] });
@@ -258,6 +269,9 @@ function Modal({
       document.body.classList.remove('modal-open');
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('touchmove', preventTouch);
+      window.visualViewport?.removeEventListener('resize', updateVp);
+      window.visualViewport?.removeEventListener('scroll', updateVp);
+      window.removeEventListener('resize', updateVp);
       obs.disconnect();
     };
   }, []);
@@ -266,11 +280,18 @@ function Modal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[10010] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in overflow-hidden touch-none select-none"
+      className="fixed inset-0 z-[10010] flex items-center justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-md animate-fade-in overflow-y-auto overscroll-contain select-none"
+      style={{
+        height: viewportHeight ? `${viewportHeight}px` : '100dvh',
+        maxHeight: viewportHeight ? `${viewportHeight}px` : '100dvh'
+      }}
       onClick={isGuideActive ? undefined : () => onCloseRef.current?.()}
     >
       <div
-        className="bg-[#1C1A16] border border-[#2F2C25] rounded-2xl w-full max-w-sm sm:max-w-md text-white shadow-2xl animate-scale-in flex flex-col max-h-[82dvh] overflow-hidden my-auto"
+        className="bg-[#1C1A16] border border-[#2F2C25] rounded-2xl w-full max-w-sm sm:max-w-md text-white shadow-2xl animate-scale-in flex flex-col overflow-hidden my-auto"
+        style={{
+          maxHeight: viewportHeight ? `${Math.min(viewportHeight - 24, 620)}px` : '82dvh'
+        }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
