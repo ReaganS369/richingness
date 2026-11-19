@@ -948,6 +948,9 @@ export function ProfileSection() {
       setFundsAmount('');
       setFundsCtcInput('');
       setFundsNote('');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('guide:funds-added'));
+      }
     } catch {
       showToast('Failed to add funds.');
     } finally {
@@ -2232,17 +2235,10 @@ export function ProfileSection() {
           <form onSubmit={handleAddFundsSubmit} className="space-y-3.5">
             <div className="bg-[#141B10] border border-[#27351F] rounded-xl p-3 text-xs text-[#C5E89B] space-y-1">
               <p className="font-semibold text-white flex items-center gap-1.5">
-                <span>💰 Smart Fund Deposit</span>
-                {fundsDepositType === 'REGULAR' && (
-                  <span className="text-[10px] bg-[#4A622F] text-white px-1.5 py-0.5 rounded font-bold uppercase">
-                    50/30/20 Auto-Split
-                  </span>
-                )}
+                <span>💰 Add Account Funds</span>
               </p>
               <p className="text-[11px] text-[#8EA083] leading-relaxed">
-                {fundsDepositType === 'REGULAR'
-                  ? 'Regular / Salary deposits automatically divide into Needs (50%), Wants (30%), and Savings (20%) across your categories.'
-                  : 'One-Time deposits add funds directly without splitting, perfect for gifts, refunds, or bonus cash.'}
+                Deposit money into your account to allocate across your budget categories.
               </p>
             </div>
 
@@ -2308,7 +2304,7 @@ export function ProfileSection() {
               </div>
               <p className="text-[10px] text-[#7E8D74] mt-1 pl-1">
                 {fundsAllocationMode === 'SPREAD'
-                  ? 'Distributes across categories according to configured 50/30/20 percentage rules.'
+                  ? 'Distributes across categories according to your configured percentages.'
                   : 'Single unspread default buffer category — funds stay intact without splitting.'}
               </p>
             </div>
@@ -2348,6 +2344,7 @@ export function ProfileSection() {
                   required
                   min="1"
                   step="any"
+                  data-guide-target="funds-amount-input"
                   value={fundsAmount}
                   onChange={e => setFundsAmount(e.target.value)}
                   placeholder="e.g. 25000"
@@ -2418,6 +2415,7 @@ export function ProfileSection() {
                       required
                       min="1"
                       step="any"
+                      data-guide-target="funds-amount-input"
                       value={fundsCtcInput}
                       onChange={e => {
                         const val = e.target.value;
@@ -2444,6 +2442,7 @@ export function ProfileSection() {
                     required
                     min="1"
                     step="any"
+                    data-guide-target="funds-amount-input"
                     value={fundsAmount}
                     onChange={e => setFundsAmount(e.target.value)}
                     placeholder="e.g. 50000"
@@ -2590,6 +2589,7 @@ export function ProfileSection() {
 
             <button
               type="submit"
+              data-guide-target="funds-submit-btn"
               disabled={isSubmittingFunds}
               className={`w-full py-3 rounded-xl bg-[#4A622F] hover:bg-[#587438] active:scale-95 text-white font-bold text-xs transition-all cursor-pointer mt-2 shadow-md border border-[#64853E]/40 ${
                 isSubmittingFunds ? 'opacity-50 cursor-not-allowed' : ''
@@ -2631,6 +2631,9 @@ export function ProfileSection() {
               await addAccount(newAccountName.trim(), newAccountType, newAccountCurrency);
               setShowAddAccountModal(false);
               setNewAccountName('');
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('guide:account-created'));
+              }
               showToast(`Account "${newAccountName.trim()}" created successfully!`);
             }}
             className="space-y-4"

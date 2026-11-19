@@ -597,8 +597,8 @@ body[data-guide-substep="submit"] .modal-scrollable button:not([data-guide-targe
   transition: opacity 0.2s ease;
 }
 
-/* Active targeted elements ALWAYS have full interaction and vibrant outline */
-[data-guide-target] {
+/* Active targeted elements ALWAYS have full interaction and vibrant outline ONLY when guide is active */
+body[data-guide-step] [data-guide-target] {
   position: relative !important;
   z-index: 10015 !important;
   pointer-events: auto !important;

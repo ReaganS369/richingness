@@ -61,7 +61,7 @@ export function OnboardingFlow({
         if (parsed >= 1 && parsed <= 4) return parsed;
       }
     }
-    return accountsCount > 0 ? 2 : 1;
+    return accountsCount > 0 ? (categoriesCount > 0 ? (totalBalanceRupees > 0 ? 4 : 3) : 2) : 1;
   });
 
   useEffect(() => {
@@ -87,7 +87,7 @@ export function OnboardingFlow({
     }
 
     const handleReplay = () => {
-      setGuideStep(accountsCount > 0 ? 2 : 1);
+      setGuideStep(accountsCount > 0 ? (categoriesCount > 0 ? (totalBalanceRupees > 0 ? 4 : 3) : 2) : 1);
       setStage('live_guide');
     };
 
@@ -120,22 +120,25 @@ export function OnboardingFlow({
   // Reset modal substep whenever modal opens/closes
   const [categoryModalSubstep, setCategoryModalSubstep] = useState<'name' | 'submit'>('name');
   const [hasTypedCategory, setHasTypedCategory] = useState(false);
+  const [hasTypedFunds, setHasTypedFunds] = useState(false);
 
   useEffect(() => {
     if (!modalOpen) {
       setModalSubstep('name');
       setCategoryModalSubstep('name');
       setHasTypedCategory(false);
+      setHasTypedFunds(false);
     }
   }, [modalOpen]);
 
-  // Track whether user has typed anything into the account name input or category name input
+  // Track whether user has typed anything into the account name, category, or funds input
   const [hasTypedName, setHasTypedName] = useState(false);
 
   useEffect(() => {
     if (!modalOpen) {
       setHasTypedName(false);
       setHasTypedCategory(false);
+      setHasTypedFunds(false);
       return;
     }
 
@@ -145,6 +148,9 @@ export function OnboardingFlow({
 
       const catInputEl = document.querySelector('[data-guide-target="category-name-input"]') as HTMLInputElement | null;
       setHasTypedCategory(!!catInputEl && catInputEl.value.trim().length > 0);
+
+      const fundsInputEl = document.querySelector('[data-guide-target="funds-amount-input"]') as HTMLInputElement | null;
+      setHasTypedFunds(!!fundsInputEl && fundsInputEl.value.trim().length > 0 && parseFloat(fundsInputEl.value.trim()) > 0);
     };
 
     checkInput();
@@ -247,24 +253,28 @@ export function OnboardingFlow({
       let selector: string | null = null;
       if (guideStep === 1) {
         if (modalOpen) {
-          if (modalSubstep === 'name') selector = '[data-guide-target="account-name-input"]';
-          else if (modalSubstep === 'currency') selector = '[data-guide-target="currency-inr-btn"]';
-          else selector = '[data-guide-target="account-submit-btn"]';
+          selector = hasTypedName
+            ? '[data-guide-target="account-submit-btn"]'
+            : '[data-guide-target="account-name-input"]';
         } else {
           selector = '[data-guide-target="add-account"]';
         }
       } else if (guideStep === 2) {
         if (modalOpen) {
-          if (hasTypedCategory) {
-            selector = '[data-guide-target="category-submit-btn"]';
-          } else {
-            selector = '[data-guide-target="category-name-input"]';
-          }
+          selector = hasTypedCategory
+            ? '[data-guide-target="category-submit-btn"]'
+            : '[data-guide-target="category-name-input"]';
         } else {
           selector = '[data-guide-target="create-category"]';
         }
       } else if (guideStep === 3) {
-        selector = '[data-guide-target="add-funds"]';
+        if (modalOpen) {
+          selector = hasTypedFunds
+            ? '[data-guide-target="funds-submit-btn"]'
+            : '[data-guide-target="funds-amount-input"]';
+        } else {
+          selector = '[data-guide-target="add-funds"]';
+        }
       } else if (guideStep === 4) {
         selector = '[data-guide-target="spend"]';
       }
@@ -300,7 +310,7 @@ export function OnboardingFlow({
       window.removeEventListener('resize', updateTargetRect);
       window.removeEventListener('scroll', updateTargetRect, { capture: true });
     };
-  }, [stage, guideStep, modalOpen, modalSubstep]);
+  }, [stage, guideStep, modalOpen, hasTypedName, hasTypedCategory, hasTypedFunds]);
 
   // Smooth scroll target into view immediately when it changes
   useEffect(() => {
@@ -309,16 +319,28 @@ export function OnboardingFlow({
     let targetSelector: string | null = null;
     if (guideStep === 1) {
       if (modalOpen) {
-        if (modalSubstep === 'name') targetSelector = '[data-guide-target="account-name-input"]';
-        else if (modalSubstep === 'currency') targetSelector = '[data-guide-target="currency-inr-btn"]';
-        else targetSelector = '[data-guide-target="account-submit-btn"]';
+        targetSelector = hasTypedName
+          ? '[data-guide-target="account-submit-btn"]'
+          : '[data-guide-target="account-name-input"]';
       } else {
         targetSelector = '[data-guide-target="add-account"]';
       }
     } else if (guideStep === 2) {
-      targetSelector = '[data-guide-target="create-category"]';
+      if (modalOpen) {
+        targetSelector = hasTypedCategory
+          ? '[data-guide-target="category-submit-btn"]'
+          : '[data-guide-target="category-name-input"]';
+      } else {
+        targetSelector = '[data-guide-target="create-category"]';
+      }
     } else if (guideStep === 3) {
-      targetSelector = '[data-guide-target="add-funds"]';
+      if (modalOpen) {
+        targetSelector = hasTypedFunds
+          ? '[data-guide-target="funds-submit-btn"]'
+          : '[data-guide-target="funds-amount-input"]';
+      } else {
+        targetSelector = '[data-guide-target="add-funds"]';
+      }
     } else if (guideStep === 4) {
       targetSelector = '[data-guide-target="spend"]';
     }
@@ -329,8 +351,9 @@ export function OnboardingFlow({
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
-  }, [stage, guideStep, modalOpen, modalSubstep]);
+  }, [stage, guideStep, modalOpen, hasTypedName, hasTypedCategory, hasTypedFunds]);
 
+  // Auto-advance step listeners and state trackers
   useEffect(() => {
     if (stage === 'live_guide' && initialAccountsCount === null) {
       setInitialAccountsCount(accountsCount);
@@ -343,24 +366,70 @@ export function OnboardingFlow({
     }
   }, [stage, guideStep, accountsCount]);
 
-  // Auto-advance from Step 3 when funds are deposited
-  const [initialBalance, setInitialBalance] = useState<number | null>(null);
   useEffect(() => {
-    if (stage === 'live_guide' && initialBalance === null) {
-      setInitialBalance(totalBalanceRupees);
+    const handleAccountCreated = () => {
+      if (guideStep === 1) setGuideStep(2);
+    };
+    window.addEventListener('guide:account-created', handleAccountCreated);
+    return () => window.removeEventListener('guide:account-created', handleAccountCreated);
+  }, [guideStep]);
+
+  // Auto-advance from Step 2 when categories are created
+  const [initialCategoriesCount, setInitialCategoriesCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (stage === 'live_guide' && initialCategoriesCount === null) {
+      setInitialCategoriesCount(categoriesCount);
     }
-  }, [stage, initialBalance, totalBalanceRupees]);
+  }, [stage, initialCategoriesCount, categoriesCount]);
+
+  useEffect(() => {
+    if (stage === 'live_guide' && guideStep === 2) {
+      if (initialCategoriesCount !== null && categoriesCount > initialCategoriesCount) {
+        setGuideStep(3);
+      } else if (categoriesCount > 0 && initialCategoriesCount === 0) {
+        setGuideStep(3);
+      }
+    }
+  }, [stage, guideStep, categoriesCount, initialCategoriesCount]);
+
+  useEffect(() => {
+    const handleCategoryCreated = () => {
+      if (guideStep === 2) setGuideStep(3);
+    };
+    window.addEventListener('guide:category-created', handleCategoryCreated);
+    return () => window.removeEventListener('guide:category-created', handleCategoryCreated);
+  }, [guideStep]);
+
+  // Auto-advance from Step 3 when funds are deposited
+  const [step3StartBalance, setStep3StartBalance] = useState<number | null>(null);
+  useEffect(() => {
+    if (stage === 'live_guide' && guideStep === 3) {
+      if (step3StartBalance === null) {
+        setStep3StartBalance(totalBalanceRupees);
+      }
+    } else {
+      setStep3StartBalance(null);
+    }
+  }, [stage, guideStep, totalBalanceRupees, step3StartBalance]);
 
   useEffect(() => {
     if (
       stage === 'live_guide' &&
       guideStep === 3 &&
-      initialBalance !== null &&
-      totalBalanceRupees > initialBalance
+      step3StartBalance !== null &&
+      totalBalanceRupees > step3StartBalance
     ) {
       setGuideStep(4);
     }
-  }, [stage, guideStep, totalBalanceRupees, initialBalance]);
+  }, [stage, guideStep, totalBalanceRupees, step3StartBalance]);
+
+  useEffect(() => {
+    const handleFundsAdded = () => {
+      if (guideStep === 3) setGuideStep(4);
+    };
+    window.addEventListener('guide:funds-added', handleFundsAdded);
+    return () => window.removeEventListener('guide:funds-added', handleFundsAdded);
+  }, [guideStep]);
 
   const lastNavTabRef = useRef<string | null>(null);
   const onNavigateTabRef = useRef(onNavigateTab);
@@ -459,7 +528,7 @@ export function OnboardingFlow({
               <button
                 type="button"
                 onClick={() => {
-                  setGuideStep(1);
+                  setGuideStep(accountsCount > 0 ? (categoriesCount > 0 ? (totalBalanceRupees > 0 ? 4 : 3) : 2) : 1);
                   setStage('live_guide');
                 }}
                 className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-[#4A622F] to-[#587437] hover:from-[#587437] hover:to-[#6B8D43] text-white font-bold text-sm shadow-xl shadow-[#4A622F]/30 border border-[#769C4B]/40 cursor-pointer transition-all active:scale-[0.98] flex items-center justify-center gap-2 group"
@@ -581,8 +650,8 @@ export function OnboardingFlow({
 
             const spaceBelow = targetRect ? windowHeight - targetRect.bottom : windowHeight;
             const spaceAbove = targetRect ? targetRect.top : 0;
-            // If there is an input (e.g. Account Name input, Category input), keep on top so mobile keyboard never covers it!
-            const isInputTarget = modalOpen && (guideStep === 2 || modalSubstep === 'name');
+            // If modal is open, keep coachmark at top so mobile keyboard never covers it!
+            const isInputTarget = modalOpen;
             const placeAtBottom = !isInputTarget && (spaceBelow >= 160 || spaceBelow >= spaceAbove);
 
             const targetCenterX = targetRect ? targetRect.left + targetRect.width / 2 : windowWidth / 2;
@@ -666,9 +735,7 @@ export function OnboardingFlow({
                     {/* Header: Step counter + Skip All */}
                     <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
                       <span className="text-[11px] font-bold text-[#A8E063] tracking-wider uppercase bg-[#23301B] px-2.5 py-0.5 rounded-full border border-[#3A4E2A]">
-                        {modalOpen && guideStep === 1
-                          ? `Step 1 • ${modalSubstep === 'name' ? '1/3' : modalSubstep === 'currency' ? '2/3' : '3/3'}`
-                          : `Step ${guideStep} of 4`}
+                        {`Step ${guideStep} of 4`}
                       </span>
                       <button
                         type="button"
@@ -695,102 +762,18 @@ export function OnboardingFlow({
                       </div>
                     )}
 
-                    {/* Step 1 Inside Modal: Substep 1 - Name */}
-                    {guideStep === 1 && modalOpen && modalSubstep === 'name' && (
-                      <div className="space-y-2">
+                    {/* Step 1 Inside Modal */}
+                    {guideStep === 1 && modalOpen && (
+                      <div className="space-y-1.5">
                         <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
                           <Wallet className="w-4 h-4 text-[#A8E063]" />
-                          <span>Name Your Account</span>
+                          <span>{hasTypedName ? 'Save Account' : 'Name Your Account'}</span>
                         </h4>
                         <p className="text-xs text-[#C5C8C0] leading-relaxed">
-                          Type any name you want to track your money. Here are some examples: Bank Name, Cash, or Wallet.
+                          {hasTypedName
+                            ? 'Tap «Create Account» below to save this account into your vault.'
+                            : 'Type any name you want to track your money (e.g. Bank, Cash, or Wallet).'}
                         </p>
-                        <div className="pt-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (hasTypedName) setModalSubstep('currency');
-                            }}
-                            disabled={!hasTypedName}
-                            className={`w-full py-2 rounded-xl text-xs font-bold transition-all shadow-md text-center flex items-center justify-center gap-1 ${
-                              hasTypedName
-                                ? 'bg-[#4A622F] hover:bg-[#587437] text-white cursor-pointer shadow-[#4A622F]/30'
-                                : 'bg-[#252822] text-[#6A6E64] opacity-50 cursor-not-allowed border border-white/[0.06]'
-                            }`}
-                          >
-                            <span>Next</span>
-                            <ArrowRight className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Step 1 Inside Modal: Substep 2 - Currency */}
-                    {guideStep === 1 && modalOpen && modalSubstep === 'currency' && (
-                      <div className="space-y-2">
-                        <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
-                          <Banknote className="w-4 h-4 text-[#A8E063]" />
-                          <span>Choose Currency</span>
-                        </h4>
-                        <p className="text-xs text-[#C5C8C0] leading-relaxed">
-                          Tap INR (₹) below to set Indian Rupee. You need to choose INR to continue.
-                        </p>
-                        <div className="pt-1 flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setModalSubstep('name')}
-                            className="py-1.5 px-3 rounded-xl bg-white/[0.05] text-xs text-[#8E8A82] hover:text-white cursor-pointer"
-                          >
-                            ← Back
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (inrConfirmed) setModalSubstep('submit');
-                            }}
-                            disabled={!inrConfirmed}
-                            className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all shadow-md text-center flex items-center justify-center gap-1 ${
-                              inrConfirmed
-                                ? 'bg-[#4A622F] hover:bg-[#587437] text-white cursor-pointer shadow-[#4A622F]/30'
-                                : 'bg-[#252822] text-[#6A6E64] opacity-50 cursor-not-allowed border border-white/[0.06]'
-                            }`}
-                          >
-                            <span>Next</span>
-                            <ArrowRight className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Step 1 Inside Modal: Substep 3 - Submit */}
-                    {guideStep === 1 && modalOpen && modalSubstep === 'submit' && (
-                      <div className="space-y-2">
-                        <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
-                          <CheckCircle2 className="w-4 h-4 text-[#A8E063]" />
-                          <span>Save Account</span>
-                        </h4>
-                        <p className="text-xs text-[#C5C8C0] leading-relaxed">
-                          Click Create Account below to save this account into your vault.
-                        </p>
-                        <div className="pt-1 flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setModalSubstep('currency')}
-                            className="py-1.5 px-3 rounded-xl bg-white/[0.05] text-xs text-[#8E8A82] hover:text-white cursor-pointer"
-                          >
-                            ← Back
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const btn = document.querySelector('[data-guide-target="account-submit-btn"]') as HTMLButtonElement | null;
-                              if (btn) btn.click();
-                            }}
-                            className="flex-1 py-2 rounded-xl bg-[#4A622F] hover:bg-[#587437] text-white text-xs font-bold transition-all shadow-md cursor-pointer text-center"
-                          >
-                            Create Account ✓
-                          </button>
-                        </div>
                       </div>
                     )}
 
@@ -836,7 +819,7 @@ export function OnboardingFlow({
                       </div>
                     )}
 
-                    {guideStep === 3 && (
+                    {guideStep === 3 && !modalOpen && (
                       <div className="space-y-2">
                         <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
                           <Banknote className="w-4 h-4 text-[#A8E063]" />
@@ -854,6 +837,20 @@ export function OnboardingFlow({
                             ← Back
                           </button>
                         </div>
+                      </div>
+                    )}
+
+                    {guideStep === 3 && modalOpen && (
+                      <div className="space-y-1.5">
+                        <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
+                          <Banknote className="w-4 h-4 text-[#A8E063]" />
+                          <span>{hasTypedFunds ? 'Deposit Your Funds' : 'Enter Deposit Amount'}</span>
+                        </h4>
+                        <p className="text-xs text-[#C5C8C0] leading-relaxed">
+                          {hasTypedFunds
+                            ? 'Tap «Deposit & Distribute Funds» below to add money to your vault.'
+                            : 'Enter your deposit or salary amount in rupees.'}
+                        </p>
                       </div>
                     )}
 

@@ -569,7 +569,7 @@ export default function Home() {
       {/* ── WORKSPACE ─────────────────────────────────────────────────── */}
       <div className="app-workspace-shell min-w-0">
 
-        {/* Mobile keeps every destination within reach, without a dense desktop sidebar. */}
+        {/* Mobile header (Exact Figma Design: clean avatar, title & month - no side scroll or top add button) */}
         <header className="shrink-0 border-b border-[#24211D] bg-[#161512] md:hidden">
           <div className="flex h-14 items-center justify-between gap-3 px-4">
             <button
@@ -586,48 +586,7 @@ export default function Home() {
                 <span className="block text-xs text-[#A09C94]">{monthLabel}</span>
               </span>
             </button>
-
-            {activeTab !== 'settings' && (
-              <button
-                type="button"
-                onClick={() => {
-                  setTxType('EXPENSE');
-                  setTxAmount('');
-                  setTxMerchant('');
-                  if (accounts.length > 0) setTxAccountId(accounts[0].id);
-                  if (categories.length > 0) setTxReferenceId(categories[0].id);
-                  setShowAddTxModal(true);
-                }}
-                className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl bg-[#4A622F] px-3 text-xs font-bold text-white transition-colors hover:bg-[#587538]"
-              >
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                Add
-              </button>
-            )}
           </div>
-
-          <nav aria-label="Primary navigation" className="flex gap-1 overflow-x-auto px-3 pb-2">
-            {NAV_LINKS.map(link => {
-              const Icon = link.icon;
-              const isActive = activeTab === link.id;
-              return (
-                <button
-                  key={link.id}
-                  type="button"
-                  onClick={() => setActiveTab(link.id as TabId)}
-                  aria-current={isActive ? 'page' : undefined}
-                  className={`flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors ${
-                    isActive
-                      ? 'bg-[#4A622F] text-white'
-                      : 'text-[#B8B1A6] hover:bg-white/[0.06] hover:text-white'
-                  }`}
-                >
-                  <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-                  {link.label}
-                </button>
-              );
-            })}
-          </nav>
         </header>
 
         {/* Desktop workspace header */}
@@ -762,6 +721,7 @@ export default function Home() {
                   {/* Filter Button (Figma Width 38px, Height 38px, Radius 12px, Color #211F1B) */}
                   <div className="relative">
                     <button
+                      disabled={typeof document !== 'undefined' && document.body.hasAttribute('data-guide-step')}
                       onClick={() => setFilterDropdownOpen(!filterDropdownOpen)}
                       className={`w-[38px] h-[38px] sm:w-[40px] sm:h-[40px] rounded-[12px] bg-[#211F1B] border border-[#2D2A24]/60 flex items-center justify-center shrink-0 hover:bg-[#2C2924] active:scale-95 transition-all cursor-pointer ${
                         filterDropdownOpen || categoryFilter !== 'ALL' ? 'ring-2 ring-[#4A622F]' : ''
@@ -776,7 +736,12 @@ export default function Home() {
                     </button>
 
                     {filterDropdownOpen && (
-                      <div className="absolute right-0 top-11 w-44 bg-[#211F1B] border border-[#33302A] rounded-[12px] shadow-2xl py-1.5 z-30 animate-in fade-in zoom-in-95">
+                      <>
+                        <div
+                          className="fixed inset-0 z-[10019]"
+                          onClick={() => setFilterDropdownOpen(false)}
+                        />
+                        <div className="absolute right-0 top-11 w-44 bg-[#211F1B] border border-[#33302A] rounded-[12px] shadow-2xl py-1.5 z-[10020] animate-in fade-in zoom-in-95">
                         <button
                           onClick={() => { setCategoryFilter('ALL'); setFilterDropdownOpen(false); }}
                           className={`w-full px-4 py-2 text-left text-xs font-semibold flex items-center justify-between cursor-pointer ${
@@ -805,7 +770,8 @@ export default function Home() {
                           {categoryFilter === 'REPAY' && <CheckCircle2 className="w-3.5 h-3.5" />}
                         </button>
                       </div>
-                    )}
+                    </>
+                  )}
                   </div>
                 </div>
 
@@ -1988,6 +1954,9 @@ export default function Home() {
               if (categoryNameInput.trim()) {
                 const budgetAmount = categoryBudgetInput.trim() ? formatRupeesToPaise(categoryBudgetInput.trim()) : 0n;
                 await addCategory(categoryNameInput.trim(), budgetAmount);
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('guide:category-created'));
+                }
                 setShowAddCategoryModal(false);
               }
             }}
